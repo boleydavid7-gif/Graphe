@@ -122,6 +122,61 @@ found after the copyright in these selected notices. Future modification,
 subsetting or conversion needs its own review. The project's license stays
 undecided.
 
+## Additional format adapter dependencies (Step 7.5)
+
+The owner's Step 7.5 instruction authorizes these concrete file adapters and
+merging after verification. The project license remains undecided. This section
+records a targeted dependency review; it is not the planned comprehensive
+technical, security or commercial-licensing audit.
+
+| Dependency | Exact selected version | Upstream declaration | Purpose |
+| --- | --- | --- | --- |
+| pdf-writer | 0.15.0 | MIT OR Apache-2.0 | Bounded low-level PDF objects/streams from existing Rust layout |
+| svgtypes | 0.16.2 | Apache-2.0 OR MIT | SVG glyph-path and transform parsing; `libm`, default features off |
+| rclip-rtf | 0.1.0 | MIT OR Apache-2.0 | Borrowing RTF byte tokenizer only; default/optional features off |
+| rclip-core | 0.1.0 | MIT OR Apache-2.0 | The tokenizer dependency's allocation-free foundational types |
+
+The resolved additional registry graph contains twelve packages. The remaining
+eight are arrayvec 0.7.8, autocfg 1.5.1, euclid 0.22.14, kurbo 0.13.1,
+num-traits 0.2.19, polycool 0.4.0 and siphasher 1.0.4 (MIT/Apache-2.0
+alternatives), plus ryu 1.0.23 (Apache-2.0 OR BSL-1.0). The **Apache-2.0 option**
+is selected for these additions, including ryu. Existing ZIP/XML/layout
+dependencies are reused; no new frontend runtime dependency or complete Office
+engine is added. Optional host/system fonts and RTF codepage tables are not
+enabled. Native/WASM checks must establish actual target support rather than
+inferring it from a manifest.
+
+The full additional license texts and upstream attributions are retained in
+[`THIRD_PARTY_NOTICES.txt`](../crates/office-formats/THIRD_PARTY_NOTICES.txt),
+including each selected version, registry package checksum and published VCS
+metadata. Its production asset is accessible through **Format library notices**.
+Existing font and dependency notices are still applicable; this file is not a
+replacement inventory for older dependencies.
+
+**Explicit licensing/maturity limitation:** the published `rclip-rtf`/`rclip-core`
+0.1.0 packages and their repository roots at their published VCS commits contain
+no standalone license/NOTICE files. Their normalized and upstream manifests
+declare `MIT OR Apache-2.0`; the declared Apache-2.0 option is used and the
+standard full text is retained. Published author metadata identifies Felix
+Schütt. No missing copyright notice was invented and this is not legal clearance.
+The source revisions are
+[`371c7203faeb3a5f13604a574a7a2e37bba48226`](https://github.com/fschutt/rich-clipboard/tree/371c7203faeb3a5f13604a574a7a2e37bba48226)
+for rclip-rtf and
+[`2be8cabe96655f98bec3d5dc9781f1713cd46246`](https://github.com/fschutt/rich-clipboard/tree/2be8cabe96655f98bec3d5dc9781f1713cd46246)
+for rclip-core. Recheck upstream licensing evidence and the low-maturity parser
+dependency during the planned commercial/security audit and on upgrades.
+
+The RTF wrapper does not use the clipboard semantic reader or accept silent
+replacement decoding: it adds format/resource/Unicode/unknown-content checks
+around the tokenizer. No assertion of a complete `cargo audit`, OSV scan or
+global dependency-license clearance is made by this review.
+
+Sources: installed exact-version Cargo manifests and license/attribution files;
+[`pdf-writer`](https://github.com/typst/pdf-writer),
+[`svgtypes`](https://github.com/linebender/svgtypes),
+[`rclip-rtf` package source](https://docs.rs/crate/rclip-rtf/0.1.0/source/),
+[`rclip-core` package source](https://docs.rs/crate/rclip-core/0.1.0/source/).
+
 ## Frontend development dependencies
 
 | Dependency | Version | License | Purpose |

@@ -46,10 +46,12 @@ and explicit approvals govern the task's scope.
 - Use Rust's pinned grapheme rules and explicit UTF-8/UTF-16 conversions. Do not
   substitute JavaScript string length or a different segmenter for engine offsets.
 - Keep unsaved Rust state intact on input, import, or storage failure.
-- Steps 5 and 6 were merged through PR #10 and PR #11 at main `86f2ad8`.
-  Step 7 is on `dev/writer-lamplight`. Preserve those foundations and keep this
-  milestone focused on a small, usable editor. Do not merge or deploy without
-  approval for this milestone.
+- Step 7 was merged through PR #12 at `dab4db7`. The owner subsequently
+  authorized Step 7.5 on `dev/writer-file-formats`: DOCX/ODT/RTF/TXT open, edit
+  and save, native Writer retention, and PDF export only. Preserve the shared
+  model, editing, layout, native storage and existing source-preservation rules.
+  The owner authorized merging Step 7.5 after successful verification; this
+  authorization does not include manual deployment or Cloudflare changes.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -61,8 +63,9 @@ and explicit approvals govern the task's scope.
   do not accept newer fields under old schema/envelope version labels.
 - Distinguish current-content DOCX export from original download. Disclose that a
   source-bearing native file may contain text removed from the edited document.
-- Other formats, merges and deployments require separate authorization. Do not infer Word
-  fidelity from self-roundtrips or library probes.
+- Formats outside the authorized Step 7.5 set and deployments require separate
+  authorization. Do not infer Office-format fidelity from self-roundtrips or
+  library probes; use independent consumers and document declared profiles.
 - Rust owns font resolution, shaping, line breaking and pagination. Browser
   layout previews render Rust-provided glyph paths and geometry; do not use
   browser text measurement or CSS wrapping as a second layout engine.
@@ -87,9 +90,18 @@ and explicit approvals govern the task's scope.
   checks. Guard completions by engine/session/document/revision and replacement
   epoch. Do not clear newer dirty work, overwrite conflicts, serialize transient
   IME text, or label active composition saved. Lifecycle flushing is best effort.
-- After Step 7 approval, pause feature development for the owner's comprehensive
-  technical, security, DOCX-compatibility and commercial-licensing audit. Do not
-  begin Step 8 or the comprehensive audit automatically during this milestone.
+- Save As converts immutable Rust state with origin-bound assessments and
+  explicit acknowledgement of losses. Downloading an external copy does not
+  mark the local native save current or replace its etag. Native exports retain
+  sources, which may include deleted text; external copies do not retain them.
+- TXT decoding uses strict UTF-8 (optional BOM) or explicitly BOM-marked UTF-16;
+  never guess legacy encodings or replace invalid Unicode silently. PDF export
+  renders Rust page geometry, not browser print layout. Disclose vector-outline
+  export's search/selection/accessibility limitations before download.
+- The planned comprehensive technical, security, DOCX-compatibility and commercial-
+  licensing audit remains pending. The owner explicitly requested Step 7.5
+  after Step 7; do not interpret that as completion of the audit or permission
+  to begin Step 8 or additional feature work automatically.
 
 ## Required engine checks
 

@@ -9,8 +9,9 @@ Native Writer persistence now separates byte serialization from filesystem
 storage. Step 4.5 adds a Rust/WebAssembly session boundary and a semantic browser
 prototype. Steps 5 and 6 are merged at `86f2ad8`, adding declared DOCX conversion,
 original-preserving native files, independent Rust typography/layout and a page
-preview. Step 7's review branch adds a lightweight Lamplight editor with native
-page interaction and serialized local autosave, reusing those foundations.
+preview. Step 7 was merged at `dab4db7`, adding a lightweight Lamplight editor
+with native page interaction and serialized local autosave. Step 7.5 adds
+concrete Rust file-format adapters around the unchanged model and native format.
 
 ## Independent engine
 
@@ -47,6 +48,44 @@ The project will build an independent engine rather than embed an existing
 complete Office or word-processing engine. Established low-level open-source
 libraries may be used when appropriate, after evaluating their behavior,
 portability, maintenance, and licensing against project needs.
+
+## File-format adapters and Save As (Step 7.5)
+
+`office-docx` remains the DOCX implementation. A small `office-formats` facade
+dispatches concrete Writer/DOCX/ODT/RTF/TXT imports and Writer/DOCX/ODT/RTF/TXT/PDF
+exports; its ODT, RTF, text and PDF modules own their format-specific rules.
+No generic plugin trait, duplicate document model, native schema change or
+database migration was needed. Future adapters can map into the same shared
+model and retained-original envelope without making core structures OOXML/ODF
+or RTF objects. See [FILE_FORMATS.md](FILE_FORMATS.md) for profiles and limits.
+
+Imports return either a validated complete `WriterFile` or an exact preserved
+original with diagnostics. Unsupported semantics do not become silent editable
+partial documents. Browser imports build a detached session and require native
+source-bearing IndexedDB persistence before activation; failed parsing/storage
+preserves active content and history. Empty TXT is the documented no-source
+exception because its bytes contain nothing to preserve.
+
+Save As assessments and exported bytes come from Rust and identify the current
+session/document/revision. The UI must acknowledge warnings before foreign
+conversion and cannot reuse stale acknowledgement after editing. Save As creates
+a downloaded copy; native Save/autosave, etags and dirty-state rules are retained.
+Native source validation now dispatches each known format to its adapter instead
+of assuming every original is DOCX. Full native APIs still preserve exact source
+bytes independently from editing history.
+
+TXT uses explicit Unicode encoding/BOM rules and documented paragraph-newline
+normalization. ODT uses bounded ZIP/XML libraries already in the workspace; RTF
+uses a low-level tokenizer with strict native-file semantics. PDF serializes the
+existing Rust glyph paths/transforms/physical pages with `pdf-writer` and
+`svgtypes`, without another layout engine. Outlined PDF's search/accessibility
+limits are explicit Save As warnings, not concealed feature claims.
+
+The core stays independent of every format library and browser API. Additional
+formats, broad lossy-import policies, a new schema or major source-policy changes
+remain separate decisions. The owner's Step 7.5 request authorizes this bounded
+extension and merging after verification; it does not complete the planned
+comprehensive audit or authorize deployment.
 
 ## Document model
 

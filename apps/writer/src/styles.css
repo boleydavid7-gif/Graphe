@@ -161,6 +161,14 @@ dialog p { font-size: 13px; line-height: 1.6; }
 .compatibility-issues li { margin-block: 10px; overflow-wrap: anywhere; }
 .compatibility-issues span { display: block; margin-top: 3px; }
 .dialog-actions button:not(.primary-button) { border-color: #77634b; }
+.save-as-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; margin-block: 20px; }
+.save-as-fields > label { font-size: 12px; color: var(--muted); }
+.save-as-fields > input, .save-as-fields > select { width: 100%; min-width: 0; padding: 8px; border: 1px solid #77634b; border-radius: 3px; background: #3b332b; font-size: 13px; }
+.format-warning { padding: 1px 12px 12px; border-left: 3px solid var(--accent); background: #423728; margin-block: 16px; font-size: 12px; }
+.format-warning > ul { padding-left: 20px; line-height: 1.6; }
+.format-warning li + li { margin-top: 6px; }
+.format-acknowledgement { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+.format-acknowledgement > input { accent-color: var(--accent); margin-top: 3px; }
 .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 980px) {
   .top-bar { gap: 18px; padding-inline: 20px; }

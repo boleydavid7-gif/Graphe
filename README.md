@@ -55,7 +55,7 @@ the 5A package foundation with a declared editable DOCX profile, Rust export and
 browser file integration. Supported imports retain their exact original in native Writer
 format 2 before editing is activated. Unsupported content remains read-only with
 diagnostics; no partial editable projection is published. The shared model stays
-format-neutral. No other document formats are implemented.
+format-neutral. Step 5 itself did not add other formats.
 See [the DOCX profile](docs/DOCX.md), [conversion contract](docs/DOCX_CONVERSION.md)
 and [conversion verification](docs/DOCX_CONVERSION_VERIFICATION.md).
 
@@ -68,15 +68,24 @@ does not define engine pagination. See [the layout contract](docs/LAYOUT.md),
 [verification](docs/LAYOUT_VERIFICATION.md) and
 [actual page preview](docs/images/writer-layout-desktop.png).
 
-Step 7 on `dev/writer-lamplight` adds Rust-driven paged editing, the approved
+Step 7 was merged through [PR #12](https://github.com/boleydavid7-gif/stuff/pull/12)
+at `dab4db7`. It adds Rust-driven paged editing, the approved
 Lamplight desktop/mobile interface, shared manual/autosave coordination, Find
 and assignment of existing paragraph styles. The core document schema, native
 format, storage database and existing engines are reused. See
 [the Step 7 contract](docs/WRITER_STEP7.md),
 [verification](docs/WRITER_STEP7_VERIFICATION.md) and
-[approved references](docs/design/README.md). This milestone requires review;
-it is not merged or deployed by this work. Feature development pauses afterward
-for the owner's planned technical, security, DOCX and commercial-licensing audit.
+[approved references](docs/design/README.md).
+
+The owner subsequently authorized Step 7.5 on `dev/writer-file-formats`:
+DOCX/ODT/RTF/TXT open, edit and save within declared profiles; PDF export only;
+and full native `.writer` retention. Open and Save As reuse the Rust adapters,
+preserve imported originals and require acknowledgement of conversion warnings.
+Unsupported rich content remains read-only rather than silently becoming a
+partial editable document. See [file formats](docs/FILE_FORMATS.md),
+[verification](docs/FILE_FORMATS_VERIFICATION.md) and
+[dependency licensing](docs/DEPENDENCIES.md). The planned comprehensive technical,
+security, DOCX and commercial-licensing audit remains pending; Step 8 is not begun.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -162,7 +171,8 @@ The production `build` includes the WASM build, TypeScript checking, and Vite
 bundling. After `build:wasm` or `build`, `test:wasm` executes the real generated
 bindings and release WASM in Node/V8 without an engine mock. `test:browser`
 starts the built application through Vite preview. Chromium runs the full suite;
-Firefox and WebKit run the two portable editing/persistence smoke cases each.
+Firefox and WebKit run the portable editing/persistence cases and the new
+file-format Open/Save As suite.
 For Chromium-only development use `npm run test:browser -- --project=chromium`.
 Chromium can use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` or an installed
 `/usr/bin/chromium`; otherwise install Playwright's Chromium. To
@@ -195,7 +205,7 @@ continuous pages. Rust also owns pointer hit testing and visual navigation;
 browser text measurement does not decide pagination. Review offers a read-only
 page preview and literal, case-sensitive Find. Existing named styles can be
 assigned without introducing a style editor. Ctrl/Command shortcuts support
-clipboard, select all, bold/italic/underline, undo/redo, Save, Open and Find.
+clipboard, select all, bold/italic/underline, undo/redo, Save, Save As, Open and Find.
 Enter creates a paragraph; Shift+Enter creates a soft break. Zoom changes view
 scale rather than document geometry.
 
@@ -228,11 +238,11 @@ Damaged library records are reported individually while healthy documents remain
 openable; no damaged record is silently repaired or deleted. Save failures are
 announced inside the unsaved-changes dialog when it is open.
 
-Open also accepts `.docx`. Rust checks the complete declared profile in a
+Open also accepts DOCX, ODT, RTF and Unicode TXT. Rust checks each declared profile in a
 detached candidate. A supported import is activated only after IndexedDB has
 saved its full native file, including the unchanged original. Storage failure
 or a changed originating session preserves the previous live work. Unsupported
-DOCX content opens a diagnostic dialog with the original available for download;
+rich content opens a diagnostic dialog with the original available for download;
 it is not saved in the local library or made editable.
 
 **Export Word** regenerates current supported content. **Download original**
@@ -240,6 +250,14 @@ returns the exact imported file. A native `.writer` export retains that original
 which can contain text or metadata removed by later edits; the interface discloses
 this before exporting the source-bearing file. Native save/reopen preserves the
 original independently of undo/redo.
+
+**Save As** selects Writer, DOCX, ODT, RTF, TXT or export-only PDF. Rust reports
+format limits for the exact document revision; the dialog requires acknowledgement
+before converting a loss-prone copy. TXT accepts strict UTF-8 or BOM-marked UTF-16
+and exports UTF-8/LF, with explicit rich-formatting loss. PDF uses Rust page/glyph
+geometry and currently writes vector outlines: it is not searchable, selectable
+or PDF/UA tagged. File downloads do not replace the native local save. **Format
+library notices** in the document menu serves the new dependency license texts.
 
 The browser adapter applies these prototype resource limits:
 
