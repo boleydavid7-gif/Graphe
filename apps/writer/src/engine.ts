@@ -1,7 +1,7 @@
 import initialize, { WriterEngine } from './wasm/office_wasm.js';
 import wasmUrl from './wasm/office_wasm_bg.wasm?url';
 import type {
-  CompatibilityReport, EngineFailure, EngineResponse, FindSnapshot, LayoutAction,
+  CompatibilityReport, DocumentFormat, EngineFailure, EngineResponse, ExportAssessment, FindSnapshot, LayoutAction,
   LayoutActionView, LayoutOptions, LayoutSelectionView, LayoutView,
   WriterCommand, WriterView,
 } from './types';
@@ -139,6 +139,37 @@ export class EngineClient {
   exportDocx(): Uint8Array {
     try { return new Uint8Array(this.handle.export_docx()); }
     catch (error) { throw failure(error); }
+  }
+
+  /** Converts through the selected Rust adapter without deriving content in JS. */
+  importFormat(format: DocumentFormat, bytes: Uint8Array, filename: string): WriterView {
+    try { return this.accept(this.handle.import_format(bytes, format, filename)); }
+    catch (error) { throw failure(error); }
+  }
+
+  /** Reports conversion losses for this exact immutable Rust document revision. */
+  assessExport(format: DocumentFormat): ExportAssessment {
+    try {
+      const result = JSON.parse(this.handle.export_assessment(format, this.current.revision)) as ExportAssessment;
+      this.assertOrigin(result);
+      if (result.format !== format) throw new EngineError({ code: 'stale_export', message: 'The export format changed. Try Save As again.' });
+      return result;
+    } catch (error) { throw failure(error); }
+  }
+
+  /** Exports only after explicitly acknowledged losses and current-origin checks. */
+  exportFormat(format: DocumentFormat, acknowledgeLoss = false,
+    expectedOrigin?: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>): Uint8Array {
+    try {
+      if (expectedOrigin && (expectedOrigin.sessionId !== this.current.sessionId
+          || expectedOrigin.documentId !== this.current.documentId
+          || expectedOrigin.revision !== this.current.revision)) {
+        throw new EngineError({ code: 'stale_revision',
+          message: 'The document changed after Save As was prepared. Review its warnings again.' });
+      }
+      return new Uint8Array(this.handle.export_format(format, acknowledgeLoss,
+        expectedOrigin?.revision ?? this.current.revision));
+    } catch (error) { throw failure(error); }
   }
 
   /** Exact retained original bytes, including content removed by later edits. */

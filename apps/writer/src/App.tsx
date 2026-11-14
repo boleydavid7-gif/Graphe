@@ -7,9 +7,10 @@ import { WriterIcon } from './WriterIcon';
 import { FindBar } from './FindBar';
 import { StorageError, WriterStorage, type StoredDocument } from './storage';
 import { WriterSaveController, type SaveAssociation, type SaveState } from './autosave';
-import type { Alignment, CompatibilityReport, LayoutAction, WriterCommand, WriterView } from './types';
+import type { Alignment, CompatibilityReport, DocumentFormat, ExportAssessment, LayoutAction, WriterCommand, WriterView } from './types';
 import './styles.css';
 import fontLicensesUrl from '../../../crates/office-layout/fonts/NOTICE.txt?url';
+import formatLicensesUrl from '../../../crates/office-formats/THIRD_PARTY_NOTICES.txt?url';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
@@ -46,9 +47,43 @@ function AlignmentIcon({ alignment }: { alignment: Alignment }) {
 }
 
 type LibraryEntry = Pick<StoredDocument, 'id' | 'title' | 'etag' | 'updatedAt'>;
-type PreservedImport = { file: File; message: string; report: CompatibilityReport | undefined };
+type PreservedImport = { file: File; format: DocumentFormat; message: string; report: CompatibilityReport | undefined };
+type SaveAsState = {
+  format: DocumentFormat;
+  filename: string;
+  assessment: ExportAssessment | null;
+  acknowledged: boolean;
+  error: string;
+};
 
 const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const FILE_FORMATS: readonly { format: DocumentFormat; label: string; mediaType: string }[] = [
+  { format: 'writer', label: 'Writer document (.writer)', mediaType: 'application/json' },
+  { format: 'docx', label: 'Word document (.docx)', mediaType: DOCX_MEDIA_TYPE },
+  { format: 'odt', label: 'OpenDocument text (.odt)', mediaType: 'application/vnd.oasis.opendocument.text' },
+  { format: 'rtf', label: 'Rich Text Format (.rtf)', mediaType: 'application/rtf' },
+  { format: 'txt', label: 'Plain text (.txt)', mediaType: 'text/plain;charset=utf-8' },
+  { format: 'pdf', label: 'PDF document (.pdf) — export only', mediaType: 'application/pdf' },
+];
+
+function fileFormat(file: File): DocumentFormat {
+  const extension = file.name.split('.').at(-1)?.toLowerCase();
+  const byExtension = FILE_FORMATS.find((item) => item.format === extension);
+  if (byExtension) return byExtension.format;
+  const mediaType = file.type.toLowerCase().split(';')[0];
+  const byMediaType = FILE_FORMATS.find((item) => item.mediaType.split(';')[0] === mediaType);
+  if (byMediaType) return byMediaType.format;
+  if (mediaType === 'text/rtf') return 'rtf';
+  throw new Error('Choose a .writer, .docx, .odt, .rtf or .txt file. TXT supports UTF-8 or BOM-marked UTF-16. PDF is available for export only.');
+}
+
+function formatName(format: string): string {
+  return format === 'writer' ? 'Writer' : format.toUpperCase();
+}
+
+function formatMediaType(format: string): string {
+  return FILE_FORMATS.find((item) => item.format === format)?.mediaType ?? 'application/octet-stream';
+}
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -61,7 +96,10 @@ function download(blob: Blob, filename: string) {
 
 function safeFilename(title: string, extension: string): string {
   const name = [...(title.trim() || 'Untitled document')]
-    .map((character) => character.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(character) ? '_' : character).join('').slice(0, 100);
+    .map((character) => {
+      const code = character.codePointAt(0) ?? 0;
+      return code < 32 || (code >= 0x7f && code <= 0x9f) || '\\/:*?"<>|'.includes(character) ? '_' : character;
+    }).slice(0, 100).join('');
   return `${name}.${extension}`;
 }
 
@@ -74,6 +112,13 @@ export default function App() {
   const findPanel = useRef<HTMLDivElement>(null);
   const pendingFindFocus = useRef(false);
   const replacementFocus = useRef<{ previous: Element | null } | null>(null);
+  const saveAsReturnFocus = useRef<{
+    target: HTMLElement | null; editor: boolean; sessionId: string; documentId: string;
+  } | null>(null);
+  const pendingSaveAsFocus = useRef<{
+    previous: Element | null;
+    requested: NonNullable<typeof saveAsReturnFocus.current>;
+  } | null>(null);
   const viewRef = useRef<WriterView | null>(null);
   const dirtyRef = useRef(false);
   const documentOpenRef = useRef(true);
@@ -97,6 +142,7 @@ export default function App() {
   const [unsavedDialog, setUnsavedDialog] = useState(false);
   const [saveConflict, setSaveConflict] = useState(false);
   const [exportDisclosure, setExportDisclosure] = useState(false);
+  const [saveAs, setSaveAs] = useState<SaveAsState | null>(null);
   const [preservedImport, setPreservedImport] = useState<PreservedImport | null>(null);
   const [pagePreview, setPagePreview] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<PreviewZoom>('fit');
@@ -139,6 +185,29 @@ export default function App() {
     if (pagePreview) document.getElementById('writer-page-preview')?.focus({ preventScroll: true });
     else surface.current?.focus();
   }, [documentOpen, pagePreview, view]);
+
+  useLayoutEffect(() => {
+    const pendingFocus = pendingSaveAsFocus.current;
+    if (saveAs || !pendingFocus) return;
+    pendingSaveAsFocus.current = null;
+    // Restore during the close commit; a delayed callback could steal a newer
+    // title/Find focus or lose the first key after dismissing the dialog.
+    if (document.activeElement !== pendingFocus.previous && document.activeElement !== document.body) return;
+    const { requested } = pendingFocus;
+    const current = viewRef.current;
+    // Closed details can retain nonzero client rectangles for their hidden
+    // contents. A menu invocation must return to its visible summary.
+    const target = requested.target && documentMenu.current?.contains(requested.target)
+      ? documentMenu.current.querySelector('summary') : requested.target;
+    if (requested.editor && current?.sessionId === requested.sessionId
+      && current.documentId === requested.documentId && documentOpenRef.current && !previousPreview.current) {
+      surface.current?.focus();
+    } else if (!requested.editor && target?.isConnected && target.getClientRects().length) {
+      target.focus({ preventScroll: true });
+    } else {
+      documentMenu.current?.querySelector('summary')?.focus({ preventScroll: true });
+    }
+  }, [saveAs]);
 
   const loadPageLayout = useCallback((origin: LayoutOrigin) => {
     const client = engine.current;
@@ -406,7 +475,7 @@ export default function App() {
       if (!active) return;
       const origin = viewRef.current;
       const wasOpen = documentOpenRef.current;
-      const isDocx = /\.docx$/i.test(file.name) || file.type === DOCX_MEDIA_TYPE;
+      let selectedFormat: DocumentFormat | undefined;
       let candidate: EngineClient | null = null;
       const checkOrigin = () => {
         if (engine.current !== active || documentOpenRef.current !== wasOpen
@@ -418,14 +487,16 @@ export default function App() {
       setOpening(true);
       setError('');
       try {
-        if (file.size > 5 * 1024 * 1024) throw new Error('This prototype opens files up to 5 MiB, including retained originals.');
+        selectedFormat = fileFormat(file);
+        if (selectedFormat === 'pdf') throw new Error('PDF is export only. Open the editable Writer, DOCX, ODT, RTF or TXT source instead.');
+        if (file.size > 5 * 1024 * 1024) throw new Error('Writer opens files up to 5 MiB, including retained originals.');
         const bytes = new Uint8Array(await file.arrayBuffer());
         checkOrigin();
-        if (isDocx) {
-          if (!local) throw new Error('Local storage is required to preserve the original before editing a DOCX.');
+        if (selectedFormat !== 'writer') {
+          if (!local) throw new Error('Local storage is required to preserve the imported document before editing.');
           candidate = await EngineClient.create();
           checkOrigin();
-          const next = candidate.importDocx(bytes, file.name);
+          const next = candidate.importFormat(selectedFormat, bytes, file.name);
           const native = candidate.serialize();
           // A supported import is not activated until the native document and
           // exact original have completed one existing IndexedDB transaction.
@@ -434,15 +505,16 @@ export default function App() {
           engine.current = candidate;
           candidate = null;
           replaceSession(next, { sessionId: next.sessionId, id: saved.id, etag: saved.etag },
-            'DOCX imported. The document and its exact original are saved on this device.');
+            `${formatName(selectedFormat)} imported. ${next.originalSource ? 'The document and its exact original are' : 'The document is'} saved on this device.`);
           active.dispose();
         } else {
           const next = active.open(bytes);
           replaceSession(next, null, 'Imported Writer file. Save a local copy to keep it on this device.');
         }
       } catch (failure) {
-        if (isDocx && failure instanceof EngineError && failure.code === 'unsupported_docx') {
-          setPreservedImport({ file, message: failure.message, report: failure.compatibility });
+        if (selectedFormat && selectedFormat !== 'writer' && failure instanceof EngineError
+          && (failure.compatibility || failure.code === 'unsupported_docx')) {
+          setPreservedImport({ file, format: selectedFormat, message: failure.message, report: failure.compatibility });
           setLibrary(null);
         } else setError(`Could not open this file. ${message(failure)}`);
       } finally {
@@ -471,10 +543,76 @@ export default function App() {
     else exportWriterFile();
   }
 
+  function reviewSaveAs(selectedFormat?: DocumentFormat, filename?: string) {
+    const client = engine.current;
+    const current = viewRef.current;
+    if (!client || !current || !documentOpen || composing || busy) return;
+    const sourceFormat = current.originalSource?.format;
+    const format = selectedFormat ?? FILE_FORMATS.find((item) => item.format === sourceFormat)?.format ?? 'writer';
+    let assessment: ExportAssessment | null = null;
+    let failureMessage = '';
+    try { assessment = client.assessExport(format); }
+    catch (failure) { failureMessage = message(failure); }
+    rememberSaveAsFocus();
+    setError('');
+    setSaveAs({ format, filename: filename ?? safeFilename(current.title, format), assessment,
+      acknowledged: false, error: failureMessage });
+  }
+
+  function rememberSaveAsFocus() {
+    if (saveAs || !viewRef.current) return;
+    const active = document.activeElement;
+    const target = active instanceof HTMLElement && active !== document.body && active.getClientRects().length
+      && !documentMenu.current?.contains(active)
+      ? active : documentMenu.current?.querySelector('summary') ?? null;
+    saveAsReturnFocus.current = { target, editor: target?.getAttribute('data-testid') === 'editor',
+      sessionId: viewRef.current.sessionId, documentId: viewRef.current.documentId };
+  }
+
+  function closeSaveAs() {
+    // This is a fixed interface ID, independent of native document identifiers.
+    // Close before unmount so the native dialog's later cleanup cannot replace
+    // the deliberate focus restoration with its now-hidden menu trigger.
+    document.getElementById('save-as-format')?.closest('dialog')?.close();
+    if (saveAsReturnFocus.current) {
+      pendingSaveAsFocus.current = { previous: document.activeElement, requested: saveAsReturnFocus.current };
+      saveAsReturnFocus.current = null;
+    }
+    setSaveAs(null);
+  }
+
+  function changeSaveAsFormat(format: DocumentFormat) {
+    const filename = safeFilename((saveAs?.filename ?? viewRef.current?.title ?? '')
+      .replace(/\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), format);
+    reviewSaveAs(format, filename);
+  }
+
+  function downloadSaveAs() {
+    const current = saveAs;
+    if (!engine.current || !current?.assessment || !documentOpen || composing || busy) return;
+    try {
+      // Rust rechecks the reviewed origin and explicit loss acknowledgement.
+      // A download never changes the native local save/etag association.
+      const bytes = engine.current.exportFormat(current.format, current.acknowledged, current.assessment);
+      const filename = safeFilename(current.filename.replace(/\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
+      download(new Blob([bytes.slice().buffer], { type: formatMediaType(current.format) }), filename);
+      closeSaveAs();
+      setNotice(`${formatName(current.format)} copy downloaded. This does not replace your local Writer save.`);
+    } catch (failure) {
+      setSaveAs({ ...current, assessment: null, acknowledged: false, error: message(failure) });
+    }
+  }
+
   function exportWordFile() {
     if (!engine.current || !viewRef.current || !documentOpen || composing) return;
     try {
-      const bytes = engine.current.exportDocx();
+      const assessment = engine.current.assessExport('docx');
+      if (assessment.warnings.length) {
+        rememberSaveAsFocus();
+        setSaveAs({ format: 'docx', filename: safeFilename(viewRef.current.title, 'docx'), assessment, acknowledged: false, error: '' });
+        return;
+      }
+      const bytes = engine.current.exportFormat('docx', false, assessment);
       download(new Blob([bytes.slice().buffer], { type: DOCX_MEDIA_TYPE }), safeFilename(viewRef.current.title, 'docx'));
       setNotice('Word file exported from current supported content. Export does not replace your local save.');
     } catch (failure) { setError(message(failure)); }
@@ -485,8 +623,8 @@ export default function App() {
     if (!engine.current || !source || !documentOpen || composing) return;
     try {
       const bytes = engine.current.exportOriginal();
-      download(new Blob([bytes.slice().buffer], { type: DOCX_MEDIA_TYPE }), source.filename);
-      setNotice('Exact original downloaded. Later edits are available in Writer and Word exports.');
+      download(new Blob([bytes.slice().buffer], { type: formatMediaType(source.format) }), source.filename);
+      setNotice('Exact original downloaded. Later edits are available through Save As and the local Writer save.');
     } catch (failure) { setError(message(failure)); }
   }
 
@@ -512,7 +650,10 @@ export default function App() {
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || composing) return;
-      if (event.key.toLowerCase() === 's') { event.preventDefault(); void saveDocument(); }
+      if (event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        if (event.shiftKey) reviewSaveAs(); else void saveDocument();
+      }
       if (event.key.toLowerCase() === 'o') { event.preventDefault(); void showLibrary(); }
       if (event.key.toLowerCase() === 'f' && documentOpen && view) {
         event.preventDefault();
@@ -569,12 +710,14 @@ export default function App() {
             <span className="menu-caption">This device</span>
             <button disabled={!view || busy || composing} onClick={() => documentAction(newDocument)}>New document</button>
             <button disabled={!view || busy || composing} onClick={() => documentAction(() => void showLibrary())}>Open document</button>
+            <button disabled={unavailable} onClick={() => documentAction(() => reviewSaveAs())}>Save As…</button>
             <button disabled={unavailable} onClick={() => documentAction(exportFile)}>Export</button>
             <button disabled={unavailable} onClick={() => documentAction(exportWordFile)}>Export Word</button>
             {view?.originalSource && <button disabled={unavailable} onClick={() => documentAction(downloadOriginal)}>Download original</button>}
             <button disabled={unavailable} onClick={() => documentAction(togglePagePreview)} aria-pressed={pagePreview}>Page preview</button>
             <button disabled={unavailable} onClick={() => documentAction(closeDocument)}>Close</button>
             <a href={fontLicensesUrl} target="_blank" rel="noreferrer">Font licenses</a>
+            <a href={formatLicensesUrl} target="_blank" rel="noreferrer">Format library notices</a>
           </div>
         </details>
       </nav>
@@ -654,7 +797,7 @@ export default function App() {
     {findOpen && view && documentOpen && <div ref={findPanel} className="find-panel"><FindBar view={view} onFind={findText} onCommand={command}
       onClose={() => setFindOpen(false)} onFocusDocument={() => surface.current?.focus()}
       onRevealSelection={(next) => surface.current?.revealSelection?.(next)} /></div>}
-    {visibleError && !unsavedDialog && <div className="error-banner" role="alert"><span>{visibleError}</span>
+    {visibleError && !unsavedDialog && library === null && <div className="error-banner" role="alert"><span>{visibleError}</span>
       {saveConflict && <button onClick={() => void saveCopy()} disabled={busy}>Save a separate copy</button>}
       {saveState.error && <button disabled={busy || composing} onClick={() => void saveDocument()}>Retry save</button>}
       {error && <button aria-label="Dismiss error" onClick={() => setError('')}>×</button>}</div>}
@@ -701,34 +844,61 @@ export default function App() {
       <button aria-label="Find" disabled={unavailable} onClick={openFind}><WriterIcon name="search" /><span>Find</span></button>
       <button aria-label="Export" disabled={unavailable} onClick={exportFile}><WriterIcon name="export" /><span>Export</span></button>
     </nav>
-    <input ref={fileInput} type="file" accept={`.writer,.docx,application/json,${DOCX_MEDIA_TYPE}`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
+    <input ref={fileInput} type="file" accept={`.writer,.docx,.odt,.rtf,.txt,application/json,${DOCX_MEDIA_TYPE},application/vnd.oasis.opendocument.text,application/rtf,text/rtf,text/plain`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
     {library !== null && <Dialog title="Open document" onClose={() => setLibrary(null)} busy={busy}>
-      <p className="dialog-description">Documents saved in this browser on this device.</p>
-      {libraryProblems.length > 0 && <div className="dialog-error" role="alert">
-        <p>{libraryProblems.length} saved {libraryProblems.length === 1 ? 'document could' : 'documents could'} not be listed.
+      <p className="dialog-description">Open a document saved in this browser, or choose a Writer, DOCX, ODT, RTF or TXT file. TXT supports UTF-8 or BOM-marked UTF-16.</p>
+      {(visibleError || libraryProblems.length > 0) && <div className="dialog-error" role="alert">
+        {visibleError && <p>{visibleError}</p>}
+        {libraryProblems.length > 0 && <><p>{libraryProblems.length} saved {libraryProblems.length === 1 ? 'document could' : 'documents could'} not be listed.
           Their data remains on this device. Other documents can still be opened.</p>
-        {libraryProblems.map((problem, index) => <p key={index}>{problem.message}</p>)}
+          {libraryProblems.map((problem, index) => <p key={index}>{problem.message}</p>)}</>}
       </div>}
       <div className="document-library">{library.length === 0 ? <p>{libraryProblems.length ? 'No readable saved documents.' : 'No saved documents yet.'}</p> : library.map((entry) => <button className="library-entry" key={entry.id} disabled={busy}
         onClick={() => openSaved(entry.id)}><span>{entry.title || 'Untitled document'}</span><time dateTime={new Date(entry.updatedAt).toISOString()}>{new Date(entry.updatedAt).toLocaleString()}</time></button>)}</div>
       <p className="storage-note">Browser storage can be cleared or evicted. Keep exported .writer files as backups.</p>
-      <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Import .writer or .docx file</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
+      <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Open file…</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
+    </Dialog>}
+    {saveAs && <Dialog title="Save As" onClose={closeSaveAs} busy={busy}>
+      <p className="dialog-description">Download a separate file. Local Save and autosave continue to preserve the complete native Writer document on this device.</p>
+      <div className="save-as-fields">
+        <label htmlFor="save-as-format">File format</label>
+        <select id="save-as-format" value={saveAs.format} disabled={busy}
+          onChange={(event) => changeSaveAsFormat(event.target.value as DocumentFormat)}>
+          {FILE_FORMATS.map((item) => <option key={item.format} value={item.format}>{item.label}</option>)}
+        </select>
+        <label htmlFor="save-as-filename">Filename</label>
+        <input id="save-as-filename" value={saveAs.filename} maxLength={120} disabled={busy}
+          onChange={(event) => setSaveAs({ ...saveAs, filename: event.target.value })} />
+      </div>
+      {!!saveAs.assessment?.warnings.length && <div className="format-warning" role="note">
+        <p><strong>Review this format before saving</strong></p>
+        <ul>{saveAs.assessment.warnings.map((warning, index) => <li key={`${warning.code}-${index}`}>{warning.message}</li>)}</ul>
+        <label className="format-acknowledgement"><input type="checkbox" checked={saveAs.acknowledged}
+          onChange={(event) => setSaveAs({ ...saveAs, acknowledged: event.target.checked })} />
+          I understand the format limitations</label>
+      </div>}
+      {saveAs.error && <div className="dialog-error" role="alert"><p>{saveAs.error}</p>
+        <button disabled={busy} onClick={() => reviewSaveAs(saveAs.format, saveAs.filename)}>Review current document</button></div>}
+      <p className="storage-note">Downloads do not overwrite browser-local saves. Your browser controls the destination and prompts or renames when a filename already exists.</p>
+      <div className="dialog-actions"><button disabled={busy} onClick={closeSaveAs}>Cancel</button>
+        <button className="primary-button" disabled={busy || !saveAs.assessment
+          || (!!saveAs.assessment.warnings.length && !saveAs.acknowledged)} onClick={downloadSaveAs}>Download copy</button></div>
     </Dialog>}
     {exportDisclosure && <Dialog title="Export Writer file" onClose={() => setExportDisclosure(false)}>
-      <p>This Writer file includes the preserved original DOCX, {view?.originalSource?.filename}.</p>
-      <p>The original may contain text or metadata removed from your edited document. Share a Word export when you need only current supported content.</p>
+      <p>This Writer file includes the preserved original {view?.originalSource ? formatName(view.originalSource.format) : 'document'}, {view?.originalSource?.filename}.</p>
+      <p>The original may contain text or metadata removed from your edited document. Use Save As in another format when you need only current supported content.</p>
       {visibleError && <div className="dialog-error" role="alert">{visibleError}</div>}
       <div className="dialog-actions"><button onClick={() => setExportDisclosure(false)}>Cancel</button>
         <button className="primary-button" onClick={exportWriterFile}>Download Writer file</button></div>
     </Dialog>}
-    {preservedImport && <Dialog title="DOCX preserved read-only" onClose={() => setPreservedImport(null)}>
+    {preservedImport && <Dialog title={`${formatName(preservedImport.format)} preserved read-only`} onClose={() => setPreservedImport(null)}>
       <p>{preservedImport.message}</p>
       <p>Your current document is unchanged. The original bytes remain available here for download. This read-only source has not been saved in the local document library.</p>
       <ul className="compatibility-issues">{preservedImport.report?.diagnostics.map((issue, index) =>
         <li key={index}><strong>{issue.part}: {issue.path}</strong><span>{issue.message}</span></li>)}</ul>
       {!!preservedImport.report?.omittedDiagnostics && <p>{preservedImport.report.omittedDiagnostics} additional issues were omitted from this bounded report.</p>}
-      <div className="dialog-actions"><button onClick={() => download(preservedImport.file, preservedImport.file.name)}>Download original DOCX</button>
+      <div className="dialog-actions"><button onClick={() => download(preservedImport.file, preservedImport.file.name)}>Download original {formatName(preservedImport.format)}</button>
         <button className="primary-button" onClick={() => setPreservedImport(null)}>Close</button></div>
     </Dialog>}
     {unsavedDialog && <Dialog title="Save your changes?" onClose={() => { pending.current = null; setUnsavedDialog(false); }} busy={busy}>

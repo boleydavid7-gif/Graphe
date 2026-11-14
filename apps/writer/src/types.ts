@@ -1,6 +1,21 @@
 /** Read-only presentation transport. All edits and Unicode rules live in Rust. */
 export type Alignment = 'left' | 'center' | 'right' | 'justify';
 
+/** Native and external adapters; PDF is export-only. */
+export type DocumentFormat = 'writer' | 'docx' | 'odt' | 'rtf' | 'txt' | 'pdf';
+
+/** Rust-reported losses for an exact document revision, before Save As. */
+export interface ExportAssessment {
+  readonly sessionId: string;
+  readonly documentId: string;
+  readonly revision: string;
+  readonly format: DocumentFormat;
+  readonly warnings: readonly {
+    readonly code: string;
+    readonly message: string;
+  }[];
+}
+
 export interface TextPoint {
   readonly paragraphId: string;
   readonly utf16: number;

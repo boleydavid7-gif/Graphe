@@ -1,0 +1,20 @@
+[package]
+name = "office-formats"
+description = "Local, bounded file-format adapters around the Office document model"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+office-core = { path = "../office-core" }
+office-docx = { path = "../office-docx" }
+office-layout = { path = "../office-layout" }
+zip.workspace = true
+roxmltree.workspace = true
+quick-xml.workspace = true
+pdf-writer.workspace = true
+svgtypes.workspace = true
+rclip-rtf.workspace = true
+
+[lints]
+workspace = true

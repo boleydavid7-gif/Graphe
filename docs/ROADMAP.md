@@ -61,7 +61,7 @@ each milestone is implemented.
    Word-compatibility limits. [Actual verification](LAYOUT_VERIFICATION.md)
    records 399 Rust, 25 compiled-WASM and 41 real-browser tests passing locally,
    plus builds and linting; final remote CI results belong to the PR checks.
-7. **Lightweight Writer and Lamplight UI — implemented on the review branch.**
+7. **Lightweight Writer and Lamplight UI — implemented and merged.**
    `dev/writer-lamplight` connects Rust page geometry to everyday typing,
    selections, navigation, formatting and clipboard input; preserves the existing
    model, transactions, persistence and DOCX adapters; and adds reliable local
@@ -70,11 +70,21 @@ each milestone is implemented.
    can be assigned; advanced style authoring/templates and other future features
    are absent. [WRITER_STEP7.md](WRITER_STEP7.md) documents the boundary and limits;
    [verification](WRITER_STEP7_VERIFICATION.md) records actual tests and screenshots.
-   No merge or deployment is authorized for this review branch.
+   Merged through PR #12 at `dab4db7`; no manual deployment was performed.
 
    **Audit gate after Step 7 approval:** pause feature development for the
    comprehensive technical, security, DOCX-compatibility and commercial-licensing
    audit. Do not begin Step 8 automatically.
+
+   **7.5 — File-format support — explicitly authorized follow-up.**
+   The owner requested DOCX/ODT/RTF/TXT open/edit/save, native Writer retention
+   and PDF export only, including Open/Save As, original retention and loss
+   warnings. `dev/writer-file-formats` reuses the existing model and Rust layout
+   with concrete format adapters. [FILE_FORMATS.md](FILE_FORMATS.md) records
+   declared profiles; [verification](FILE_FORMATS_VERIFICATION.md) records actual
+   tests and independent-consumer checks. The owner authorized merging after
+   successful verification. Deployment, Step 8 and the comprehensive audit are
+   not implied by this additional feature request.
 8. **Advanced Word compatibility.** Expand DOCX fidelity and Word-compatible
    behavior using increasingly demanding documents and regression coverage.
 

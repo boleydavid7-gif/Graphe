@@ -137,8 +137,15 @@ test('DOCX original is saved before editing and survives native save, reopen, ex
   await expect(editor(page)).toHaveText(edited);
   expect(await original(page)).toEqual(source);
 
-  const pendingWord = page.waitForEvent('download');
   await documentAction(page, 'Export Word');
+  const saveAs = page.getByRole('dialog', { name: 'Save As', exact: true });
+  await expect(saveAs).toBeVisible();
+  await expect(saveAs.getByRole('combobox', { name: 'File format', exact: true })).toHaveValue('docx');
+  await expect(saveAs).toContainText(/native Writer identifiers|retained original/i);
+  await expect(saveAs.getByRole('button', { name: 'Download copy', exact: true })).toBeDisabled();
+  await saveAs.getByRole('checkbox', { name: 'I understand the format limitations', exact: true }).check();
+  const pendingWord = page.waitForEvent('download');
+  await saveAs.getByRole('button', { name: 'Download copy', exact: true }).click();
   const wordDownload = await pendingWord;
   expect(wordDownload.suggestedFilename()).toMatch(/\.docx$/);
   const xml = zipPart(await downloaded(wordDownload), 'word/document.xml');

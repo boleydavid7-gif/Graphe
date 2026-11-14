@@ -847,3 +847,68 @@ Unicode boundaries remain determined by core text coordinates. Transactions,
 revision/undo semantics, public APIs and native schemas do not change. Regression
 coverage must verify run growth, Unicode, exact overrides, retained partitions,
 no-ops and undo/redo rather than merely checking final text.
+
+## 041: Add format-specific adapters around the existing shared model
+
+**Decision:** Add a small `office-formats` crate with concrete ODT, RTF, TXT and
+PDF modules and dispatch to the existing DOCX adapter. Keep format syntax,
+conversion limits and library dependencies outside `office-core`. Reuse the
+current `WriterFile`/`OriginalSource` layer, model/native versions and existing
+transaction, history and storage APIs. No schema, database or generic plugin
+framework is introduced.
+
+**Reason:** The owner explicitly authorized Step 7.5 after Step 7. Additional
+file formats are now needed, while a separate semantic model per format would
+split correctness, editing and pagination. The existing format-neutral source
+record already supports exact originals without copying them into history.
+
+**Consequences:** The complete editable projection is validated before replacing
+any session. A supported external import is saved natively with its original
+before browser editing activates. Unsupported rich semantics remain preserved
+read-only under the existing policy; parsing is not a promise of fidelity. Native
+reopen revalidates the retained source with its relevant adapter. A zero-byte TXT
+has no nonempty original record, but its empty native document is still saved.
+Native copying requires a complete `WriterFile` through `export_file`; the
+document-only exporter rejects `Writer` instead of exposing a natural facade
+round trip that silently omits a retained original. Foreign-format adapters
+continue consuming the semantic document independently of that file layer.
+
+## 042: Make Save As a reviewed conversion, separate from local Save
+
+**Decision:** Expose readable formats through Open and all export formats through
+Save As. Rust returns bounded format warnings with session/document/revision;
+export checks the current origin and requires explicit acknowledgement when
+warnings exist. Native Save/autosave continues through the existing IndexedDB
+etag lane. Downloading a copy does not change that association or clean state.
+
+**Reason:** External files cannot retain all native IDs, optional-property/run
+distinctions and original bytes. TXT also loses formatting/metadata and richer
+structural distinctions. A download is not proof of local persistence or an
+atomic filesystem replacement. Users need the warning before publication, while
+the full native in-memory/local copy remains intact.
+
+**Consequences:** Choosing another format resets acknowledgement; stale reviews
+and failed conversions emit no partial download and leave live work intact. The
+browser controls destination and duplicate-name behavior. Retained-original
+privacy disclosure still applies to source-bearing native exports. TXT uses
+strict Unicode decoding and explicit BOM/line-ending rules rather than guesses.
+
+## 043: Export PDF from Rust glyph geometry with explicit profile limits
+
+**Decision:** Use pinned `pdf-writer` and `svgtypes` to serialize the existing
+Rust pages/glyph outlines into bounded vector PDF, sharing repeated glyph forms.
+Do not add another typesetter, font-selection policy or browser print layout.
+PDF remains export only.
+
+**Reason:** Existing deterministic page/glyph geometry already resolves shaping,
+fonts, formatting and pagination. A low-level PDF writer can preserve its visual
+result without competing with that engine or relying on installed browser fonts.
+The selected libraries offer declared Apache-2.0/MIT alternatives and native/WASM
+support; their new transitive graph and notices are reviewed separately.
+
+**Consequences:** The first PDF profile draws outlines: text is not searchable or
+selectable and is not tagged PDF/UA or PDF/A. Save As must disclose that, along
+with layout/font diagnostics. Geometry errors fail explicitly. No cloud service,
+full Office engine or proprietary font dependency is introduced. This targeted
+dependency review does not select the project's license or replace the planned
+comprehensive commercial licensing/security audit.

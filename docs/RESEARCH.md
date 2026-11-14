@@ -566,6 +566,141 @@ This milestone preserves existing notices and the pending project-license
 decision; it does not claim that broader audit has been performed. Final test
 results, screenshots and unresolved limitations belong in the milestone report.
 
+## Step 7.5 — local file-format adapters
+
+The owner's explicit Step 7.5 instruction authorizes DOCX/ODT/RTF/TXT opening,
+editing and saving, PDF export, native Writer retention and merging after the
+verification gate. It authorizes this bounded feature milestone after Step 7;
+it does not claim that the planned comprehensive technical/security/commercial
+audit has occurred or select a project software license.
+
+The initial clean `dab4db7` baseline passed formatting, strict workspace Clippy,
+442 Rust tests, workspace build and the locked `wasm32-unknown-unknown` check
+before implementation. The existing document, transactions, Unicode positions,
+full native file/source records, DOCX adapter and layout engine were inspected.
+No model/native/database schema change or browser document engine is needed.
+
+| Question and primary evidence | Choice and tradeoff |
+| --- | --- |
+| Format boundaries and preservation | A concrete `office-formats` facade dispatches additional adapters and reuses `office-docx`. Format structures and parser dependencies remain outside `office-core`. `WriterFile` already retains a format-neutral original independently from the editable document/history; no new original-history or generic plugin framework is needed. |
+| ODT package/schema: [OASIS ODF 1.3 packages](https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part2-packages.html) and [schema](https://docs.oasis-open.org/office/OpenDocument/v1.3/OpenDocument-v1.3-part3-schema.html) | Reuse pinned ZIP and namespace-aware XML libraries. Import the supported core subset of ODF 1.2/1.3/1.4 and write deterministic 1.3; validate MIME/manifest, compression and expanded sizes, XML/resource limits and references. No extraction, embedded execution, external fetches or encryption. Unrepresentable constructs preserve the original without a partial editable projection. `ferrodoc-odt`'s Pandoc-oriented conversion and `lo_zip`'s wider engine coupling did not justify new dependencies; their licenses/fitness were not independently established and no commercial-compatibility claim is made for them. Supporting every ODF version/extension is not inferred from a ZIP/DOM library. |
+| RTF: [Microsoft's normative RTF reference](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxrtfex/3402a589-2578-4a15-99ce-04a91545f327), [`rclip-rtf` tokenizer](https://docs.rs/rclip-rtf/0.1.0/rclip_rtf/token/index.html), [`rtf-parser`](https://github.com/d0rianb/rtf-parser) | Use only `rclip-rtf`'s borrowed byte tokenizer, with default/optional allocation and codepage features disabled. Its semantic reader is clipboard-oriented and cannot establish a complete Writer projection. The adapter must retain group state, signed UTF-16 escapes/surrogate pairs and positional `uc` fallback; explicitly support known codepages and refuse replacement-character decoding. Guard tokenizer numeric saturation, ignored NUL, binary lengths, depth and token counts. Unknown semantic content is not a successful import. The small 0.1 dependency remains a maturity risk, not a claim of a battle-tested complete RTF engine. |
+| TXT encoding: [Unicode BOM FAQ](https://www.unicode.org/faq/utf_bom.html) | Strict UTF-8, optional UTF-8 BOM or BOM-marked UTF-16 LE/BE; no guessed legacy encoding or replacement decoding. Normalize CRLF/CR to paragraph boundaries as documented while retaining exact nonempty originals. Export UTF-8/LF and preserve interior FEFF/combining/emoji text. TXT explicitly loses rich formatting, metadata and structural distinctions. |
+| PDF generation: [`pdf-writer`](https://github.com/typst/pdf-writer), [`svgtypes`](https://github.com/linebender/svgtypes), [OFL use in documents](https://openfontlicense.org/ofl-faq/) | Write vector PDF from the existing Rust page geometry and glyph outlines, using a mature low-level PDF object writer and SVG path/transform parser. Do not invoke another layout engine or browser print pipeline. Reuse glyph forms, convert coordinate systems explicitly and bound output incrementally. Outlined output is not searchable/selectable, tagged PDF/UA or PDF/A; report those limits before saving. Existing bundled-font notices remain applicable. |
+| Open/Save As and loss review | General Open accepts only readable formats; PDF is export only. Rust assesses conversion warnings against session/document/revision, and export rejects stale review or absent acknowledgement. The existing local native save/autosave lane remains authoritative. Downloading an external copy does not mark newer work saved or overwrite a browser record; the browser controls filesystem destination/duplicate names. |
+
+### Targeted review gates
+
+- **Critical:** no partial imported document may replace live work, consume
+  history or discard an original. Supported external imports are detached and
+  their complete native/source file must commit to IndexedDB before activation.
+  Unsupported RTF/ODT/DOCX content remains read-only under the existing policy.
+- **Critical:** codepage/Unicode fallback, XML whitespace, named-style defaults,
+  page geometry, unsafe ZIP names/duplicates and unknown properties must not
+  become silent text/formatting loss. Parse acceptance alone is not fidelity.
+- **Critical:** Save As warnings need an explicit acknowledgement and the exact
+  reviewed origin. PDF export must use native pagination and reject unsupported
+  layout rather than inventing CSS pages or flattening a failed layout silently.
+- **Important:** external formats cannot promise native IDs, exact optional
+  property/run distinctions or original retention. Keep a native backup. Browser
+  downloads cannot establish crash durability, filesystem replacement or the
+  final path chosen by the user.
+- **Important:** independent interoperability evidence must supplement self
+  round trips. LibreOffice-produced RTF often includes script properties, unused
+  styles and list tables even for a basic paragraph. Such an input can remain
+  preserved read-only; its presence in a fixture is not an editable-support claim.
+- **Important:** the additional graph's permissive declarations do not complete
+  a commercial audit. `rclip-rtf` and `rclip-core` publish dual-license SPDX
+  declarations but omit standalone license files even at their published VCS
+  roots. The selected Apache-2.0 text and exact package/source/author evidence
+  are retained without inventing an upstream copyright grant; see DEPENDENCIES.
+
+The new integration tests exercise actual compiled WASM and the production
+browser UI for import → Rust edits/formatting → native local save/reload/reopen →
+external export/reimport, loss gates, source bytes, malformed inputs, PDF-only
+behavior, Unicode filenames and shipped notices. Results belong in the final
+milestone verification record, not inferred here from test configuration.
+
+### Corrections from the implementation review
+
+- A valid ODT title split by comments/processing instructions/CDATA initially
+  retained only its first text node. A failing native regression reproduced
+  `A` instead of `ABC é 👩🏽‍💻`. The adapter now concatenates its immediate text
+  children while retaining the existing unsupported nested-element checks;
+  all 18 focused ODT regressions passed after this targeted correction.
+- The first facade's document-only `Writer` export could not retain a source
+  kept in `WriterFile`. It now explicitly rejects that call; `export_file`
+  accepts the complete file and preserves originals for native copies. The
+  browser already used full-file serialization, but the public native facade
+  needed the same safe contract. Regression tests cover the natural import/file
+  copy workflow as well as the rejected document-only route.
+- TXT export initially allowed native NUL content that its own importer rejects,
+  and literal CR could violate its LF/output-reopen policy. Export now refuses
+  NUL and normalizes CRLF/CR in a streaming pass, including split runs. A semantic
+  initial U+FEFF also needs a separate transport BOM so reimport does not strip
+  real document content. Focused regressions cover all three cases; these rules
+  are explicit conversion limitations rather than silent model repair.
+- A model value can be valid natively but exceed an external adapter's own
+  import profile: oversized RTF font/title labels or extreme ODT font sizes
+  could initially produce an unusable copy. Before publishing editable-format
+  bytes, the facade now performs a bounded reopenability validation and rejects
+  out-of-profile output. This guards the adapter contract; it is not semantic
+  equivalence or independent-consumer proof. Error labels/messages are bounded
+  at construction so rejected values cannot amplify transport diagnostics.
+- Literal TAB/LF/CR in ODT metadata/style attributes undergo XML normalization.
+  A failing regression demonstrated title CR becoming LF. The exporter now
+  emits numeric character references for these characters, retaining exact
+  title/style-label spelling. All 19 focused ODT tests and scoped Clippy passed
+  after both targeted metadata fixes.
+- Actual Chromium identified a Save As focus regression: Cancel could return to
+  a hidden menu trigger, losing subsequent keyboard input. The correction closes
+  the modal before unmount and restores the guarded visible invoker or logical
+  visible fallback without an animation-frame delay. Closed-details content can
+  retain nonzero client rectangles while refusing focus; menu invokers explicitly
+  return to their visible summary instead of relying on that geometry heuristic.
+  The focused actual-Chromium regression passed menu return and immediate keys
+  after keyboard Escape, Cancel and Download. Complete suite and other-browser
+  results belong in the milestone verification report.
+
+The broader [`svg2pdf`](https://github.com/typst/svg2pdf) alternative would bring
+a separate usvg/resvg/image/font stack despite already-resolved glyph geometry;
+its upstream repository was archived at review time. The smaller pinned PDF
+writer/path parser fits the current
+boundary without that duplicated rendering pipeline. See the selected manifests
+in [DEPENDENCIES](DEPENDENCIES.md) for exact versions and notices.
+
+### Independent-consumer check executed
+
+Using the real `project-notes.writer` fixture, the adapters generated DOCX, ODT,
+RTF, TXT and PDF. LibreOfficeDev 26.8.0.0.alpha0 (`2c87e51…`) independently opened
+the four editable-format exports and wrote UTF-8 text. Each retained the native
+body's complete 405 Unicode scalars, adding one final paragraph LF (406 total);
+leading output BOM handling and the reader's one terminal newline were checked
+explicitly. This comparison did not normalize combining marks or emoji.
+
+LibreOffice also saved the three rich-format exports as flat ODF and PDF.
+Its flat-ODF styles retained requested Tinos/20-point/bold heading properties,
+Arimo/12-point body and a bold `dependable editing` span. Independent PyMuPDF
+1.26.6 extraction of the LibreOffice PDFs verified a 20.0-point bold serif
+heading, 12.0-point nonbold body, 12.0-point bold emphasis and color `#24211d`.
+Actual installed-font substitution occurred: DOCX/RTF headings used Noto Serif,
+ODT used Liberation Serif, and bodies used Noto Sans. All three samples were one
+page. This establishes these sample properties, not equal font metrics,
+pagination or general Word/ODF/RTF fidelity.
+
+The engine's own outlined PDF was independently accepted as PDF 1.7 by Poppler
+26.05.0, with title `Project notes`, one 612×792-point Letter page, no encryption
+or JavaScript and no tagging. Its 72-DPI raster was inspected and showed the
+intended heading, mixed bold body and monochrome emoji. `pdftotext` returned only
+a page form-feed, confirming the disclosed absence of searchable text. A separate
+four-page PDF/geometry fixture is checked by the optional independent pypdf
+verifier. These tools are test consumers, not shipped conversion dependencies.
+
+The checked-in `export_format` example reproduces the format artifacts using the
+same public adapters; native output uses full `WriterFile` serialization. Exact
+producer/consumer commands and fixture hashes are in
+[`tests/fixtures/formats/README.md`](../tests/fixtures/formats/README.md).
+
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event
 [editcontext]: https://developer.mozilla.org/en-US/docs/Web/API/EditContext

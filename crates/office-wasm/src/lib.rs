@@ -6,6 +6,7 @@
 //! grapheme boundaries; scalar-invalid surrogate positions are rejected.
 
 mod find;
+mod formats;
 mod layout;
 mod operations;
 mod view;
@@ -543,10 +544,12 @@ fn checked_file(
 }
 
 fn validate_source(source: &OriginalSource, document_id: Id) -> Result<(), EngineError> {
-    if source.format() != "docx"
-        || !source
-            .media_type()
-            .eq_ignore_ascii_case(office_docx::DOCX_MEDIA_TYPE)
+    if source.format() != "docx" {
+        return formats::validate_source(source, document_id);
+    }
+    if !source
+        .media_type()
+        .eq_ignore_ascii_case(office_docx::DOCX_MEDIA_TYPE)
     {
         return Err(EngineError::new(
             "unsupported_source",
@@ -776,6 +779,31 @@ mod wasm {
         /// Regenerates DOCX from current supported model values.
         pub fn export_docx(&self) -> Result<Vec<u8>, JsValue> {
             self.inner.export_docx().map_err(js_error)
+        }
+        /// Imports a selected local format; PDF is deliberately export-only.
+        pub fn import_format(&mut self, bytes: &[u8], format: &str, filename: &str) -> String {
+            self.inner.import_format(bytes, format, filename)
+        }
+        /// Reports conversion losses for a revision-guarded Save As operation.
+        pub fn export_assessment(
+            &self,
+            format: &str,
+            expected_revision: Option<String>,
+        ) -> Result<String, JsValue> {
+            self.inner
+                .export_assessment(format, expected_revision.as_deref())
+                .map_err(js_error)
+        }
+        /// Saves the selected format only after its losses are acknowledged.
+        pub fn export_format(
+            &self,
+            format: &str,
+            acknowledge_loss: bool,
+            expected_revision: Option<String>,
+        ) -> Result<Vec<u8>, JsValue> {
+            self.inner
+                .export_format(format, acknowledge_loss, expected_revision.as_deref())
+                .map_err(js_error)
         }
         /// Copies the exact retained original, independently of edited content.
         pub fn export_original(&self) -> Result<Vec<u8>, JsValue> {
