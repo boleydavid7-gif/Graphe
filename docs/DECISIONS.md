@@ -4,6 +4,10 @@ These decisions establish the initial direction. They may be revisited when
 implementation evidence justifies a change; changes should record the reason
 and consequences here.
 
+Entries retain their original milestone context. Decisions 031–033 supersede
+the earlier schema-1/native-format-1-only and conversion-pending statements;
+their historical reasons remain recorded.
+
 ## 001: Use Rust and Cargo for the engine
 
 **Decision:** Use stable Rust with edition 2024 and Cargo workspace management.
@@ -625,3 +629,63 @@ is included in 5A. `DocxSource` preserves the exact original, but does not promi
 post-edit round trips. Limits, dependency rationale and regression corrections
 are specified in [DOCX.md](DOCX.md); extend the profile only with compatibility
 evidence and tests.
+
+## 031: Add generic page properties with strict schema migration
+
+**Decision:** Schema 2 adds format-neutral page size/orientation, margins and
+paragraph page-break-before. Preserve explicit dimensions without implicit
+rotation. Require positive dimensions/body area and nonnegative page margins;
+retain existing signed paragraph indentation. Decode schema 1 through its exact
+historical property shapes, then migrate new values to unspecified.
+
+**Reason:** DOCX conversion needs real shared page semantics before typography
+can consume imported properties. New properties must not silently acquire
+meaning inside legacy payloads or depend on XML/Word structures.
+
+**Consequences:** Legacy IDs, text, optional-value distinctions and order survive.
+Unknown newer fields and duplicate keys remain errors, including direct Serde
+JSON loading. Future versions are rejected. Geometry storage does not implement
+layout, headers/footers or professional pagination. Negative Word top/bottom
+margin overlap remains outside the editable profile.
+
+## 032: Retain originals in a versioned native file outside editing history
+
+**Decision:** Native format 2/schema 2 writes a `WriterFile` with an optional
+format-neutral `OriginalSource`. Its metadata and exact bytes are bounded; bytes
+are immutable shared `Arc` data, encoded as strict padded base64 in JSON. Full-file
+byte and filesystem APIs preserve both document and original. Format 1/schema 1
+loads through the explicit legacy migration. Document-only loading rejects source
+presence rather than dropping it.
+
+**Reason:** Preserving originals before editing must survive save/reopen without
+putting large source blobs into every document/undo snapshot or coupling the
+model to DOCX. Existing document-only APIs remain safe for source-free files.
+
+**Consequences:** Core file/source limits are 32/16 MiB; the browser keeps its
+smaller complete 5 MiB budget. Source format validity belongs to the adapter,
+not the generic record. Old version labels cannot carry newer shapes. Source
+bytes can include text removed by later edits, so native export discloses this.
+An exact original is a backup, not a post-edit fidelity guarantee.
+
+## 033: Gate editable DOCX import on a complete profile and durable local save
+
+**Decision:** `office-docx` returns either a complete supported editable model
+plus original or a preserved read-only source with structured diagnostics. Map
+supported styles/defaults, direct properties, sections and controls deliberately;
+reject ambiguous text whitespace/control interpretations. DOCX export regenerates
+current supported content, while original download returns unchanged bytes.
+Browser import saves a detached candidate's complete native file through IndexedDB
+before replacing the live editor session.
+
+**Reason:** The owner chose original preservation before editing and paused
+Step 6 to finish conversion. A partial projection or failed asynchronous save
+must not replace live work or imply that unknown semantics survived editing.
+
+**Consequences:** Unsupported sources remain recoverable in the read-only dialog
+but are not silently saved in the local library. Storage failures, stale origins
+and invalid imports preserve the prior session/history/dirty state. Native imports
+still use explicit Save. DOCX IDs, exact run partitions and Word style-editing
+intent are not universal round-trip guarantees; Microsoft Word interoperability
+and pagination remain unverified. No other format or typography implementation
+is added. The [profile](DOCX.md), [contract](DOCX_CONVERSION.md) and
+[verification](DOCX_CONVERSION_VERIFICATION.md) define the practical limits.

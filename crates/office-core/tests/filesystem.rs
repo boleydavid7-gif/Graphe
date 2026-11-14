@@ -10,8 +10,10 @@ use std::path::Path;
 
 use office_core::{
     CharacterFormat, Document, DocumentError, DocumentMetadata, DocumentSession, GraphemeOffset,
-    Id, PersistenceError, ReplacementState, StorageError, StorageOperation, TransactionError,
-    ValidationError, deserialize_document, load_document, save_document, serialize_document,
+    Id, MAX_WRITER_FILE_BYTES, OriginalSource, PersistenceError, ReplacementState, SCHEMA_VERSION,
+    StorageError, StorageOperation, TransactionError, ValidationError, WRITER_FORMAT_VERSION,
+    WriterFile, deserialize_document, load_document, load_writer_file, save_document,
+    save_writer_file, serialize_document, serialize_writer_file,
 };
 use serde_json::json;
 
@@ -53,6 +55,193 @@ fn an_empty_document_saves_loads_and_leaves_no_temporary_file() {
     );
     assert_eq!(entries(directory.path()), [OsString::from("empty.writer")]);
     directory.close().unwrap();
+}
+
+fn with_original(document: Document) -> WriterFile {
+    let source = OriginalSource::new(
+        "example",
+        "application/octet-stream",
+        "原稿 — e\u{301}.example",
+        Vec::from(b"Exact original bytes: \0\xff\r\n\x01".as_slice()),
+    )
+    .unwrap();
+    WriterFile::with_original_source(document, source).unwrap()
+}
+
+#[test]
+fn complete_files_preserve_opaque_original_bytes_and_unicode_source_names() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("研究 — café — 📝.writer");
+    let original = with_original(sample());
+
+    save_writer_file(&original, &path).unwrap();
+    let reopened = load_writer_file(&path).unwrap();
+
+    assert_eq!(reopened.document(), original.document());
+    let source = reopened.original_source().unwrap();
+    let expected = original.original_source().unwrap();
+    assert_eq!(source.format(), expected.format());
+    assert_eq!(source.media_type(), expected.media_type());
+    assert_eq!(source.filename(), expected.filename());
+    assert_eq!(source.bytes(), expected.bytes());
+    assert_eq!(
+        fs::read(&path).unwrap(),
+        serialize_writer_file(&original).unwrap()
+    );
+    assert_eq!(entries(directory.path()).len(), 1);
+    directory.close().unwrap();
+}
+
+#[test]
+fn replacing_a_complete_file_updates_document_without_changing_its_original() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("source.writer");
+    let original = with_original(sample());
+    save_writer_file(&original, &path).unwrap();
+    let before = fs::read(&path).unwrap();
+    let document = original.document();
+    let revised = Document::from_parts(
+        document.id().clone(),
+        DocumentMetadata {
+            title: "Revised supported document".into(),
+        },
+        document.sections().to_vec(),
+        document.styles().to_vec(),
+    )
+    .unwrap();
+    let replacement = WriterFile::with_original_source(
+        revised.clone(),
+        original.original_source().unwrap().clone(),
+    )
+    .unwrap();
+
+    save_writer_file(&replacement, &path).unwrap();
+    let reopened = load_writer_file(&path).unwrap();
+
+    assert_eq!(reopened.document(), &revised);
+    assert_eq!(
+        reopened.original_source().unwrap().bytes(),
+        original.original_source().unwrap().bytes()
+    );
+    assert_ne!(fs::read(&path).unwrap(), before);
+    assert_eq!(entries(directory.path()), [OsString::from("source.writer")]);
+}
+
+#[test]
+fn document_only_loading_rejects_a_retained_source_without_modifying_the_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("source.writer");
+    let original = with_original(empty());
+    save_writer_file(&original, &path).unwrap();
+    let before = fs::read(&path).unwrap();
+
+    let error = load_document(&path).unwrap_err();
+
+    assert_eq!(error.replacement_state(), ReplacementState::NotAttempted);
+    assert!(matches!(
+        error,
+        StorageError::Format {
+            path: actual,
+            source: PersistenceError::SourcePresent,
+        } if actual == path
+    ));
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        load_writer_file(&path)
+            .unwrap()
+            .original_source()
+            .unwrap()
+            .bytes(),
+        original.original_source().unwrap().bytes()
+    );
+}
+
+#[test]
+fn complete_file_loading_migrates_legacy_files_without_rewriting_them() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("legacy.writer");
+    fs::write(&path, SAMPLE).unwrap();
+
+    let file = load_writer_file(&path).unwrap();
+
+    assert_eq!(file.document(), &sample());
+    assert!(file.original_source().is_none());
+    assert_eq!(fs::read(&path).unwrap(), SAMPLE);
+    assert_eq!(entries(directory.path()), [OsString::from("legacy.writer")]);
+}
+
+#[test]
+fn a_failed_complete_file_save_preserves_original_and_removes_temporary_files() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("read-only-source.writer");
+    let original = with_original(sample());
+    save_writer_file(&original, &path).unwrap();
+    let before = fs::read(&path).unwrap();
+    let original_permissions = fs::metadata(&path).unwrap().permissions();
+    let mut read_only = original_permissions.clone();
+    read_only.set_readonly(true);
+    fs::set_permissions(&path, read_only).unwrap();
+
+    let result = save_writer_file(&with_original(empty()), &path);
+    fs::set_permissions(&path, original_permissions).unwrap();
+
+    assert!(matches!(
+        result,
+        Err(StorageError::Io {
+            operation: StorageOperation::InspectDestination,
+            replacement: ReplacementState::NotAttempted,
+            cleanup: None,
+            ..
+        })
+    ));
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        load_writer_file(&path)
+            .unwrap()
+            .original_source()
+            .unwrap()
+            .bytes(),
+        original.original_source().unwrap().bytes()
+    );
+    assert_eq!(
+        entries(directory.path()),
+        [OsString::from("read-only-source.writer")]
+    );
+}
+
+#[test]
+fn oversized_native_files_are_rejected_before_unbounded_reads_and_left_untouched() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("oversized.writer");
+    let file = fs::File::create(&path).unwrap();
+    file.set_len(MAX_WRITER_FILE_BYTES as u64 + 1).unwrap();
+    drop(file);
+
+    for error in [
+        load_document(&path).unwrap_err(),
+        load_writer_file(&path).unwrap_err(),
+    ] {
+        assert_eq!(error.replacement_state(), ReplacementState::NotAttempted);
+        assert!(matches!(
+            error,
+            StorageError::Format {
+                path: actual_path,
+                source: PersistenceError::LimitExceeded {
+                    resource: "writer_file_bytes",
+                    limit: MAX_WRITER_FILE_BYTES,
+                    actual,
+                },
+            } if actual_path == path && actual == MAX_WRITER_FILE_BYTES + 1
+        ));
+    }
+    assert_eq!(
+        fs::metadata(&path).unwrap().len(),
+        MAX_WRITER_FILE_BYTES as u64 + 1
+    );
+    assert_eq!(
+        entries(directory.path()),
+        [OsString::from("oversized.writer")]
+    );
 }
 
 #[test]
@@ -278,15 +467,15 @@ fn unsupported_native_and_model_versions_remain_distinct_storage_errors() {
     let path = directory.path().join("future.writer");
     fs::write(
         &path,
-        br#"{"format":"office-writer","format_version":2,"different_payload":true}"#,
+        br#"{"format":"office-writer","format_version":99,"different_payload":true}"#,
     )
     .unwrap();
     assert!(matches!(
         load_document(&path),
         Err(StorageError::Format {
             source: PersistenceError::UnsupportedFormatVersion {
-                found: 2,
-                supported: 1
+                found: 99,
+                supported: WRITER_FORMAT_VERSION
             },
             ..
         })
@@ -300,7 +489,7 @@ fn unsupported_native_and_model_versions_remain_distinct_storage_errors() {
         Err(StorageError::Format {
             source: PersistenceError::Document(DocumentError::UnsupportedSchemaVersion {
                 found: 99,
-                supported: 1,
+                supported: SCHEMA_VERSION,
             }),
             ..
         })

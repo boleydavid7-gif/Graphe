@@ -10,6 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 office-core = { path = "../office-core" }
+office-docx = { path = "../office-docx" }
 serde.workspace = true
 serde_json.workspace = true
 unicode-segmentation.workspace = true

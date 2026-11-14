@@ -4,7 +4,8 @@ use std::cmp::Ordering;
 
 use office_core::{
     Block, CharacterFormat, Document, DocumentMetadata, GraphemeOffset, Id, NamedStyle, OffsetUnit,
-    Paragraph, PositionError, Section, TextCoordinates, TextRun, Utf8Offset, Utf16Offset,
+    Paragraph, PositionError, SCHEMA_VERSION, Section, TextCoordinates, TextRun, Utf8Offset,
+    Utf16Offset,
 };
 
 fn id(value: &str) -> Id {
@@ -639,7 +640,7 @@ fn coordinate_queries_preserve_normalization_runs_and_document_schema() {
     let selection = document.selection(end, start).unwrap();
     selection.ordered_range(&document).unwrap();
     assert_eq!(document.to_json().unwrap(), before);
-    assert_eq!(document.schema_version(), 1);
+    assert_eq!(document.schema_version(), SCHEMA_VERSION);
     let restored = Document::from_json(&before).unwrap();
     assert_eq!(restored, document);
     assert_eq!(

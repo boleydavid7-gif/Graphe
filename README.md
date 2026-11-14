@@ -49,16 +49,20 @@ screenshots of the running application.
 The [pre-merge review](docs/PRE_MERGE_REVIEW.md) supersedes the initial counts
 and lists every completion criterion, corrections, and untested scope.
 
-Step 5A begins DOCX support with a separate `office-docx` adapter: bounded package
-inspection and immutable original-byte retention. It does not yet import editable
-documents, reconstruct/export DOCX, or add browser DOCX controls. Unsupported
-originals must be preserved before editing is enabled. The core model remains
-format-neutral for future adapters; no additional formats are implemented now.
-See [the DOCX scope and API](docs/DOCX.md).
+Step 5 conversion work on `dev/docx-conversion` extends the merged 5A package
+foundation with a declared editable DOCX profile, Rust export, and browser file
+integration. Supported imports retain their exact original in native Writer
+format 2 before editing is activated. Unsupported content remains read-only with
+diagnostics; no partial editable projection is published. The shared model stays
+format-neutral. No other document formats are implemented.
+See [the DOCX profile](docs/DOCX.md), [conversion contract](docs/DOCX_CONVERSION.md)
+and [conversion verification](docs/DOCX_CONVERSION_VERIFICATION.md). This branch
+has not been merged or deployed.
 
-Professional document layout and platform-independent rendering remain future
-work. The browser adapter computes a limited effective display policy for
-existing styles and direct properties; full Word style semantics are not implemented.
+Step 6 is paused while the missing DOCX conversion is completed. Preliminary
+typography research is retained, but no layout engine, font assets or typography
+dependencies have been added. Browser CSS presentation does not provide Word
+pagination or platform-independent layout.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -175,19 +179,32 @@ document revision is still current.
 Opening or importing is guarded against unsaved replacement and against edits
 made while the asynchronous read is pending. Rust validates the native bytes
 before replacing the active session; local records also require matching document
-identity. Failures retain the live document and unsaved state. An imported document
-is not automatically associated with an existing saved record. Save conflicts
+identity. Failures retain the live document and unsaved state. A native imported
+document is not automatically associated with an existing saved record. Save conflicts
 offer a separate copy with a new document identity. Export downloads native bytes
 without replacing the local save or clearing the need to save.
 Damaged library records are reported individually while healthy documents remain
 openable; no damaged record is silently repaired or deleted. Save failures are
 announced inside the unsaved-changes dialog when it is open.
 
+Open also accepts `.docx`. Rust checks the complete declared profile in a
+detached candidate. A supported import is activated only after IndexedDB has
+saved its full native file, including the unchanged original. Storage failure
+or a changed originating session preserves the previous live work. Unsupported
+DOCX content opens a diagnostic dialog with the original available for download;
+it is not saved in the local library or made editable.
+
+**Export Word** regenerates current supported content. **Download original**
+returns the exact imported file. A native `.writer` export retains that original,
+which can contain text or metadata removed by later edits; the interface discloses
+this before exporting the source-bearing file. Native save/reopen preserves the
+original independently of undo/redo.
+
 The browser adapter applies these prototype resource limits:
 
 | Resource | Limit |
 | --- | --- |
-| Native input/output bytes | 5 MiB |
+| Browser file input/output, including native source/base64 overhead | 5 MiB |
 | Paragraph text | 200,000 UTF-16 code units in total |
 | Paragraphs and sections | 2,000 each |
 | Text runs | 20,000 |
@@ -206,7 +223,8 @@ During IME composition, browser DOM is a transient buffer; Rust commits the fina
 replacement once. Synthetic browser tests do not certify every operating-system
 IME, candidate window, dictation system, or assistive technology. Keyboard and
 semantic checks do not constitute accessibility certification. There is no
-autosave, cloud service, synchronization, DOCX support, or custom page layout.
+autosave, cloud service, synchronization, or custom page layout. DOCX conversion
+supports the bounded profile documented below; it does not render every Word feature.
 
 The engineering rules in [AGENTS.md](AGENTS.md), primary-source research and
 retrospective findings in [RESEARCH.md](docs/RESEARCH.md), and accepted
@@ -216,8 +234,9 @@ Step 5 scope and preservation policy are recorded in [DOCX.md](docs/DOCX.md).
 `apps/writer/cloudflare.config.ts.example` is inert preparation for a separate
 assets-only Worker. It attaches no routes or domains, disables workers.dev and
 preview URLs, and changes no live access restrictions. `writer.proairetos.com`
-is the permanent intended public address; the service remains undeployed. No deployment is authorized
-by generating the frontend build or committing this example.
+is the permanent intended public address; live routing and private-access
+protection remain independently unverified. Generating a build or committing
+this example does not authorize deployment.
 
 Cloudflare Workers Builds does not guarantee the Rust/WASM tools required by the
 ordinary build; the supplied environment lacked wasm-bindgen. Use the researched,
@@ -256,7 +275,7 @@ Use `Document::new(id)` for an empty document. Inspection methods return shared
 references and ordered slices. See [the architecture document](docs/ARCHITECTURE.md)
 for the schema contract, validation rules, Unicode position conventions, and compatibility
 limitations. A [sample Writer document](tests/fixtures/writer-sample-v1.json)
-demonstrates schema version 1.
+demonstrates legacy schema 1 and is migrated explicitly into current schema 2.
 
 ## Positions and selections
 
@@ -334,7 +353,7 @@ revision: pairing an old position with a fresh token does not make it current.
 Changed commits invalidate all earlier tokens, even for unchanged paragraphs;
 no-op commits preserve them. There is no automatic rebasing or affinity policy.
 
-Session revisions are runtime state, separate from document schema version 1.
+Session revisions are runtime state, separate from document schema versions.
 The token includes opaque session identity, so equal counter numbers in different
 sessions do not identify the same revision. Transactions provide in-memory
 publication through an exclusive Rust borrow; they do not provide durable
@@ -419,9 +438,11 @@ there is no automatic typing coalescing or grouping beyond a transaction.
 ## Native document persistence
 
 `.writer` is a provisional internal UTF-8 JSON format whose specification may
-evolve before public release. A versioned envelope identifies `office-writer`,
-sets `format_version` to `1`, and contains the existing schema-1 document.
-Native format version, model schema version, and engine version are independent.
+evolve before public release. The current envelope identifies `office-writer`,
+sets `format_version` to `2`, and contains a schema-2 document plus an optional
+original-source record. Model schema, native format, and engine versions are
+independent. Legacy native format 1/schema 1 is read through a strict migration;
+new fields are not accepted under the older version labels.
 
 The byte API has no filesystem dependency:
 
@@ -451,6 +472,18 @@ fn save_and_reopen(
 }
 ```
 
+Use `WriterFile`, `serialize_writer_file` and `deserialize_writer_file` for a
+document with an optional `OriginalSource`; native targets also expose
+`save_writer_file` and `load_writer_file`. Original bytes are immutable and shared
+through `Arc`, outside the model and undo snapshots. Document-only loaders return
+`PersistenceError::SourcePresent` for source-bearing files instead of losing the
+original. Core serialization does not interpret an original's foreign format;
+the corresponding adapter validates its contents before editable use.
+
+The core file budget is 32 MiB, with at most 16 MiB of original bytes, strict
+standard padded base64, and bounded source identification. Browser limits are
+smaller: the complete file, including retained source encoding, must fit 5 MiB.
+
 Saving validates and serializes completely before creating a unique temporary
 file in the destination directory. It writes, flushes, and synchronizes that file,
 then replaces the destination without deleting the old document first. On Unix,
@@ -479,17 +512,39 @@ opening the returned document in a new session starts a fresh lineage and histor
 See [architecture](docs/ARCHITECTURE.md#native-writer-persistence-step-4) for the
 format specification, safe-save limits, and migration policy, and the
 [native sample](tests/fixtures/native/writer-v1.writer) for a realistic document.
-The browser prototype uses the same byte API with IndexedDB. Native filesystem
-replacement guarantees do not transfer to browser storage. Autosave and DOCX
-conversion are not implemented.
+The browser prototype uses the full-file byte API with IndexedDB. Native
+filesystem replacement guarantees do not transfer to browser storage. Autosave
+is not implemented.
+
+## DOCX conversion
+
+`office_docx::import_docx(bytes, document_id)` returns either an `Editable`
+`ImportedDocx` containing the complete supported model and original, or
+`Preserved` containing the intact source and structured compatibility report.
+`export_docx(&Document)` regenerates the supported DOCX profile in Rust.
+
+The profile covers paragraphs, runs, supported paragraph styles/defaults and
+inheritance, direct formatting, spacing/indentation, section page geometry,
+page-break-before, soft line breaks and tabs. Tables, images, fields, links,
+numbering, revisions, headers/footers, theme/script-specific font differences
+and unknown semantic properties remain read-only. Ambiguous text whitespace or
+literal CR/LF/TAB in Word text elements is reported rather than silently trimmed
+or approximated. See [DOCX.md](docs/DOCX.md) for precise restrictions.
+
+DOCX semantic round trips do not promise arbitrary native ID preservation, exact
+run partitions or identical future Word style-editing behavior. Originals remain
+recoverable; exported DOCX represents current supported content. LibreOffice
+reference checks cover the tested subset, and Microsoft Word interoperability
+remains untested. Exact commands and results belong in the
+[conversion verification report](docs/DOCX_CONVERSION_VERIFICATION.md).
 
 ## Repository
 
 - `crates/office-core/` contains the interface-independent engine and persistence.
 - `crates/office-wasm/` owns the browser session, command transport, Unicode
   selection affinity, and effective presentation values.
-- `crates/office-docx/` owns DOCX package inspection and exact original-source
-  retention; later semantic import/export belongs at this format boundary.
+- `crates/office-docx/` owns DOCX package inspection, declared semantic conversion,
+  compatibility diagnostics and exact original-source retention.
 - `apps/writer/` contains the React/TypeScript prototype, build tooling, and
   frontend/browser tests.
 - `docs/ARCHITECTURE.md` describes long-term boundaries and principles.

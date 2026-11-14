@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { EngineClient } from './engine';
+import { EngineClient, EngineError } from './engine';
 import { EditorSurface, type EditorSurfaceHandle } from './EditorSurface';
 import { StorageError, WriterStorage, type StoredDocument } from './storage';
-import type { Alignment, WriterCommand, WriterView } from './types';
+import type { Alignment, CompatibilityReport, WriterCommand, WriterView } from './types';
 import './styles.css';
 
 function message(error: unknown): string {
@@ -41,6 +41,24 @@ function AlignmentIcon({ alignment }: { alignment: Alignment }) {
 
 type LibraryEntry = Pick<StoredDocument, 'id' | 'title' | 'etag' | 'updatedAt'>;
 type Association = { sessionId: string; id: string; etag: string };
+type PreservedImport = { file: File; message: string; report: CompatibilityReport | undefined };
+
+const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+function download(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function safeFilename(title: string, extension: string): string {
+  const name = [...(title.trim() || 'Untitled document')]
+    .map((character) => character.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(character) ? '_' : character).join('').slice(0, 100);
+  return `${name}.${extension}`;
+}
 
 export default function App() {
   const engine = useRef<EngineClient | null>(null);
@@ -49,6 +67,7 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const viewRef = useRef<WriterView | null>(null);
   const dirtyRef = useRef(false);
+  const documentOpenRef = useRef(true);
   const association = useRef<Association | null>(null);
   const pending = useRef<(() => void | Promise<void>) | null>(null);
   const [view, setView] = useState<WriterView | null>(null);
@@ -65,6 +84,8 @@ export default function App() {
   const [libraryProblems, setLibraryProblems] = useState<readonly { message: string; id?: string }[]>([]);
   const [unsavedDialog, setUnsavedDialog] = useState(false);
   const [saveConflict, setSaveConflict] = useState(false);
+  const [exportDisclosure, setExportDisclosure] = useState(false);
+  const [preservedImport, setPreservedImport] = useState<PreservedImport | null>(null);
 
   function setDirty(value: boolean) {
     dirtyRef.current = value;
@@ -94,6 +115,7 @@ export default function App() {
     });
     return () => {
       canceled = true;
+      engine.current?.dispose();
       client?.dispose();
       engine.current = null;
       localStore.close();
@@ -126,6 +148,7 @@ export default function App() {
     setSavedLocally(source !== null);
     updateView(next, false);
     setDirty(false);
+    documentOpenRef.current = true;
     setDocumentOpen(true);
     setSaveConflict(false);
     setError('');
@@ -226,41 +249,98 @@ export default function App() {
 
   function importFile(file: File) {
     guardReplacement(async () => {
-      if (!engine.current) return;
+      const active = engine.current;
+      const local = storage.current;
+      if (!active) return;
       const origin = viewRef.current;
-      setBusy(true);
-      setOpening(true);
-      try {
-        if (file.size > 5 * 1024 * 1024) throw new Error('This prototype opens Writer files up to 5 MiB.');
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        if (viewRef.current?.revision !== origin?.revision || viewRef.current?.sessionId !== origin?.sessionId) {
+      const wasOpen = documentOpenRef.current;
+      const isDocx = /\.docx$/i.test(file.name) || file.type === DOCX_MEDIA_TYPE;
+      let candidate: EngineClient | null = null;
+      const checkOrigin = () => {
+        if (engine.current !== active || documentOpenRef.current !== wasOpen
+          || viewRef.current?.revision !== origin?.revision || viewRef.current?.sessionId !== origin?.sessionId) {
           throw new Error('Your document changed while importing. Try again after saving your changes.');
         }
-        const next = engine.current.open(bytes);
-        replaceSession(next, null, 'Imported Writer file. Save a local copy to keep it on this device.');
-      } catch (failure) { setError(`Could not open this file. ${message(failure)}`); }
-      finally { setBusy(false); setOpening(false); }
+      };
+      setBusy(true);
+      setOpening(true);
+      setError('');
+      try {
+        if (file.size > 5 * 1024 * 1024) throw new Error('This prototype opens files up to 5 MiB, including retained originals.');
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        checkOrigin();
+        if (isDocx) {
+          if (!local) throw new Error('Local storage is required to preserve the original before editing a DOCX.');
+          candidate = await EngineClient.create();
+          checkOrigin();
+          const next = candidate.importDocx(bytes, file.name);
+          const native = candidate.serialize();
+          // A supported import is not activated until the native document and
+          // exact original have completed one existing IndexedDB transaction.
+          const saved = await local.save({ id: next.documentId, title: next.title, bytes: native }, null);
+          checkOrigin();
+          engine.current = candidate;
+          candidate = null;
+          replaceSession(next, { sessionId: next.sessionId, id: saved.id, etag: saved.etag },
+            'DOCX imported. The document and its exact original are saved on this device.');
+          active.dispose();
+        } else {
+          const next = active.open(bytes);
+          replaceSession(next, null, 'Imported Writer file. Save a local copy to keep it on this device.');
+        }
+      } catch (failure) {
+        if (isDocx && failure instanceof EngineError && failure.code === 'unsupported_docx') {
+          setPreservedImport({ file, message: failure.message, report: failure.compatibility });
+          setLibrary(null);
+        } else setError(`Could not open this file. ${message(failure)}`);
+      } finally {
+        candidate?.dispose();
+        setBusy(false);
+        setOpening(false);
+      }
     });
   }
 
-  function exportFile() {
+  function exportWriterFile() {
     if (!engine.current || !viewRef.current || !documentOpen || composing) return;
     try {
       const bytes = engine.current.serialize();
-      const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: 'application/json;charset=utf-8' }));
-      const link = document.createElement('a');
-      link.href = url;
-      const filename = [...(viewRef.current.title.trim() || 'Untitled document')]
-        .map((character) => character.charCodeAt(0) < 32 || '\\/:*?"<>|'.includes(character) ? '_' : character).join('').slice(0, 100);
-      link.download = `${filename}.writer`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      download(new Blob([bytes.slice().buffer], { type: 'application/json;charset=utf-8' }), safeFilename(viewRef.current.title, 'writer'));
+      setExportDisclosure(false);
       setNotice('Writer file exported. Export does not replace your local save.');
+    } catch (failure) { setError(message(failure)); }
+  }
+
+  function exportFile() {
+    if (viewRef.current?.originalSource) {
+      setError('');
+      setExportDisclosure(true);
+    }
+    else exportWriterFile();
+  }
+
+  function exportWordFile() {
+    if (!engine.current || !viewRef.current || !documentOpen || composing) return;
+    try {
+      const bytes = engine.current.exportDocx();
+      download(new Blob([bytes.slice().buffer], { type: DOCX_MEDIA_TYPE }), safeFilename(viewRef.current.title, 'docx'));
+      setNotice('Word file exported from current supported content. Export does not replace your local save.');
+    } catch (failure) { setError(message(failure)); }
+  }
+
+  function downloadOriginal() {
+    const source = viewRef.current?.originalSource;
+    if (!engine.current || !source || !documentOpen || composing) return;
+    try {
+      const bytes = engine.current.exportOriginal();
+      download(new Blob([bytes.slice().buffer], { type: DOCX_MEDIA_TYPE }), source.filename);
+      setNotice('Exact original downloaded. Later edits are available in Writer and Word exports.');
     } catch (failure) { setError(message(failure)); }
   }
 
   function closeDocument() {
     guardReplacement(() => {
+      documentOpenRef.current = false;
       setDocumentOpen(false);
       setDirty(false);
       setNotice('Document closed');
@@ -312,6 +392,8 @@ export default function App() {
         <button aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)" disabled={unavailable || !view?.canRedo}
           onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'redo' })}>↷</button>
         <button className="secondary-file-action" disabled={unavailable} onClick={exportFile}>Export</button>
+        <button className="secondary-file-action" disabled={unavailable} onClick={exportWordFile}>Export Word</button>
+        {view?.originalSource && <button className="secondary-file-action" disabled={unavailable} onClick={downloadOriginal}>Download original</button>}
         <button className="secondary-file-action" disabled={unavailable} onClick={closeDocument}>Close</button>
       </nav>
     </header>
@@ -366,7 +448,7 @@ export default function App() {
     <footer className="status-bar"><span>{documentOpen && view ? `${view.wordCount.toLocaleString()} ${view.wordCount === 1 ? 'word' : 'words'}` : 'Writer'}</span>
       <span role="status" className="status-message">{notice || 'Your work stays in this browser. Export a file for a backup.'}</span>
       <span className="privacy-badge">Local document</span></footer>
-    <input ref={fileInput} type="file" accept=".writer,application/json" className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
+    <input ref={fileInput} type="file" accept={`.writer,.docx,application/json,${DOCX_MEDIA_TYPE}`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
     {library !== null && <Dialog title="Open document" onClose={() => setLibrary(null)} busy={busy}>
       <p className="dialog-description">Documents saved in this browser on this device.</p>
@@ -378,7 +460,23 @@ export default function App() {
       <div className="document-library">{library.length === 0 ? <p>{libraryProblems.length ? 'No readable saved documents.' : 'No saved documents yet.'}</p> : library.map((entry) => <button className="library-entry" key={entry.id} disabled={busy}
         onClick={() => openSaved(entry.id)}><span>{entry.title || 'Untitled document'}</span><time dateTime={new Date(entry.updatedAt).toISOString()}>{new Date(entry.updatedAt).toLocaleString()}</time></button>)}</div>
       <p className="storage-note">Browser storage can be cleared or evicted. Keep exported .writer files as backups.</p>
-      <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Import .writer file</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
+      <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Import .writer or .docx file</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
+    </Dialog>}
+    {exportDisclosure && <Dialog title="Export Writer file" onClose={() => setExportDisclosure(false)}>
+      <p>This Writer file includes the preserved original DOCX, {view?.originalSource?.filename}.</p>
+      <p>The original may contain text or metadata removed from your edited document. Share a Word export when you need only current supported content.</p>
+      {error && <div className="dialog-error" role="alert">{error}</div>}
+      <div className="dialog-actions"><button onClick={() => setExportDisclosure(false)}>Cancel</button>
+        <button className="primary-button" onClick={exportWriterFile}>Download Writer file</button></div>
+    </Dialog>}
+    {preservedImport && <Dialog title="DOCX preserved read-only" onClose={() => setPreservedImport(null)}>
+      <p>{preservedImport.message}</p>
+      <p>Your current document is unchanged. The original bytes remain available here for download. This read-only source has not been saved in the local document library.</p>
+      <ul className="compatibility-issues">{preservedImport.report?.diagnostics.map((issue, index) =>
+        <li key={index}><strong>{issue.part}: {issue.path}</strong><span>{issue.message}</span></li>)}</ul>
+      {!!preservedImport.report?.omittedDiagnostics && <p>{preservedImport.report.omittedDiagnostics} additional issues were omitted from this bounded report.</p>}
+      <div className="dialog-actions"><button onClick={() => download(preservedImport.file, preservedImport.file.name)}>Download original DOCX</button>
+        <button className="primary-button" onClick={() => setPreservedImport(null)}>Close</button></div>
     </Dialog>}
     {unsavedDialog && <Dialog title="Save your changes?" onClose={() => { pending.current = null; setUnsavedDialog(false); }} busy={busy}>
       <p>Save this document before continuing. Unsaved changes will be lost if you discard them.</p>

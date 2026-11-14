@@ -46,11 +46,23 @@ and explicit approvals govern the task's scope.
 - Use Rust's pinned grapheme rules and explicit UTF-8/UTF-16 conversions. Do not
   substitute JavaScript string length or a different segmenter for engine offsets.
 - Keep unsaved Rust state intact on input, import, or storage failure.
-- Step 5 is authorized for DOCX work only. Keep file-format structures and
-  dependencies in their adapters, outside the shared semantic model. Preserve
-  unsupported originals before enabling editing; retained bytes alone do not
-  establish fidelity after edits. Other formats, merges and deployments require
-  separate authorization.
+- Complete the missing Step 5 DOCX conversion on `dev/docx-conversion` before
+  resuming Step 6, as explicitly directed by the owner. Typography research is
+  retained; no layout engine or font dependency belongs to this conversion work.
+- Keep file-format structures and parser dependencies in their adapters. Generic
+  page geometry and native source records must not introduce DOCX structures
+  into the shared semantic model or copy source bytes into undo snapshots.
+- Editable DOCX import requires a complete supported projection and persistence
+  of its exact original before browser editing is activated. Unsupported content
+  stays preserved read-only with diagnostics; do not publish lossy editable copies.
+- Use full `WriterFile` APIs when source state is present. Document-only loaders
+  must reject source loss. Preserve strict legacy decoding and explicit migrations;
+  do not accept newer fields under old schema/envelope version labels.
+- Distinguish current-content DOCX export from original download. Disclose that a
+  source-bearing native file may contain text removed from the edited document.
+- Other formats, merges and deployments require separate authorization. Step 6
+  remains requested, with DOCX completion as its prerequisite. Do not infer Word
+  fidelity from self-roundtrips or library probes.
 
 ## Required engine checks
 

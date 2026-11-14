@@ -1,7 +1,17 @@
 # Step 5 — DOCX compatibility
 
-Step 5 began on 2026-11-14 with explicit user authorization. Work is on
-`dev/docx-package-foundation`; no merge or deployment is authorized by this step.
+**Current conversion implementation:** [DOCX_CONVERSION.md](DOCX_CONVERSION.md)
+describes semantic import/export, strict editable-versus-preserved outcomes,
+schema/native format 2, browser integration, and the compatibility profile.
+[DOCX_CONVERSION_VERIFICATION.md](DOCX_CONVERSION_VERIFICATION.md) records the
+executed final checks. The sections below retain the Step 5A package-foundation
+research and limits; statements restricting 5A to inspection describe that
+original subphase, not the complete adapter's current capabilities.
+
+Step 5 began on 2026-11-14 with explicit user authorization. The approved
+package foundation was merged through PR #9 at `a504e2f`. Semantic conversion
+is developed on `dev/docx-conversion` after the owner paused Step 6 to complete
+this prerequisite. No new merge or deployment is authorized by this work.
 This plan records the researched scope before adding format behavior.
 
 ## Independently testable sequence

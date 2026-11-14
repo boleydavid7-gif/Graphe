@@ -36,10 +36,10 @@ struct ContentTypes {
     overrides: BTreeMap<String, String>,
 }
 
-struct Relationship {
-    relationship_type: String,
-    target: String,
-    external: bool,
+pub(crate) struct Relationship {
+    pub(crate) relationship_type: String,
+    pub(crate) target: String,
+    pub(crate) external: bool,
 }
 
 pub(crate) fn inspect_package(package: &Package) -> Result<DocxInspection, DocxError> {
@@ -306,7 +306,7 @@ fn validate_content_type(value: &str) -> Result<(), DocxError> {
     Ok(())
 }
 
-fn relationship_source(name: &str) -> Result<Option<String>, DocxError> {
+pub(crate) fn relationship_source(name: &str) -> Result<Option<String>, DocxError> {
     if name == ROOT_RELATIONSHIPS {
         return Ok(None);
     }
@@ -338,7 +338,10 @@ fn relationship_source(name: &str) -> Result<Option<String>, DocxError> {
     Ok(Some(source))
 }
 
-fn parse_relationships(part: &str, bytes: &[u8]) -> Result<Vec<Relationship>, DocxError> {
+pub(crate) fn parse_relationships(
+    part: &str,
+    bytes: &[u8],
+) -> Result<Vec<Relationship>, DocxError> {
     let document = parse_xml(part, bytes)?;
     let root = require_root(&document, part, RELATIONSHIP_NAMESPACE, "Relationships")?;
     check_attributes(root, part, &[])?;
@@ -459,7 +462,11 @@ fn validate_uri_reference(value: &str, absolute: bool, part: &str) -> Result<(),
     Ok(())
 }
 
-fn resolve_target(source: Option<&str>, target: &str, part: &str) -> Result<String, DocxError> {
+pub(crate) fn resolve_target(
+    source: Option<&str>,
+    target: &str,
+    part: &str,
+) -> Result<String, DocxError> {
     if !target.is_ascii() || target.starts_with("//") || target.contains(['%', '?', '#', ':', '\\'])
     {
         return Err(unsupported(

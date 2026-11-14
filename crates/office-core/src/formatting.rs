@@ -26,6 +26,87 @@ pub struct HalfPoints(
     pub u32,
 );
 
+/// The requested physical orientation of a page, independent of its dimensions.
+///
+/// Importers preserve this explicit value without swapping width and height.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PageOrientation {
+    /// Portrait printing orientation.
+    Portrait,
+    /// Landscape printing orientation.
+    Landscape,
+}
+
+/// Explicit physical page dimensions, measured in twips.
+///
+/// Width and height must both be positive. Orientation is preserved separately;
+/// it never changes or implicitly rotates these dimensions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PageSize {
+    /// Physical page width, greater than zero.
+    pub width: Twips,
+    /// Physical page height, greater than zero.
+    pub height: Twips,
+    /// Optional explicit printing orientation.
+    pub orientation: Option<PageOrientation>,
+}
+
+impl PageSize {
+    pub(crate) fn validate(&self, path: &str) -> Result<(), ValidationError> {
+        for (field, value) in [("width", self.width), ("height", self.height)] {
+            if value.0 <= 0 {
+                return Err(invalid(path, field, "page dimension must be positive"));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Explicit page margins and header/footer offsets, measured in twips.
+///
+/// All values must be nonnegative in this initial geometry profile. Negative
+/// source top/bottom margins have distinct overlap semantics and require an
+/// unsupported-content diagnostic at a format adapter, rather than clamping.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PageMargins {
+    /// Distance from the physical top edge to the body text area.
+    pub top: Twips,
+    /// Distance from the physical right edge to the body text area.
+    pub right: Twips,
+    /// Distance from the physical bottom edge to the body text area.
+    pub bottom: Twips,
+    /// Distance from the physical left edge to the body text area.
+    pub left: Twips,
+    /// Distance from the top edge to header content, when supported.
+    pub header: Twips,
+    /// Distance from the bottom edge to footer content, when supported.
+    pub footer: Twips,
+    /// Additional binding margin, reducing the body's horizontal usable area.
+    pub gutter: Twips,
+}
+
+impl PageMargins {
+    pub(crate) fn validate(&self, path: &str) -> Result<(), ValidationError> {
+        for (field, value) in [
+            ("top", self.top),
+            ("right", self.right),
+            ("bottom", self.bottom),
+            ("left", self.left),
+            ("header", self.header),
+            ("footer", self.footer),
+            ("gutter", self.gutter),
+        ] {
+            if value.0 < 0 {
+                return Err(invalid(path, field, "page margin must be nonnegative"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// An explicitly selected underline treatment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -172,6 +253,8 @@ pub struct ParagraphFormat {
     pub line_spacing: Option<LineSpacing>,
     /// Explicit indentation offsets.
     pub indentation: Option<Indentation>,
+    /// Request or explicitly disable a page break before this paragraph.
+    pub page_break_before: Option<bool>,
 }
 
 impl ParagraphFormat {

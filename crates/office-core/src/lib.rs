@@ -42,6 +42,7 @@ mod document;
 mod edit_ops;
 mod editing;
 mod error;
+mod file;
 #[cfg(not(target_arch = "wasm32"))]
 mod filesystem;
 mod format_patch;
@@ -59,19 +60,24 @@ pub use document::{
 };
 pub use editing::{EditError, EditPosition, EditSelection};
 pub use error::{DocumentError, ValidationError};
+pub use file::{
+    MAX_ORIGINAL_SOURCE_BYTES, MAX_SOURCE_FILENAME_BYTES, MAX_SOURCE_FORMAT_BYTES,
+    MAX_SOURCE_MEDIA_TYPE_BYTES, OriginalSource, WriterFile,
+};
 #[cfg(not(target_arch = "wasm32"))]
 pub use filesystem::{
     ReplacementState, StorageError, StorageOperation, TemporaryCleanupError, load_document,
-    save_document,
+    load_writer_file, save_document, save_writer_file,
 };
 pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, PropertyChange};
 pub use formatting::{
-    Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, ParagraphFormat, TextColor,
-    Twips, Underline,
+    Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, PageMargins, PageOrientation,
+    PageSize, ParagraphFormat, TextColor, Twips, Underline,
 };
 pub use persistence::{
-    PersistenceError, WRITER_EXTENSION, WRITER_FORMAT_NAME, WRITER_FORMAT_VERSION,
-    deserialize_document, serialize_document,
+    MAX_WRITER_FILE_BYTES, PersistenceError, WRITER_EXTENSION, WRITER_FORMAT_NAME,
+    WRITER_FORMAT_VERSION, deserialize_document, deserialize_writer_file, serialize_document,
+    serialize_writer_file,
 };
 pub use position::{DocumentPosition, OffsetUnit, PositionError, Selection};
 pub use transaction::{

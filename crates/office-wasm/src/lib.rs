@@ -10,12 +10,14 @@ mod view;
 mod wire;
 
 use office_core::{
-    Block, CharacterFormat, Document, DocumentSession, Id, Paragraph, Section, Transaction,
-    deserialize_document, serialize_document,
+    Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, Paragraph, Section,
+    Transaction, WriterFile, deserialize_writer_file, serialize_document, serialize_writer_file,
 };
+use office_docx::{CompatibilityReport, DocxImportOutcome};
 use serde::Serialize;
 use unicode_segmentation::UnicodeSegmentation;
 use wire::{BrowserSelection, Command, Point, View};
+pub use wire::{CompatibilityDiagnosticView, CompatibilityReportView};
 
 /// Maximum native input/output size accepted by the first browser prototype.
 pub const MAX_DOCUMENT_BYTES: usize = 5 * 1024 * 1024;
@@ -30,6 +32,9 @@ pub struct EngineError {
     pub code: String,
     /// Human-readable diagnostic, without changing the active document.
     pub message: String,
+    /// Bounded compatibility details when a source cannot be edited safely.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compatibility: Option<wire::CompatibilityReportView>,
 }
 
 impl EngineError {
@@ -37,6 +42,7 @@ impl EngineError {
         Self {
             code: code.into(),
             message: message.into(),
+            compatibility: None,
         }
     }
 }
@@ -56,6 +62,7 @@ convert_error!(office_core::EditError, "invalid_edit");
 convert_error!(office_core::TransactionError, "transaction_rejected");
 convert_error!(office_core::HistoryError, "history_unavailable");
 convert_error!(office_core::PersistenceError, "invalid_file");
+convert_error!(office_docx::ConversionError, "invalid_docx");
 
 #[derive(Clone)]
 struct CursorHistory {
@@ -77,6 +84,8 @@ pub struct BrowserEngine {
     typing: Option<CharacterFormat>,
     undo_cursor: Vec<CursorHistory>,
     redo_cursor: Vec<CursorHistory>,
+    original_source: Option<OriginalSource>,
+    source_overhead: usize,
 }
 
 impl BrowserEngine {
@@ -99,6 +108,8 @@ impl BrowserEngine {
             typing: None,
             undo_cursor: Vec::new(),
             redo_cursor: Vec::new(),
+            original_source: None,
+            source_overhead: 0,
         };
         engine.new_document()?;
         Ok(engine)
@@ -126,7 +137,61 @@ impl BrowserEngine {
 
     /// Serializes an owned native Writer byte snapshot, without browser storage.
     pub fn export_document(&self) -> Result<Vec<u8>, EngineError> {
-        checked_document(self.session.document())
+        self.check_candidate(self.session.document())?;
+        let (bytes, _) = checked_file(self.session.document(), self.original_source.clone())?;
+        Ok(bytes)
+    }
+
+    /// Imports a complete supported DOCX; unsupported content leaves the session intact.
+    ///
+    /// Browser callers must use a detached candidate and save its source-bearing
+    /// native bytes before activating it for editing.
+    pub fn import_docx(&mut self, bytes: &[u8], filename: &str) -> String {
+        let result = self.import_word(bytes, filename);
+        self.response(result)
+    }
+
+    fn import_word(&mut self, bytes: &[u8], filename: &str) -> Result<(), EngineError> {
+        if bytes.len() > MAX_DOCUMENT_BYTES {
+            return Err(limit_error());
+        }
+        let document_id = self.allocate_id()?;
+        let imported = match office_docx::import_docx(bytes, document_id)? {
+            DocxImportOutcome::Editable(imported) => imported,
+            DocxImportOutcome::Preserved { report, .. } => return Err(unsupported_docx(report)),
+        };
+        let (document, source) = imported.into_parts();
+        let original = OriginalSource::new(
+            "docx",
+            office_docx::DOCX_MEDIA_TYPE,
+            filename,
+            source.into_original_bytes(),
+        )?;
+        let (_, overhead) = checked_file(&document, Some(original.clone()))?;
+        self.replace_session(document)?;
+        self.original_source = Some(original);
+        self.source_overhead = overhead;
+        Ok(())
+    }
+
+    /// Regenerates DOCX from current supported content, independently of its original.
+    pub fn export_docx(&self) -> Result<Vec<u8>, EngineError> {
+        self.check_candidate(self.session.document())?;
+        let bytes = office_docx::export_docx(self.session.document())?;
+        if bytes.len() > MAX_DOCUMENT_BYTES {
+            return Err(limit_error());
+        }
+        Ok(bytes)
+    }
+
+    /// Returns exact retained source bytes, including content removed by later edits.
+    pub fn export_original(&self) -> Result<Vec<u8>, EngineError> {
+        self.original_source
+            .as_ref()
+            .map(|source| source.bytes().to_vec())
+            .ok_or_else(|| {
+                EngineError::new("no_original", "This document has no retained original.")
+            })
     }
 
     /// Validates native bytes completely before replacing the active session.
@@ -149,28 +214,35 @@ impl BrowserEngine {
         if bytes.len() > MAX_DOCUMENT_BYTES {
             return Err(limit_error());
         }
-        let document = deserialize_document(bytes)?;
+        let file = deserialize_writer_file(bytes)?;
+        let (document, original) = file.into_parts();
         if expected_id.is_some_and(|id| document.id().as_str() != id) {
             return Err(EngineError::new(
                 "document_mismatch",
                 "Stored document identity does not match its contents.",
             ));
         }
-        checked_document(&document)?;
-        self.replace_session(document)
+        if let Some(source) = &original {
+            validate_source(source, document.id().clone())?;
+        }
+        let (_, overhead) = checked_file(&document, original.clone())?;
+        self.replace_session(document)?;
+        self.original_source = original;
+        self.source_overhead = overhead;
+        Ok(())
     }
 
     fn response(&self, result: Result<(), EngineError>) -> String {
         #[derive(Serialize)]
         #[serde(untagged)]
         enum Response {
-            Success { ok: bool, view: View },
+            Success { ok: bool, view: Box<View> },
             Failure { ok: bool, error: EngineError },
         }
         let response = match result {
             Ok(()) => Response::Success {
                 ok: true,
-                view: self.make_view(),
+                view: Box::new(self.make_view()),
             },
             Err(error) => Response::Failure { ok: false, error },
         };
@@ -202,7 +274,7 @@ impl BrowserEngine {
                     document.sections().to_vec(),
                     document.styles().to_vec(),
                 )?;
-                checked_document(&document)?;
+                self.check_candidate(&document)?;
                 self.replace_session(document)
             }
             Command::SetSelection {
@@ -292,7 +364,10 @@ impl BrowserEngine {
             )],
             vec![],
         )?;
-        self.replace_session(document)
+        self.replace_session(document)?;
+        self.original_source = None;
+        self.source_overhead = 0;
+        Ok(())
     }
 
     fn replace_session(&mut self, document: Document) -> Result<(), EngineError> {
@@ -349,7 +424,7 @@ impl BrowserEngine {
         after: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
         let candidate = transaction_document(&transaction)?;
-        checked_document(&candidate)?;
+        self.check_candidate(&candidate)?;
         let outcome = self.session.commit(transaction)?;
         if outcome.changed() {
             self.undo_cursor.push(CursorHistory {
@@ -400,7 +475,80 @@ impl BrowserEngine {
             can_undo: self.session.can_undo(),
             can_redo: self.session.can_redo(),
             word_count,
+            original_source: self
+                .original_source
+                .as_ref()
+                .map(|source| wire::OriginalSourceView {
+                    format: source.format().into(),
+                    filename: source.filename().into(),
+                    byte_length: source.bytes().len(),
+                }),
         }
+    }
+
+    fn check_candidate(&self, document: &Document) -> Result<(), EngineError> {
+        let bytes = checked_document(document)?;
+        if bytes
+            .len()
+            .checked_add(self.source_overhead)
+            .is_none_or(|length| length > MAX_DOCUMENT_BYTES)
+        {
+            return Err(limit_error());
+        }
+        Ok(())
+    }
+}
+
+fn checked_file(
+    document: &Document,
+    source: Option<OriginalSource>,
+) -> Result<(Vec<u8>, usize), EngineError> {
+    let document_length = checked_document(document)?.len();
+    let file = match source {
+        Some(source) => WriterFile::with_original_source(document.clone(), source)?,
+        None => WriterFile::new(document.clone()),
+    };
+    let bytes = serialize_writer_file(&file)?;
+    if bytes.len() > MAX_DOCUMENT_BYTES {
+        return Err(limit_error());
+    }
+    let overhead = bytes
+        .len()
+        .checked_sub(document_length)
+        .ok_or_else(|| EngineError::new("invalid_file", "Native file sizing is inconsistent."))?;
+    Ok((bytes, overhead))
+}
+
+fn validate_source(source: &OriginalSource, document_id: Id) -> Result<(), EngineError> {
+    if source.format() != "docx"
+        || !source
+            .media_type()
+            .eq_ignore_ascii_case(office_docx::DOCX_MEDIA_TYPE)
+    {
+        return Err(EngineError::new(
+            "unsupported_source",
+            "This Writer file retains an unsupported source format.",
+        ));
+    }
+    match office_docx::import_docx(source.bytes(), document_id)? {
+        DocxImportOutcome::Editable(_) => Ok(()),
+        DocxImportOutcome::Preserved { report, .. } => Err(unsupported_docx(report)),
+    }
+}
+
+fn unsupported_docx(report: CompatibilityReport) -> EngineError {
+    EngineError {
+        code: "unsupported_docx".into(),
+        message: "This DOCX contains unsupported content. Its original is preserved read-only; no editable copy was opened.".into(),
+        compatibility: Some(wire::CompatibilityReportView {
+            omitted_diagnostics: report.omitted_diagnostics,
+            diagnostics: report.diagnostics.into_iter().map(|item| wire::CompatibilityDiagnosticView {
+                kind: item.kind.code().into(),
+                part: item.part,
+                path: item.path,
+                message: item.message,
+            }).collect(),
+        }),
     }
 }
 
@@ -562,6 +710,18 @@ mod wasm {
         /// Copies the native document into owned JavaScript bytes.
         pub fn export_document(&self) -> Result<Vec<u8>, JsValue> {
             self.inner.export_document().map_err(js_error)
+        }
+        /// Imports supported DOCX into a detached candidate before browser preservation.
+        pub fn import_docx(&mut self, bytes: &[u8], filename: &str) -> String {
+            self.inner.import_docx(bytes, filename)
+        }
+        /// Regenerates DOCX from current supported model values.
+        pub fn export_docx(&self) -> Result<Vec<u8>, JsValue> {
+            self.inner.export_docx().map_err(js_error)
+        }
+        /// Copies the exact retained original, independently of edited content.
+        pub fn export_original(&self) -> Result<Vec<u8>, JsValue> {
+            self.inner.export_original().map_err(js_error)
         }
         /// Validates native bytes before replacing the session.
         pub fn open_document(&mut self, bytes: &[u8], expected_id: Option<String>) -> String {

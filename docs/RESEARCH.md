@@ -1,9 +1,9 @@
 # Writer engineering research
 
-Research date: **2026-11-14**. This record precedes Step 4.5 implementation.
-It distinguishes established evidence, accepted prototype choices, and work
-requiring later approval. Research is not a claim that browser behavior or
-future Word compatibility has already been verified.
+Research date: **2026-11-14**. The initial record preceded Step 4.5; later
+reviews are appended with their milestone context. Earlier limitations record
+what was true at that stage. The conversion review below supersedes 5A-only
+conversion statements. Research alone is not a compatibility or completion claim.
 
 ## Questions, evidence, and accepted approach
 
@@ -237,6 +237,72 @@ PDF review and live browser DOCX integration remain untested. See
 The corrected Strict URI is independently documented by
 [Microsoft's ISO 29500 implementation note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/32be961f-d71a-4812-913f-b675c79aa88a)
 and [LibreOffice's package detector](https://docs.libreoffice.org/oox/html/filterdetect_8cxx_source.html).
+
+## DOCX conversion completion before Step 6
+
+Inspection of main `a504e2f` found package inspection/preservation only: no semantic
+DOCX import/export, no imported page geometry, and schema-1 section properties
+were empty. The owner explicitly chose to complete this prerequisite before
+Step 6. Work is on `dev/docx-conversion`; no merge, deployment or typography
+implementation is authorized by this work. The accepted scope and primary
+standards sources are in [DOCX_CONVERSION.md](DOCX_CONVERSION.md).
+
+Reviewed the model, strict loaders, transactions/history, DOCX package APIs,
+WASM presentation and browser import/storage flow. The chosen implementation
+adds generic schema-2 geometry/page-break-before and an explicit schema-1
+migration. Native format 2 retains a generic immutable original outside the
+editable model/history. Existing ZIP/XML, Serde, filesystem and IndexedDB
+infrastructure is reused; a maintained base64 codec supplies bounded source
+encoding. Decisions 031–033 record the accepted changes.
+
+- **Critical corrections:** source-bearing native input must not pass through a
+  document-only loader and discard its original. Browser imports use a detached
+  candidate and persist the complete file before activation; storage failures or
+  stale completion cannot replace live work. Resource checks cover both reported
+  input length and actual retained bytes after custom ownership conversion.
+- **Critical semantic corrections:** independent LibreOffice 26.8 reference
+  checks exposed differences between Word text elements and structural breaks/
+  tabs, including literal CR/LF/TAB and ambiguous edge whitespace. Such source
+  spellings now remain preserved read-only instead of producing an approximation.
+  Export uses the tested explicit controls/character-reference policy. Supported
+  style toggles are translated contextually, separate from direct Boolean values.
+- **Important profile limits:** script-specific font families, sizes and bold/
+  italic values must fit the single native property set. Themes, unsupported
+  properties/metadata, tables, fields, images, links, revisions and other omitted
+  semantics prevent editable import. Native IDs, exact run partitions and future
+  style-editing intent are not universal DOCX round-trip guarantees. Negative
+  Word margin-overlap semantics remain unsupported.
+- **Important later work:** accurate fonts, text measurement, shaping, bidi,
+  line wrapping and pagination remain Step 6. Existing CSS display and fixed/
+  minimum line-height projection are not authoritative layout. Optional broader
+  interoperability/corpus/fuzzing work must retain the same preservation rules.
+
+Supported imports retain original bytes through native save/reopen and edits.
+Unsupported sources remain available in the read-only dialog but are not saved
+in the local library. Source-bearing native exports disclose that their backup
+may include deleted text; current-content Word export and original download are
+separate actions. LibreOffice reference checks cover only their tested subset;
+Microsoft Word application interoperability and Word pagination are untested.
+Final executed commands/results, including WASM/browser regressions, belong in
+[DOCX_CONVERSION_VERIFICATION.md](DOCX_CONVERSION_VERIFICATION.md).
+
+## Retained Step 6 typography research
+
+Established Rust stacks were evaluated for shaping/metrics, font fallback,
+Unicode line breaking/bidi and native/WASM compatibility. Parley 0.13 with
+HarfRust/Skrifa is a promising low-level candidate with explicitly registered,
+pinned font bytes and no host-font discovery. Rustybuzz/ttf-parser were rejected
+because current RustSec records mark them unmaintained. The isolated
+`/tmp/writer-layout-probe` ran four native tests and a WASM compile; that is not
+an implemented engine, browser-runtime parity evidence or Word-pagination test.
+No typography dependency or font asset has been added. Reassess the final stack,
+font licensing/availability, cluster-to-position mapping, checked units/rounding
+and browser glyph rendering when Step 6 resumes.
+
+Primary sources: [Parley 0.13](https://github.com/linebender/parley/tree/v0.13.0),
+[HarfRust](https://github.com/harfbuzz/harfrust/blob/main/HARFBUZZ.md),
+[Rustybuzz advisory](https://rustsec.org/advisories/RUSTSEC-2026-0206.html),
+[ttf-parser advisory](https://rustsec.org/advisories/RUSTSEC-2026-0192.html).
 
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event

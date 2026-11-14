@@ -59,6 +59,12 @@ export interface WriterView {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   readonly wordCount: number;
+  /** Immutable retained input, separate from current content and undo history. */
+  readonly originalSource: {
+    readonly format: string;
+    readonly filename: string;
+    readonly byteLength: number;
+  } | null;
 }
 
 interface EditOrigin {
@@ -84,6 +90,17 @@ export type WriterCommand =
 export interface EngineFailure {
   readonly code: string;
   readonly message: string;
+  readonly compatibility?: CompatibilityReport;
+}
+
+export interface CompatibilityReport {
+  readonly diagnostics: readonly {
+    readonly kind: string;
+    readonly part: string;
+    readonly path: string;
+    readonly message: string;
+  }[];
+  readonly omittedDiagnostics: number;
 }
 
 export type EngineResponse =
