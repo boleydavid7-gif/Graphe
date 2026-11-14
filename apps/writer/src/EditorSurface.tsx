@@ -1,9 +1,13 @@
 import { forwardRef, useImperativeHandle, useLayoutEffect, useRef } from 'react';
-import type { ParagraphView, TextPoint, WriterCommand, WriterSelection, WriterView } from './types';
+import type { LayoutAction, LayoutMoveDirection, ParagraphView, TextPoint, WriterCommand, WriterSelection, WriterView } from './types';
 
 export interface EditorSurfaceHandle {
   focus(): void;
   restoreSelection(): void;
+  /** Synchronizes the input projection after a Rust visual-selection action. */
+  syncView(view: WriterView): void;
+  /** Reveals a deliberate selection without moving focus to the editor. */
+  revealSelection?(view: WriterView): void;
 }
 
 export interface EditorSurfaceProps {
@@ -13,6 +17,11 @@ export interface EditorSurfaceProps {
   readonly onCopy: () => string;
   readonly onCompositionChange?: (composing: boolean) => void;
   readonly disabled?: boolean;
+  /** This DOM is only the native input/IME projection for Rust-rendered pages. */
+  readonly inputOnly?: boolean;
+  readonly onNavigate?: (action: LayoutAction) => WriterView | undefined;
+  readonly onCompositionText?: (text: string) => void;
+  readonly onPageScroll?: (direction: 'up' | 'down') => void;
 }
 
 interface CompositionOrigin {
@@ -54,6 +63,7 @@ class SurfaceController {
     element.addEventListener('cut', this.cut);
     element.addEventListener('drop', this.drop);
     element.addEventListener('compositionstart', this.compositionStart);
+    element.addEventListener('compositionupdate', this.compositionUpdate);
     element.addEventListener('compositionend', this.compositionEnd);
     document.addEventListener('selectionchange', this.selectionChange);
   }
@@ -69,6 +79,7 @@ class SurfaceController {
     this.element.removeEventListener('cut', this.cut);
     this.element.removeEventListener('drop', this.drop);
     this.element.removeEventListener('compositionstart', this.compositionStart);
+    this.element.removeEventListener('compositionupdate', this.compositionUpdate);
     this.element.removeEventListener('compositionend', this.compositionEnd);
     document.removeEventListener('selectionchange', this.selectionChange);
   }
@@ -96,17 +107,50 @@ class SurfaceController {
     if (!selection) return;
     const desired = this.view.selection;
     if (desired) {
-      if (sameSelection(this.readSelection(), desired)) return;
+      if (sameSelection(this.readSelection(), desired)) {
+        this.alignProxyCaret();
+        return;
+      }
       const anchor = this.domPoint(desired.anchor);
       const focus = this.domPoint(desired.focus);
       if (anchor && focus) selection.setBaseAndExtent(anchor.node, anchor.offset, focus.node, focus.offset);
     } else if (!this.view.paragraphs.length && this.element.firstChild) {
       selection.setBaseAndExtent(this.element.firstChild, 0, this.element.firstChild, 0);
     }
+    this.alignProxyCaret();
+  }
+
+  private alignProxyCaret(): void {
+    if (!this.props().inputOnly || this.composition || document.activeElement !== this.element) return;
+    const focus = this.view.selection?.focus;
+    if (!focus) return;
+    const point = this.domPoint(focus);
+    if (!point) return;
+    const range = document.createRange();
+    range.setStart(point.node, point.offset);
+    range.collapse(true);
+    let rect = range.getBoundingClientRect();
+    if (!rect.height) {
+      const paragraph = this.paragraphs.get(focus.paragraphId);
+      const terminal = paragraph?.lastElementChild;
+      if (terminal instanceof HTMLBRElement) rect = terminal.getBoundingClientRect();
+    }
+    if (!rect.height) return;
+    const bounds = this.element.getBoundingClientRect();
+    // Align only the native input/candidate window. Visible page geometry and
+    // cursor positions still come from Rust, never from this browser flow.
+    const horizontal = rect.left - bounds.left;
+    const vertical = rect.top - bounds.top;
+    if (Math.abs(horizontal) > 1) this.element.scrollLeft += horizontal;
+    if (Math.abs(vertical) > 1) this.element.scrollTop += vertical;
   }
 
   private ensureCaretVisible(): void {
     if (this.composition || this.disposed || document.activeElement !== this.element) return;
+    if (this.props().inputOnly) {
+      this.alignProxyCaret();
+      return;
+    }
     const focus = this.view.selection?.focus;
     if (!focus) return;
     const point = this.domPoint(focus);
@@ -142,7 +186,7 @@ class SurfaceController {
   }
 
   private renderParagraph(element: HTMLParagraphElement, paragraph: ParagraphView, force: boolean): void {
-    const signature = JSON.stringify(paragraph);
+    const signature = JSON.stringify([paragraph, this.props().inputOnly ?? false]);
     if (!force && this.signatures.get(element) === signature) return;
     this.signatures.set(element, signature);
     const format = paragraph.format;
@@ -158,6 +202,18 @@ class SurfaceController {
     element.style.whiteSpace = 'pre-wrap';
     element.style.overflowWrap = 'anywhere';
     element.style.minHeight = '1.45em';
+    element.style.width = '';
+    if (this.props().inputOnly) {
+      element.style.textAlign = 'left';
+      element.style.margin = '0';
+      element.style.padding = '0';
+      element.style.textIndent = '0';
+      element.style.whiteSpace = 'pre';
+      element.style.overflowWrap = 'normal';
+      element.style.minHeight = '20px';
+      element.style.lineHeight = '20px';
+      element.style.width = 'max-content';
+    }
 
     // Preserve unchanged spans (and their text nodes) across ordinary updates.
     let index = 0;
@@ -179,7 +235,7 @@ class SurfaceController {
         typedSpan.style.textDecorationLine = run.format.underline === 'none' ? 'none' : 'underline';
         typedSpan.style.textDecorationStyle = run.format.underline === 'double' ? 'double' : 'solid';
         typedSpan.style.fontFamily = run.format.fontFamily;
-        typedSpan.style.fontSize = `${run.format.fontSizePt}pt`;
+        typedSpan.style.fontSize = this.props().inputOnly ? '16px' : `${run.format.fontSizePt}pt`;
         typedSpan.style.color = run.format.color;
       }
       index += 1;
@@ -429,6 +485,38 @@ class SurfaceController {
     const origin = this.origin();
     const modifier = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
+    if (this.props().inputOnly && this.props().onNavigate) {
+      let action: LayoutAction | undefined;
+      let direction: LayoutMoveDirection | undefined;
+      if (modifier && !event.altKey && key === 'a') action = { type: 'select_all' };
+      else if (event.key === 'Home') direction = modifier ? 'document_start' : 'home';
+      else if (event.key === 'End') direction = modifier ? 'document_end' : 'end';
+      else if (event.metaKey && event.key === 'ArrowUp') direction = 'document_start';
+      else if (event.metaKey && event.key === 'ArrowDown') direction = 'document_end';
+      else if (event.metaKey && event.key === 'ArrowLeft') direction = 'home';
+      else if (event.metaKey && event.key === 'ArrowRight') direction = 'end';
+      else if (event.key.startsWith('Arrow')) {
+        if (event.ctrlKey || event.altKey) {
+          event.preventDefault();
+          this.props().onError('Word-navigation shortcuts are not available yet. Use the arrow keys or select text on the page.');
+          return;
+        }
+        direction = ({ ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' } as const)[event.key as 'ArrowLeft'];
+      } else if (event.key === 'PageUp' || event.key === 'PageDown') {
+        event.preventDefault();
+        if (this.props().onPageScroll) this.props().onPageScroll?.(event.key === 'PageUp' ? 'up' : 'down');
+        else window.scrollBy({ top: (event.key === 'PageUp' ? -1 : 1) * window.innerHeight * 0.8 });
+        return;
+      }
+      if (direction) action = { type: 'move', direction, extend: event.shiftKey };
+      if (action) {
+        event.preventDefault();
+        const next = this.props().onNavigate?.(action);
+        if (next) this.update(next);
+        this.restoreSelection();
+        return;
+      }
+    }
     let command: WriterCommand | null = null;
     if (modifier && !event.altKey) {
       if (key === 'z') command = { type: event.shiftKey ? 'redo' : 'undo', expectedRevision: this.view.revision };
@@ -512,6 +600,11 @@ class SurfaceController {
     const origin = this.origin();
     this.composition = { revision: origin.expectedRevision, selection: origin.selection ?? null };
     this.props().onCompositionChange?.(true);
+    this.props().onCompositionText?.('');
+  };
+
+  private compositionUpdate = (event: CompositionEvent): void => {
+    if (this.composition) this.props().onCompositionText?.(event.data);
   };
 
   private compositionEnd = (event: CompositionEvent): void => {
@@ -531,6 +624,7 @@ class SurfaceController {
     clearTimeout(this.tailTimer);
     this.tailTimer = setTimeout(() => { this.compositionTail = false; }, 0);
     this.props().onCompositionChange?.(false);
+    this.props().onCompositionText?.('');
   };
 }
 
@@ -555,10 +649,13 @@ export const EditorSurface = forwardRef<EditorSurfaceHandle, EditorSurfaceProps>
   useImperativeHandle(ref, () => ({
     focus: () => controller.current?.focus(),
     restoreSelection: () => controller.current?.restoreSelection(),
+    syncView: (view) => controller.current?.update(view),
   }), []);
   return <div
     ref={element}
     className="editor-surface"
+    style={props.inputOnly ? { width: '100%', height: '100%', minHeight: 0, padding: 0,
+      margin: 0, border: 0, overflow: 'hidden', lineHeight: '20px', fontSize: '16px' } : undefined}
     contentEditable={!props.disabled}
     suppressContentEditableWarning
     role="textbox"

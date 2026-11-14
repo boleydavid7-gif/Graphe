@@ -543,10 +543,30 @@ impl BrowserEngine {
         self.commit_from(transaction, Some(selection.clone()), Some(selection))
     }
 
+    pub(super) fn assign_style(
+        &mut self,
+        style_id: Option<String>,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let style_id = style_id.map(Id::new).transpose()?;
+        let selected = self.current_selection(supplied)?;
+        let mut transaction = self.session.begin_transaction();
+        let selection = match selected {
+            Some(selection) => selection,
+            None => self.materialize(&mut transaction)?,
+        };
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.set_paragraph_style(&range, style_id.as_ref())?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
+        self.typing = None;
+        Ok(())
+    }
+
     pub(super) fn format_summary(&self, paragraphs: &[ParagraphView]) -> FormatSummary {
         let selected = self.selection.as_ref();
         let mut chosen = Vec::new();
         let mut alignments = Vec::new();
+        let mut styles = Vec::new();
         if let Some(selection) = selected {
             let document = self.session.document();
             if let Ok((start, end)) = ordered(document, selection) {
@@ -564,6 +584,7 @@ impl BrowserEngine {
                         continue;
                     }
                     alignments.push(display.format.alignment);
+                    styles.push(display.style_id.clone());
                     let Ok((paragraph, _, _)) = paragraph(document, &display.id) else {
                         continue;
                     };
@@ -602,6 +623,8 @@ impl BrowserEngine {
             let first = values.next()?;
             values.all(|value| value == first).then_some(first)
         }
+        let common_style = common(styles.iter().cloned());
+        let style_mixed = !styles.is_empty() && common_style.is_none();
         FormatSummary {
             bold: common(chosen.iter().map(|f| f.bold)),
             italic: common(chosen.iter().map(|f| f.italic)),
@@ -613,6 +636,8 @@ impl BrowserEngine {
             } else {
                 None
             }),
+            style_id: common_style.flatten(),
+            style_mixed,
         }
     }
 }

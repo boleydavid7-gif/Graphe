@@ -66,6 +66,11 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    AssignStyle {
+        style_id: Option<String>,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     Undo {
         expected_revision: Option<String>,
     },
@@ -116,6 +121,9 @@ impl Command {
             | Self::FormatParagraph {
                 expected_revision, ..
             }
+            | Self::AssignStyle {
+                expected_revision, ..
+            }
             | Self::Undo { expected_revision }
             | Self::Redo { expected_revision } => expected_revision.as_deref(),
         }
@@ -130,6 +138,7 @@ pub(crate) struct View {
     pub document_id: String,
     pub title: String,
     pub paragraphs: Vec<ParagraphView>,
+    pub styles: Vec<StyleSummary>,
     pub selection: Option<BrowserSelection>,
     pub format: FormatSummary,
     pub can_undo: bool,
@@ -175,6 +184,7 @@ pub struct CompatibilityDiagnosticView {
 pub(crate) struct ParagraphView {
     pub id: String,
     pub section_id: String,
+    pub style_id: Option<String>,
     pub runs: Vec<RunView>,
     pub format: ParagraphFormatView,
 }
@@ -217,4 +227,12 @@ pub(crate) struct FormatSummary {
     pub font_family: Option<String>,
     pub font_size_pt: Option<f64>,
     pub alignment: Option<Alignment>,
+    pub style_id: Option<String>,
+    pub style_mixed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub(crate) struct StyleSummary {
+    pub id: String,
+    pub name: String,
 }

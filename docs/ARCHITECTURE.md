@@ -7,10 +7,10 @@ positions and selections. A runtime session now provides atomic validated
 transactions, Unicode-safe text and formatting operations, and bounded undo/redo.
 Native Writer persistence now separates byte serialization from filesystem
 storage. Step 4.5 adds a Rust/WebAssembly session boundary and a semantic browser
-prototype. The Step 5 conversion branch adds declared DOCX semantic conversion
-and original-preserving native files. The Step 6 review branch adds independent
-Rust typography and page layout plus an outline-based browser page preview. Both
-changes remain unmerged; advanced page-based editing is subsequent work.
+prototype. Steps 5 and 6 are merged at `86f2ad8`, adding declared DOCX conversion,
+original-preserving native files, independent Rust typography/layout and a page
+preview. Step 7's review branch adds a lightweight Lamplight editor with native
+page interaction and serialized local autosave, reusing those foundations.
 
 ## Independent engine
 
@@ -495,6 +495,16 @@ its end, removing empty runs within the replaced interval. An empty run at an
 insertion cut belongs to the suffix. Identical replacement text with matching
 direct properties preserves the original run partition as a no-op.
 
+Step 7 corrects ordinary typing growth: a collapsed nonempty insertion extends
+the immediate nonempty left-prefix run when its direct `CharacterFormat` is
+exactly equal to the supplied format. It does not resolve effective styles,
+merge existing neighboring runs or normalize imported data. Empty suffix runs,
+right partitions, noncollapsed replacement and the identical-replacement path
+retain their previous semantics. This prevents one run per ordinary keystroke
+from exhausting the browser's run/file budget. Each changed transaction remains
+its own undo step; run storage is not history grouping. Decision 040 and eight
+regressions record the policy and before/after evidence.
+
 `CharacterFormatPatch` and `ParagraphFormatPatch` use `PropertyChange::Keep`,
 `Set(value)`, and `Clear` for each optional property. Clearing restores an
 unspecified value, distinct from explicit `false` or underline `none`. Setting
@@ -866,14 +876,73 @@ Rust selection and the existing editing path. Shift+Enter now inserts a logical
 LF through an atomic Rust edit rather than creating another paragraph. A
 terminal presentation break is DOM-only and contributes no source text/offsets.
 
-The current input surface still uses browser CSS for editing presentation.
-Replacing it with a fully positioned, accessible editing surface is Step 7;
-the preview does not establish that capability or Microsoft Word pagination.
+At Step 6 the input surface still used browser CSS for editing presentation.
+Step 7's native page interaction and retained semantic input are described below;
+neither subsystem establishes Microsoft Word pagination parity.
 Tab stops, CJK coverage, color emoji, hyphenation, widow/orphan control, floating
 objects and advanced pagination remain explicit limitations. In particular,
 unspecified imported DOCX spacing still receives independent Writer defaults;
 future source-aware default materialization belongs to the DOCX adapter, never
 a DOCX special case in `office-layout`. Exact original preservation is unchanged.
+
+## Lightweight paged editor and Lamplight UI (Step 7)
+
+The Step 7 review branch preserves model/schema 2, native format 2, existing
+transaction/history behavior and the IndexedDB database. No new dependency,
+format adapter, complete editor library or cloud subsystem is added. The
+[approved desktop/mobile references](design/README.md) govern the interface;
+[WRITER_STEP7.md](WRITER_STEP7.md) defines its workflow and deliberate limits;
+[verification](WRITER_STEP7_VERIFICATION.md) records actual tests and screenshots.
+
+`DocumentLayout` gains interaction methods rather than becoming an editable
+document. Rust maps page-local coordinates to source carets, derives bidi-safe
+selection rectangles and applies visual navigation with explicit affinities and
+preferred x. Mandatory-break downstream edges, wrapped RTL transitions and
+zero-advance/paragraph-separator markers are tested. The browser bridge exposes
+strict revision-bound `layout_action` and `selection_geometry` transports and
+retains the actual layout DTO beside its serialized cache. Selection runtime,
+including affinity, rolls back on a failed response; history/content are unchanged.
+
+`PagedEditor` renders Rust glyph paths, underlines, carets and selection regions.
+Mouse drag, shift-click and keyboard visual movement return to Rust. Displayed
+pointer coordinates carry their complete originating document/session/revision
+through App and EngineClient, closing the interval before React commits newer
+props. New input invalidates old hits immediately. Zoom and scrolling only
+transform the supplied geometry. Immutable glyph subtrees are reused for
+selection-only updates; content layout requests coalesce on animation frames.
+
+The previously tested `EditorSurface` remains a controlled semantic DOM input
+projection. Its clipped, focusable paged-mode form supports browser input,
+composition, accessibility and clipboard events; it never determines visible
+line/page geometry. Native logical DOM selections still pass through core
+UTF-16/grapheme validation. Composition text is transient until one Rust
+transaction commits; native and JavaScript undo histories are not duplicated.
+The caret-positioned input proxy and horizontal/vertical reveal use Rust geometry.
+Text-view fallback is explicit and has no claimed page count.
+
+The Lamplight App coordinates UI state and a small `WriterSaveController` around
+existing `WriterStorage.save`. Manual Save and 750 ms/5 s autosave share one lane,
+resolve etags at execution and coalesce bounded follow-ups. Immutable snapshots
+and session/document/revision plus replacement epochs reject stale completion.
+Errors pause retries and retain dirty memory; active IME pauses serialization
+and cannot be labeled saved. Visibility/unload handling remains best effort,
+and a pending IndexedDB transaction cannot be canceled after it starts.
+
+Find is a bounded Rust literal/case-sensitive paragraph search, returning
+origin-bound selections expanded to complete core graphemes without changing
+text. Named-style assignment reuses the existing core operation; View summaries
+expose only existing IDs/names and mixed-state information. No style authoring,
+template or normalization system is introduced. The unspecified display family
+now matches the pinned Arimo layout default while explicit source requests remain
+intact.
+
+Interface focus changes follow explicit user transitions in layout effects.
+Refreshing pages does not restore the proxy's DOM selection unless the proxy is
+focused; canceled touch input performs no hit/focus. Pointer Save retains typing
+focus. Reading preview reports its own native-page viewport status, and Find
+reveals native geometry without taking query focus. Tests and known limitations
+belong in the Step 7 verification record; no deployment or post-Step7 comprehensive
+audit is inferred from this implementation.
 
 Correctness, performance, compatibility, maintainability, and architectural
 stability guide development. Changes should keep responsibilities explicit and

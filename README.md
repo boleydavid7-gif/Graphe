@@ -49,25 +49,34 @@ screenshots of the running application.
 The [pre-merge review](docs/PRE_MERGE_REVIEW.md) supersedes the initial counts
 and lists every completion criterion, corrections, and untested scope.
 
-Step 5 conversion work on `dev/docx-conversion` extends the merged 5A package
-foundation with a declared editable DOCX profile, Rust export, and browser file
-integration. Supported imports retain their exact original in native Writer
+Step 5 semantic conversion was merged through
+[PR #10](https://github.com/boleydavid7-gif/stuff/pull/10) at `8ab784a`. It extends
+the 5A package foundation with a declared editable DOCX profile, Rust export and
+browser file integration. Supported imports retain their exact original in native Writer
 format 2 before editing is activated. Unsupported content remains read-only with
 diagnostics; no partial editable projection is published. The shared model stays
 format-neutral. No other document formats are implemented.
 See [the DOCX profile](docs/DOCX.md), [conversion contract](docs/DOCX_CONVERSION.md)
-and [conversion verification](docs/DOCX_CONVERSION_VERIFICATION.md). This branch
-has not been merged or deployed.
+and [conversion verification](docs/DOCX_CONVERSION_VERIFICATION.md).
 
-Step 6 continues on `dev/typography-layout-engine`, based on the DOCX prerequisite
-in [PR #10](https://github.com/boleydavid7-gif/stuff/pull/10). The independent
+Step 6 was merged through [PR #11](https://github.com/boleydavid7-gif/stuff/pull/11)
+at `86f2ad8`, with post-merge CI passing. The independent
 `office-layout` crate computes typography and page layout in Rust using a pinned
 font catalog. A read-only browser page preview draws Rust-generated glyph paths
 and geometry. The existing semantic editor remains available; its CSS wrapping
 does not define engine pagination. See [the layout contract](docs/LAYOUT.md),
 [verification](docs/LAYOUT_VERIFICATION.md) and
 [actual page preview](docs/images/writer-layout-desktop.png).
-Neither review branch is merged or deployed by this work.
+
+Step 7 on `dev/writer-lamplight` adds Rust-driven paged editing, the approved
+Lamplight desktop/mobile interface, shared manual/autosave coordination, Find
+and assignment of existing paragraph styles. The core document schema, native
+format, storage database and existing engines are reused. See
+[the Step 7 contract](docs/WRITER_STEP7.md),
+[verification](docs/WRITER_STEP7_VERIFICATION.md) and
+[approved references](docs/design/README.md). This milestone requires review;
+it is not merged or deployed by this work. Feature development pauses afterward
+for the owner's planned technical, security, DOCX and commercial-licensing audit.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -145,16 +154,18 @@ npm test
 npm run test:wasm
 npm run test:build
 npm run build
-npx playwright install --with-deps chromium
+npx playwright install --with-deps chromium firefox webkit
 npm run test:browser
 ```
 
 The production `build` includes the WASM build, TypeScript checking, and Vite
 bundling. After `build:wasm` or `build`, `test:wasm` executes the real generated
 bindings and release WASM in Node/V8 without an engine mock. `test:browser`
-starts the built application through Vite preview and
-tests it in Chromium. It can use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` or an
-installed `/usr/bin/chromium`; otherwise install Playwright's Chromium. To
+starts the built application through Vite preview. Chromium runs the full suite;
+Firefox and WebKit run the two portable editing/persistence smoke cases each.
+For Chromium-only development use `npm run test:browser -- --project=chromium`.
+Chromium can use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` or an installed
+`/usr/bin/chromium`; otherwise install Playwright's Chromium. To
 inspect production output manually, run:
 
 ```sh
@@ -172,21 +183,33 @@ a site or establish private-hosting access controls. CI defines engine checks on
 Linux, Windows, and macOS plus frontend checks and production-browser integration.
 The milestone report must distinguish configured checks from actual results.
 
-## Using the Writer prototype
+## Using Writer
 
 The prototype supports typing and deletion at Rust grapheme boundaries, directed
 selections, Enter, plain-text multiline paste, title changes, bold, italic,
 underline, font family, font size, paragraph alignment, and Rust undo/redo. The
 formatting controls reflect mixed selections. Collapsed character formatting
 sets Rust-owned typing properties rather than inserting an empty formatting run.
-Browser font availability and CSS presentation do not provide Word pagination.
-Use **Page preview** to inspect the Rust layout. Preview text is rendered from
-engine-provided outlines, including fallback fonts, without browser shaping or
-measurement. Choose **Return to editing** to change content. The preview is read-only;
-page-based editing and advanced visual navigation are later work. Layout failures
-or missing-glyph diagnostics do not alter or discard the document.
+The default editor renders Rust-generated glyphs, caret/selection rectangles and
+continuous pages. Rust also owns pointer hit testing and visual navigation;
+browser text measurement does not decide pagination. Review offers a read-only
+page preview and literal, case-sensitive Find. Existing named styles can be
+assigned without introducing a style editor. Ctrl/Command shortcuts support
+clipboard, select all, bold/italic/underline, undo/redo, Save, Open and Find.
+Enter creates a paragraph; Shift+Enter creates a soft break. Zoom changes view
+scale rather than document geometry.
 
-New, Open, Save, Close, and native import/export are explicit actions. Save writes
+The finite font/layout profile can reject tabs or show missing-glyph notices.
+An explicit **Text view** reuses the semantic editor when required and reports
+pages unavailable; it does not substitute browser pagination. Font fallback and
+other layout limits are documented in [LAYOUT.md](docs/LAYOUT.md) and Step 7.
+
+New, Open, Save, Close, and native import/export are explicit actions. Autosave
+uses 750 ms inactivity with a five-second maximum wait during foreground typing.
+Untouched new blank documents are not automatically stored. Manual Save and
+autosave share one serialized lane; errors pause retries until explicit Save and
+retain unsaved in-memory work. Active composition pauses saving and is never
+labeled saved. Save writes
 the exact `.writer` bytes produced by Rust to IndexedDB on this browser/device.
 Each record has an etag: comparison with the expected token and replacement share
 one read/write transaction, preventing a stale tab from silently overwriting a
@@ -236,12 +259,13 @@ private-mode restrictions, unavailable storage, damaged records, stale saves,
 and invalid input produce actionable errors. Export important documents for
 backup; browser-local storage is not a durability guarantee.
 
-The semantic editing surface uses controlled `contenteditable` presentation.
-During IME composition, browser DOM is a transient buffer; Rust commits the final
+Paged editing retains a focusable, visually clipped controlled `contenteditable`
+input projection. During IME composition its DOM is a transient buffer; Rust commits the final
 replacement once. Synthetic browser tests do not certify every operating-system
 IME, candidate window, dictation system, or assistive technology. Keyboard and
-semantic checks do not constitute accessibility certification. There is no
-autosave, cloud service, synchronization, or page-based editing. DOCX conversion
+semantic checks do not constitute accessibility certification. Touch dragging
+handles, word-level navigation, native OS IME/assistive certification and advanced
+Word layout remain limited. There is no cloud service or synchronization. DOCX conversion
 supports the bounded profile documented below; it does not render every Word feature.
 
 The engineering rules in [AGENTS.md](AGENTS.md), primary-source research and
@@ -444,6 +468,12 @@ paragraph's ID, style, and properties, retains the end suffix, and removes cover
 paragraphs. Cross-section text replacement is rejected. CR and LF remain literal
 text rather than creating paragraphs. New text adjacency can merge graphemes, so
 operations return no implicit result cursor; inspect the new draft coordinates.
+
+Collapsed insertion can extend an immediately preceding nonempty run with exactly
+equal direct properties. Existing adjacent runs are not normalized or merged;
+empty/right partitions and noncollapsed replacements retain their semantics.
+This keeps ordinary typing from consuming one run per character without changing
+the document schema or transaction/undo boundary.
 
 `DocumentSession::new` retains up to `DEFAULT_HISTORY_LIMIT` (100) complete undo
 snapshots. `with_history_limit` chooses another count, including zero to disable

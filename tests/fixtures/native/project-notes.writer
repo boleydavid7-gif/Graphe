@@ -1,0 +1,61 @@
+{
+  "format": "office-writer",
+  "format_version": 2,
+  "document": {
+    "schema_version": 2,
+    "id": "project-notes",
+    "metadata": { "title": "Project notes" },
+    "styles": [
+      {
+        "id": "project-notes-body-style", "name": "Body", "based_on": null,
+        "paragraph_format": { "spacing_after": 160, "line_spacing": { "kind": "multiple", "value": 276 } },
+        "character_format": { "font_family": "Arimo", "font_size": 24, "color": { "kind": "rgb", "red": 36, "green": 33, "blue": 29 } }
+      },
+      {
+        "id": "project-notes-heading-style", "name": "Heading", "based_on": "project-notes-body-style",
+        "paragraph_format": { "spacing_after": 240 },
+        "character_format": { "font_family": "Tinos", "font_size": 40, "bold": true }
+      },
+      {
+        "id": "project-notes-subheading-style", "name": "Section heading", "based_on": "project-notes-body-style",
+        "paragraph_format": { "spacing_before": 160, "spacing_after": 120 },
+        "character_format": { "font_size": 28, "bold": true }
+      }
+    ],
+    "sections": [{
+      "id": "project-notes-section", "properties": null,
+      "blocks": [
+        { "kind": "paragraph", "content": {
+          "id": "project-notes-title", "style": "project-notes-heading-style", "format": {},
+          "runs": [{ "text": "Project notes", "format": {} }]
+        } },
+        { "kind": "paragraph", "content": {
+          "id": "project-notes-introduction", "style": "project-notes-body-style", "format": {},
+          "runs": [
+            { "text": "The next review will focus on ", "format": {} },
+            { "text": "dependable editing", "format": { "bold": true } },
+            { "text": ", accurate document layout, and reliable local saving. Writer keeps the document engine in Rust.", "format": {} }
+          ]
+        } },
+        { "kind": "paragraph", "content": {
+          "id": "project-notes-review-heading", "style": "project-notes-subheading-style", "format": {},
+          "runs": [{ "text": "Review priorities", "format": {} }]
+        } },
+        { "kind": "paragraph", "content": {
+          "id": "project-notes-review", "style": "project-notes-body-style", "format": {},
+          "runs": [
+            { "text": "Confirm Unicode behavior — Café, é, 👩🏽‍💻 — and preserve formatting across native save and reopen cycles.", "format": {} }
+          ]
+        } },
+        { "kind": "paragraph", "content": {
+          "id": "project-notes-next-heading", "style": "project-notes-subheading-style", "format": {},
+          "runs": [{ "text": "Next steps", "format": {} }]
+        } },
+        { "kind": "paragraph", "content": {
+          "id": "project-notes-next", "style": "project-notes-body-style", "format": {},
+          "runs": [{ "text": "Compare the saved document with the current revision, check keyboard navigation, and retain an exported backup.", "format": {} }]
+        } }
+      ]
+    }]
+  }
+}

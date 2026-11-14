@@ -65,10 +65,22 @@ pub(crate) fn replace_text(
 
     let mut runs = prefix_runs(start, bounds.start_byte);
     if !text.is_empty() {
-        runs.push(TextRun {
-            text: text.into(),
-            format: format.clone(),
-        });
+        // Ordinary collapsed typing extends only the edited nonempty prefix
+        // when its direct properties are exactly equal. This avoids one run per
+        // keystroke without normalizing any pre-existing adjacent runs. Empty
+        // runs at the caret and the complete right suffix remain untouched.
+        if bounds.collapsed
+            && let Some(left) = runs.last_mut()
+            && !left.text.is_empty()
+            && left.format == *format
+        {
+            left.text.push_str(text);
+        } else {
+            runs.push(TextRun {
+                text: text.into(),
+                format: format.clone(),
+            });
+        }
     }
     runs.extend(suffix_runs(end, bounds.end_byte));
     let replacement = copy_paragraph(start, runs, start.format().clone(), start.style());

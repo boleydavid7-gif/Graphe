@@ -7,6 +7,7 @@
 mod dto;
 mod engine;
 mod error;
+mod interaction;
 mod options;
 mod style;
 
@@ -16,5 +17,9 @@ pub use dto::{
 };
 pub use engine::{LayoutEngine, layout_document};
 pub use error::LayoutError;
+pub use interaction::{
+    CaretGeometry, LayoutPosition, NavigationDirection, NavigationResult, SelectionGeometry,
+    SelectionRectangle, VisualPosition,
+};
 pub use options::LayoutOptions;
 pub use style::{ResolvedParagraphStyle, overlay_character, resolve_paragraph_style};

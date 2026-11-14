@@ -28,6 +28,7 @@ export interface RunView {
 export interface ParagraphView {
   readonly id: string;
   readonly sectionId: string;
+  readonly styleId: string | null;
   readonly runs: readonly RunView[];
   readonly format: {
     readonly alignment: Alignment;
@@ -47,6 +48,7 @@ export interface WriterView {
   readonly documentId: string;
   readonly title: string;
   readonly paragraphs: readonly ParagraphView[];
+  readonly styles: readonly { readonly id: string; readonly name: string }[];
   readonly selection: WriterSelection | null;
   readonly format: {
     readonly bold: boolean | null;
@@ -55,6 +57,8 @@ export interface WriterView {
     readonly fontFamily: string | null;
     readonly fontSizePt: number | null;
     readonly alignment: Alignment | null;
+    readonly styleId: string | null;
+    readonly styleMixed: boolean;
   };
   readonly canUndo: boolean;
   readonly canRedo: boolean;
@@ -85,6 +89,7 @@ export type WriterCommand =
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
   | ({ readonly type: 'format_paragraph'; readonly alignment: Alignment } & EditOrigin)
+  | ({ readonly type: 'assign_style'; readonly styleId: string | null } & EditOrigin)
   | { readonly type: 'undo'; readonly expectedRevision?: string }
   | { readonly type: 'redo'; readonly expectedRevision?: string };
 
@@ -232,4 +237,60 @@ export interface LayoutView {
   readonly revision: string;
   readonly documentId: string;
   readonly layout: DocumentLayout;
+}
+
+/** A visual request interpreted against the Rust layout, never DOM text metrics. */
+export type LayoutAction =
+  | { readonly type: 'hit'; readonly pageNumber: number; readonly x: number; readonly y: number; readonly extend?: boolean }
+  | { readonly type: 'move'; readonly direction: LayoutMoveDirection; readonly extend?: boolean }
+  | { readonly type: 'select_all' };
+
+export type LayoutMoveDirection = 'left' | 'right' | 'up' | 'down' | 'home' | 'end'
+  | 'document_start' | 'document_end';
+
+export interface LayoutPosition extends TextPoint {
+  readonly utf8: number;
+  readonly grapheme: number;
+  readonly affinity: 'leading' | 'trailing';
+}
+
+export interface CaretGeometry {
+  readonly position: LayoutPosition;
+  readonly pageNumber: number;
+  readonly lineIndex: number;
+  readonly rect: LayoutRect;
+}
+
+export interface SelectionRectangle {
+  readonly pageNumber: number;
+  readonly paragraphId: string;
+  readonly lineIndex: number;
+  readonly rect: LayoutRect;
+}
+
+export interface SelectionGeometry {
+  readonly anchor: CaretGeometry;
+  readonly focus: CaretGeometry;
+  readonly rectangles: readonly SelectionRectangle[];
+}
+
+export interface LayoutSelectionView {
+  readonly sessionId: string;
+  readonly revision: string;
+  readonly documentId: string;
+  readonly geometry: SelectionGeometry | null;
+  readonly preferredX: number | null;
+}
+
+export interface LayoutActionView extends LayoutSelectionView {
+  readonly view: WriterView;
+}
+
+/** Literal matches and their validated selections are computed by Rust. */
+export interface FindSnapshot {
+  readonly sessionId: string;
+  readonly documentId: string;
+  readonly revision: string;
+  readonly matches: readonly { readonly selection: WriterSelection }[];
+  readonly truncated: boolean;
 }

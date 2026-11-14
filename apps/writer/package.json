@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
-    "test:wasm": "node --test tests/wasm.test.mjs tests/docx-wasm.test.mjs tests/layout-wasm.test.mjs",
+    "test:wasm": "node --test tests/wasm.test.mjs tests/docx-wasm.test.mjs tests/layout-wasm.test.mjs tests/step7-wasm.test.mjs",
     "test:build": "node --test tests/cloudflare-build.test.mjs",
     "test:browser": "playwright test",
     "build": "npm run build:wasm && npm run typecheck && vite build",

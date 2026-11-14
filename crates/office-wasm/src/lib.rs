@@ -5,6 +5,7 @@
 //! Browser UTF-16 endpoints are deliberately snapped outward to Rust extended
 //! grapheme boundaries; scalar-invalid surrogate positions are rejected.
 
+mod find;
 mod layout;
 mod operations;
 mod view;
@@ -290,6 +291,7 @@ impl BrowserEngine {
                 let next = selection
                     .map(|selection| self.normalize_selection_with_affinity(&selection, trailing))
                     .transpose()?;
+                self.layout_state.reset_visual();
                 if next != self.selection {
                     self.typing = None;
                 }
@@ -328,6 +330,11 @@ impl BrowserEngine {
                 selection,
                 ..
             } => self.format_paragraph(alignment, selection),
+            Command::AssignStyle {
+                style_id,
+                selection,
+                ..
+            } => self.assign_style(style_id, selection),
             Command::Undo { .. } => {
                 self.session.undo()?;
                 self.layout_state.invalidate();
@@ -477,6 +484,14 @@ impl BrowserEngine {
             revision: self.revision(),
             document_id: document.id().as_str().into(),
             title: document.metadata().title.clone(),
+            styles: document
+                .styles()
+                .iter()
+                .map(|style| wire::StyleSummary {
+                    id: style.id.as_str().into(),
+                    name: style.name.clone(),
+                })
+                .collect(),
             paragraphs,
             selection: self.selection.clone(),
             format,
@@ -716,6 +731,31 @@ mod wasm {
             self.inner
                 .layout_snapshot(options, expected_revision.as_deref())
                 .map_err(js_error)
+        }
+        /// Returns revision-bound native caret and selection rectangles.
+        pub fn selection_geometry(
+            &mut self,
+            options: &str,
+            expected_revision: Option<String>,
+        ) -> Result<String, JsValue> {
+            self.inner
+                .selection_geometry(options, expected_revision.as_deref())
+                .map_err(js_error)
+        }
+        /// Applies native pointer hit-testing or visual keyboard navigation.
+        pub fn layout_action(
+            &mut self,
+            options: &str,
+            action: &str,
+            expected_revision: Option<String>,
+        ) -> Result<String, JsValue> {
+            self.inner
+                .layout_action(options, action, expected_revision.as_deref())
+                .map_err(js_error)
+        }
+        /// Finds bounded literal matches using Rust core grapheme boundaries.
+        pub fn find_text(&self, query: &str) -> Result<String, JsValue> {
+            self.inner.find_text(query).map_err(js_error)
         }
         /// Copies exact selected plain text using the Rust paragraph policy.
         pub fn selected_text(&self) -> Result<String, JsValue> {

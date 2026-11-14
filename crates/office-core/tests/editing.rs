@@ -1200,8 +1200,7 @@ fn empty_runs_at_replacement_cuts_are_partitioned_without_duplication() {
         paragraph_in(&insertion, "p").runs(),
         &[
             leading.clone(),
-            TextRun::new("ab"),
-            TextRun::new("X"),
+            TextRun::new("abX"),
             middle,
             TextRun::new("cd"),
             trailing.clone(),
