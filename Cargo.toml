@@ -1,0 +1,19 @@
+[workspace]
+members = ["crates/office-core"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+# Add shared dependencies here only when they are needed.
+
+[workspace.lints.rust]
+warnings = "deny"
+missing_docs = "deny"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "deny"
