@@ -1,8 +1,12 @@
+use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 
 use crate::{Document, DocumentMetadata, Id, NamedStyle, Section, ValidationError};
+
+/// Default maximum number of complete document snapshots retained for undo.
+pub const DEFAULT_HISTORY_LIMIT: usize = 100;
 
 /// An opaque revision token issued by one live [`DocumentSession`].
 ///
@@ -39,8 +43,8 @@ impl Eq for Revision {}
 /// Mutable construction records staged privately inside a transaction.
 ///
 /// Intermediate drafts may be invalid. Only a complete, validated candidate can
-/// be published by [`DocumentSession::commit`]. This is a staging boundary for
-/// future operations, not a text-editing or formatting-operation API.
+/// be published by [`DocumentSession::commit`]. Editing operations can stage
+/// validated candidates without exposing mutable committed state.
 /// The session's document ID and schema cannot be changed through this record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DocumentDraft {
@@ -64,6 +68,7 @@ pub struct Transaction {
     base_revision: Revision,
     document_id: Id,
     draft: DocumentDraft,
+    edit_context: Arc<()>,
 }
 
 impl Transaction {
@@ -86,8 +91,37 @@ impl Transaction {
     }
 
     /// Returns mutable candidate records without exposing committed state.
+    ///
+    /// Merely requesting mutable access invalidates all editing positions and
+    /// selections minted for the previous draft, even if no value is changed.
     pub fn draft_mut(&mut self) -> &mut DocumentDraft {
+        self.edit_context = Arc::new(());
         &mut self.draft
+    }
+
+    pub(crate) fn edit_context(&self) -> &Arc<()> {
+        &self.edit_context
+    }
+
+    pub(crate) fn candidate(&self) -> Result<Document, ValidationError> {
+        Document::from_parts(
+            self.document_id.clone(),
+            self.draft.metadata.clone(),
+            self.draft.sections.clone(),
+            self.draft.styles.clone(),
+        )
+    }
+
+    pub(crate) fn accept_candidate(&mut self, candidate: Document) {
+        debug_assert_eq!(candidate.id(), &self.document_id);
+        let draft = DocumentDraft {
+            metadata: candidate.metadata().clone(),
+            sections: candidate.sections().to_vec(),
+            styles: candidate.styles().to_vec(),
+        };
+        let edit_context = Arc::new(());
+        self.draft = draft;
+        self.edit_context = edit_context;
     }
 }
 
@@ -155,14 +189,52 @@ impl Error for TransactionError {
     }
 }
 
+/// A rejected undo or redo request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HistoryError {
+    /// No earlier committed snapshot is retained.
+    NothingToUndo,
+    /// No undone snapshot is available to restore.
+    NothingToRedo,
+    /// The snapshot cannot be published under the transaction invariants.
+    Transaction(TransactionError),
+}
+
+impl fmt::Display for HistoryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NothingToUndo => f.write_str("nothing to undo"),
+            Self::NothingToRedo => f.write_str("nothing to redo"),
+            Self::Transaction(error) => write!(f, "history restoration rejected: {error}"),
+        }
+    }
+}
+
+impl Error for HistoryError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Transaction(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<TransactionError> for HistoryError {
+    fn from(error: TransactionError) -> Self {
+        Self::Transaction(error)
+    }
+}
+
 /// Owns a validated committed document and its session-local revision lineage.
 ///
 /// Committed access is immutable. Detached transactions clone the content at
 /// begin; commit validates a complete candidate before replacing anything.
 /// An exclusive Rust borrow serializes publication; this is in-memory atomicity,
-/// not a durable transaction, collaboration protocol, or undo/redo history.
+/// not a durable transaction or collaboration protocol. Bounded in-memory history
+/// retains one complete snapshot for each changed commit; an entire transaction
+/// is one undo step. Undo and redo publish fresh monotonically increasing revisions.
 /// The session cannot be cloned. Saving and loading the document preserves model
-/// values, not revision tokens or session identity.
+/// values, not revision tokens, session identity, or undo/redo history.
 ///
 /// ```
 /// use office_core::{Document, DocumentSession, Id};
@@ -184,19 +256,58 @@ impl Error for TransactionError {
 pub struct DocumentSession {
     document: Document,
     revision: Revision,
+    history_limit: usize,
+    undo: VecDeque<Document>,
+    redo: VecDeque<Document>,
 }
 
 impl DocumentSession {
     /// Takes ownership of an already validated document and starts revision zero.
     #[must_use]
     pub fn new(document: Document) -> Self {
+        Self::with_history_limit(document, DEFAULT_HISTORY_LIMIT)
+    }
+
+    /// Starts a session with a maximum retained undo snapshot count.
+    ///
+    /// A limit of zero disables history. The limit counts whole document
+    /// snapshots rather than bytes; committed document data remains unchanged.
+    #[must_use]
+    pub fn with_history_limit(document: Document, history_limit: usize) -> Self {
         Self {
             document,
             revision: Revision {
                 session: Arc::new(()),
                 number: 0,
             },
+            history_limit,
+            undo: VecDeque::new(),
+            redo: VecDeque::new(),
         }
+    }
+
+    /// Returns the configured maximum number of retained undo snapshots.
+    #[must_use]
+    pub fn history_limit(&self) -> usize {
+        self.history_limit
+    }
+
+    /// Reports whether a committed snapshot is available to undo.
+    #[must_use]
+    pub fn can_undo(&self) -> bool {
+        !self.undo.is_empty()
+    }
+
+    /// Reports whether an undone snapshot is available to redo.
+    #[must_use]
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
+    }
+
+    /// Discards undo and redo snapshots without changing document or revision.
+    pub fn clear_history(&mut self) {
+        self.undo.clear();
+        self.redo.clear();
     }
 
     /// Returns the current immutable committed document.
@@ -244,6 +355,7 @@ impl DocumentSession {
                 sections: self.document.sections().to_vec(),
                 styles: self.document.styles().to_vec(),
             },
+            edit_context: Arc::new(()),
         }
     }
 
@@ -254,7 +366,9 @@ impl DocumentSession {
     /// committed document and revision untouched. Validation uses the existing
     /// model validator and never repairs or normalizes a draft. The document ID
     /// is retained. Structural no-ops succeed without advancing the revision.
-    /// No user code or callbacks run during publication.
+    /// A changed commit records one undo snapshot and clears redo. No-ops and
+    /// rejected commits preserve both history stacks. No user code or callbacks
+    /// run during publication.
     pub fn commit(&mut self, transaction: Transaction) -> Result<CommitOutcome, TransactionError> {
         self.validate_revision(&transaction.base_revision)?;
         let candidate = Document::from_parts(
@@ -273,7 +387,17 @@ impl DocumentSession {
                 .ok_or(TransactionError::RevisionExhausted)?;
             // All fallible work precedes publication; both values are owned and
             // no observer can access the session while this exclusive borrow lives.
-            self.document = candidate;
+            if self.history_limit > 0 {
+                self.undo.reserve(1);
+                let previous = std::mem::replace(&mut self.document, candidate);
+                self.undo.push_back(previous);
+                if self.undo.len() > self.history_limit {
+                    self.undo.pop_front();
+                }
+            } else {
+                self.document = candidate;
+            }
+            self.redo.clear();
             self.revision.number = next;
         }
         Ok(CommitOutcome {
@@ -281,11 +405,64 @@ impl DocumentSession {
             changed,
         })
     }
+
+    /// Restores the previous committed document as one atomic history step.
+    ///
+    /// The restored model is validated before publication. Success advances the
+    /// revision, so positions and pending drafts from earlier revisions remain
+    /// stale even if an older document value is restored. Failure preserves the
+    /// current document, revision, and both history stacks.
+    pub fn undo(&mut self) -> Result<CommitOutcome, HistoryError> {
+        self.restore_history(true)
+    }
+
+    /// Restores the most recently undone document under a fresh revision.
+    ///
+    /// New changed commits clear redo, while no-op commits preserve it. Failure
+    /// preserves the current document, revision, and both history stacks.
+    pub fn redo(&mut self) -> Result<CommitOutcome, HistoryError> {
+        self.restore_history(false)
+    }
+
+    fn restore_history(&mut self, undoing: bool) -> Result<CommitOutcome, HistoryError> {
+        let target = if undoing {
+            self.undo.back().ok_or(HistoryError::NothingToUndo)?
+        } else {
+            self.redo.back().ok_or(HistoryError::NothingToRedo)?
+        };
+        target
+            .validate()
+            .map_err(TransactionError::InvalidDocument)?;
+        let next = self
+            .revision
+            .number
+            .checked_add(1)
+            .ok_or(TransactionError::RevisionExhausted)?;
+
+        // Reserve destination capacity before touching either stack or state.
+        // All stored snapshots came from changed commits or exact restorations.
+        if undoing {
+            self.redo.reserve(1);
+            let target = self.undo.pop_back().expect("undo target was checked");
+            let previous = std::mem::replace(&mut self.document, target);
+            self.redo.push_back(previous);
+        } else {
+            self.undo.reserve(1);
+            let target = self.redo.pop_back().expect("redo target was checked");
+            let previous = std::mem::replace(&mut self.document, target);
+            self.undo.push_back(previous);
+        }
+        self.revision.number = next;
+        Ok(CommitOutcome {
+            revision: self.revision(),
+            changed: true,
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DocumentSession, TransactionError};
+    use super::{DocumentSession, HistoryError, TransactionError};
     use crate::{Document, Id, NamedStyle, ValidationError};
 
     #[test]
@@ -323,5 +500,50 @@ mod tests {
         assert!(!outcome.changed());
         assert_eq!(outcome.revision(), &token);
         assert_eq!(session.revision().number(), u64::MAX);
+        assert!(!session.can_undo());
+        assert!(!session.can_redo());
+    }
+
+    #[test]
+    fn history_revision_exhaustion_preserves_both_stacks_and_document() {
+        let mut session =
+            DocumentSession::new(Document::new(Id::new("document").unwrap()).unwrap());
+        for title in ["First", "Second"] {
+            let mut transaction = session.begin_transaction();
+            transaction.draft_mut().metadata.title = title.into();
+            session.commit(transaction).unwrap();
+        }
+        session.undo().unwrap();
+        assert!(session.can_undo());
+        assert!(session.can_redo());
+        session.revision.number = u64::MAX;
+        let original = session.document.clone();
+        let revision = session.revision();
+        let undo = session.undo.clone();
+        let redo = session.redo.clone();
+
+        for undoing in [true, false] {
+            assert_eq!(
+                session.restore_history(undoing),
+                Err(HistoryError::Transaction(
+                    TransactionError::RevisionExhausted
+                ))
+            );
+            assert_eq!(session.document, original);
+            assert_eq!(session.revision(), revision);
+            assert_eq!(session.undo, undo);
+            assert_eq!(session.redo, redo);
+        }
+
+        let mut transaction = session.begin_transaction();
+        transaction.draft_mut().metadata.title = "Cannot create a new branch".into();
+        assert_eq!(
+            session.commit(transaction),
+            Err(TransactionError::RevisionExhausted)
+        );
+        assert_eq!(session.document, original);
+        assert_eq!(session.revision(), revision);
+        assert_eq!(session.undo, undo);
+        assert_eq!(session.redo, redo);
     }
 }

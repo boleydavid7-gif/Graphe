@@ -4,8 +4,8 @@ This document records long-term principles and the first document model. The
 workspace currently implements the repository foundation, structured Writer
 content, validation, schema-versioned JSON serialization, and Unicode-aware
 positions and selections. A runtime session now provides atomic validated
-transactions. Text-editing operations, layout, rendering, and format conversion
-remain future subsystems.
+transactions, Unicode-safe text and formatting operations, and bounded undo/redo.
+Layout, rendering, and format conversion remain future subsystems.
 
 ## Independent engine
 
@@ -219,10 +219,10 @@ session lineage at revision zero.
 `begin_transaction` returns a detached `Transaction` with the originating token,
 fixed document ID, and a `DocumentDraft`. The draft contains cloned metadata,
 sections, and named styles. Callers can assemble candidate records without
-mutating the committed state. Intermediate drafts may violate invariants; only
-the final candidate is checked. The document ID and schema cannot be changed
-through the draft. These staging records provide a transaction boundary for
-future operations; 3B adds no insertion, deletion, or formatting-operation API.
+mutating the committed state. Raw intermediate drafts may violate invariants;
+commit checks the final candidate. The document ID and schema cannot be changed
+through the draft. These staging records provide the transaction boundary used
+by the editing operations introduced in 3C.
 
 Commit consumes the transaction on success or failure and proceeds in this order:
 
@@ -240,6 +240,8 @@ Different run boundaries or property representations count as changes even if
 the displayed text would look identical. Validation never repairs, normalizes,
 or merges candidate content. Stale candidates are rejected before equality is
 considered, so a stale draft cannot succeed merely because its content matches.
+Each changed commit retains the preceding document as one undo snapshot when
+history is enabled, and clears redo. No-op and failed commits preserve history.
 
 `TransactionError` distinguishes foreign sessions, stale revisions, invalid
 documents, and revision exhaustion. Every rejection leaves both committed
@@ -270,14 +272,100 @@ old origins even after content changes from A to B and back to A.
 
 Beginning a transaction copies candidate content in O(document size) time and
 memory. Commit validates the complete document and compares structural equality,
-also requiring work proportional to document size. No persistent tree, operation
-framework, cache, event stream, or history is added without demonstrated need.
+also requiring work proportional to document size. No persistent tree, document
+cache, or event stream is added without demonstrated need.
 
-### Later editing milestone
+### Text and formatting operations (3C)
 
-Milestone 3C will add text editing operations, formatting operations, and undo/redo
-on the transaction foundation. It remains unstarted. The position, transaction,
-and operation milestones retain separate acceptance checks.
+`Transaction::position` and `Transaction::selection` create `EditPosition` and
+`EditSelection` values tied to the current draft by a private identity stamp.
+Only endpoints issued by the same unchanged transaction can be used by an
+operation. Raw 3A inspection values cannot be supplied directly. Successful
+changed operations rotate the stamp, as does every call to `draft_mut`, even if
+the caller changes no value. Stale and foreign endpoints return `WrongContext`.
+Failed and no-op operations preserve existing editing endpoints.
+
+Every operation builds and validates a complete candidate before replacing the
+transaction's draft. Invalid input leaves earlier successful staging intact;
+callers can drop the transaction to abort the entire batch. Committed state
+remains untouched until commit succeeds. Endpoints and text coordinate snapshots
+must be reacquired after a changed operation. Final commit
+still checks the originating session revision, so a detached draft cannot
+overwrite a later commit. These runtime types do not change schema version 1.
+Creating editing endpoints or applying an operation requires the current draft
+to be valid; repair invalid raw staging records before using those helpers.
+
+Insertion, deletion, and replacement use extended-grapheme boundaries across
+the complete paragraph text. Inserted UTF-8 is preserved exactly, including CR
+and LF as literal text; no paragraph IDs or structural breaks are synthesized.
+Inserted runs receive explicitly supplied direct `CharacterFormat`, avoiding
+an implicit typing-affinity or style-resolution policy. New adjacency can merge
+graphemes, such as an inserted combining mark joining preceding text. Operations
+return a changed flag without an implicit result cursor or automatic rebasing.
+
+A same-section multi-paragraph replacement preserves the start paragraph's ID,
+style reference, and paragraph properties. It combines its retained prefix,
+inserted text, and the retained end paragraph suffix, removing covered paragraphs
+including the end paragraph. Other section properties and unaffected content
+remain intact. Replacement across sections is rejected with a structured error
+until section-joining semantics are defined. Reverse selections use their ordered
+half-open range. Deleting all text leaves a valid empty paragraph.
+
+Text replacement retains empty runs strictly before its start and at or after
+its end, removing empty runs within the replaced interval. An empty run at an
+insertion cut belongs to the suffix. Identical replacement text with matching
+direct properties preserves the original run partition as a no-op.
+
+`CharacterFormatPatch` and `ParagraphFormatPatch` use `PropertyChange::Keep`,
+`Set(value)`, and `Clear` for each optional property. Clearing restores an
+unspecified value, distinct from explicit `false` or underline `none`. Setting
+indentation replaces its complete override record. Supplied property values are
+validated even for an empty selection. Patches do not resolve style inheritance.
+
+Character formatting applies only to selected text and may span sections. It
+splits runs at selected boundaries only when properties change, preserves
+unselected content and empty runs, and performs no run coalescing. An already
+matching patch preserves the original run boundaries and produces no history.
+Collapsed character formatting is a no-op, not a typing-state change. Paragraph
+formatting and named-style assignment target paragraphs touched by the logical
+range; a collapsed selection targets its paragraph. A noncollapsed range ending
+at offset zero excludes that final paragraph. Style assignment validates the
+reference, and clearing it leaves direct paragraph properties unchanged.
+
+Operation setup currently validates and copies the candidate document; text
+operations additionally scan affected paragraphs and formatting operations scan
+the document structure. The implementation favors the shared validator and
+explicit behavior over incremental indexes or structural sharing. No frontend,
+visual bidi navigation, DOCX mapping, or layout dependency is introduced.
+
+### Bounded undo and redo
+
+History belongs to `DocumentSession`. Each changed commit creates one undo step,
+including commits assembled from raw draft records and transactions containing
+multiple operations. Stored snapshots restore exact document values: stable IDs,
+run boundaries, text, metadata, styles, and direct formatting. There is no typing
+coalescing or operation grouping beyond the transaction boundary.
+
+The default `DEFAULT_HISTORY_LIMIT` is 100 retained undo snapshots.
+`with_history_limit` sets another count; zero disables history. Pruning discards
+the oldest retained undo snapshot. This bounds snapshot count, not memory bytes:
+each snapshot is a complete document and may be large. Undo transfers the current
+document to redo; redo transfers it back to undo. New changed commits clear redo.
+The total number of retained undo and redo snapshots stays within the limit.
+No-op commits and all rejected commits leave both stacks unchanged.
+
+Undo and redo validate the target snapshot and check revision exhaustion before
+changing document, stacks, or revision. Success publishes a fresh monotonically
+increasing revision; it never restores an earlier token, even when an earlier
+document value returns. Pending transactions and old position-origin tokens
+therefore remain stale. An empty stack returns `NothingToUndo` or `NothingToRedo`
+without changing state. `clear_history` discards both stacks without changing
+committed content or its revision.
+
+History, draft identity stamps, and session revisions are runtime state. They are
+not serialized into documents or restored by loading. Undo/redo is in-memory
+history rather than durable recovery or a collaboration protocol. The position,
+transaction, and operation milestones retain separate acceptance checks.
 
 ### DOCX compatibility limits and extension points
 
@@ -300,8 +388,9 @@ covered by compatibility tests.
 ## Incremental workspace
 
 `office-core` is the only crate in the Cargo workspace. It exposes the engine
-version, document model, position/selection APIs, and transaction sessions. Serde,
-serde_json, and unicode-segmentation are declared in `[workspace.dependencies]`
+version, document model, position/selection APIs, editing operations, and transaction
+sessions with history. Serde, serde_json, and unicode-segmentation are declared in
+`[workspace.dependencies]`
 and inherited by the crate for serialization and Unicode segmentation.
 New crates should also inherit the workspace package settings and
 lints. Additional crates will be introduced only when concrete responsibilities

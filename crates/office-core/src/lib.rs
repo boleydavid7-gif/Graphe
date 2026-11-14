@@ -12,6 +12,8 @@
 //! identify logical cursor boundaries using stable document element IDs.
 //! [`DocumentSession`] publishes validated transaction drafts and issues
 //! session-scoped [`Revision`] tokens without changing the document schema.
+//! Transactions stage text and formatting operations using [`EditPosition`] and
+//! [`EditSelection`]; sessions retain bounded exact snapshots for undo and redo.
 //! See the repository architecture document for the versioned JSON contract,
 //! validation rules, and Unicode coordinate conventions.
 //!
@@ -37,7 +39,10 @@
 
 mod coordinates;
 mod document;
+mod edit_ops;
+mod editing;
 mod error;
+mod format_patch;
 mod formatting;
 mod position;
 mod transaction;
@@ -49,14 +54,17 @@ pub use document::{
     Block, Document, DocumentMetadata, Id, NamedStyle, Paragraph, SCHEMA_VERSION, Section,
     SectionProperties, TextRun,
 };
+pub use editing::{EditError, EditPosition, EditSelection};
 pub use error::{DocumentError, ValidationError};
+pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, PropertyChange};
 pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, ParagraphFormat, TextColor,
     Twips, Underline,
 };
 pub use position::{DocumentPosition, OffsetUnit, PositionError, Selection};
 pub use transaction::{
-    CommitOutcome, DocumentDraft, DocumentSession, Revision, Transaction, TransactionError,
+    CommitOutcome, DEFAULT_HISTORY_LIMIT, DocumentDraft, DocumentSession, HistoryError, Revision,
+    Transaction, TransactionError,
 };
 
 /// Returns the version of the engine core, as declared in its Cargo manifest.

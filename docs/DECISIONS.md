@@ -202,7 +202,8 @@ implements no transactions, insertion/deletion, formatting operations, or histor
 
 Milestone 3A subsequently passed its checks and was merged into `main`. Milestone
 3B implements the transaction foundation under decisions 013 and 014. Milestone
-3C remains unstarted.
+3B also passed its checks and was merged. Milestone 3C extends that foundation
+under decisions 015 through 017.
 
 ## 013: Stage detached candidates and validate before atomic publication
 
@@ -252,3 +253,73 @@ those values, validate it before reuse, then apply existing structural checks.
 Pairing an old value with a fresh token does not establish correct provenance.
 Revision-aware position wrappers, rebasing, and editing affinity remain later
 decisions before position-consuming text operations are introduced.
+
+Milestone 3C adds transaction-local editing wrappers under decision 015. Raw 3A
+inspection positions retain the origin-token contract above; automatic rebasing
+and typing affinity remain unimplemented.
+
+## 015: Bind editing endpoints to a transaction's current draft
+
+**Decision:** Introduce `EditPosition` and `EditSelection`, minted only through
+the transaction from checked grapheme positions. A private draft identity stamp
+is rotated after a changed operation and every mutable draft borrow. Editing
+operators reject stale or foreign stamps before processing candidate content.
+
+**Reason:** Stable element IDs and an originating committed revision do not
+identify an intermediate draft state. A second operation must not accidentally
+interpret offsets from before an earlier staged change. Transaction-local
+provenance provides this boundary without changing the model or inventing a
+document-wide position-rebasing system.
+
+**Consequences:** Callers reacquire endpoints and coordinates after changes.
+Failed and no-op operations preserve endpoints. Raw inspection positions cannot
+be supplied to editing operators. Every operation validates a complete candidate
+before updating the draft, while final commit still checks the session revision.
+Operations return a changed flag rather than an implicit cursor because inserted
+or rejoined text can form new grapheme clusters. No automatic rebasing, result
+caret affinity, frontend integration, or position serialization is introduced.
+
+## 016: Make text and formatting behavior explicit within the current model
+
+**Decision:** Support insertion, deletion, and replacement across paragraphs in
+one section. A join retains the start paragraph's identity, style, and properties
+and appends the retained end suffix. Reject cross-section structural replacement.
+Keep CR and LF as literal UTF-8 text. Require explicit character properties for
+inserted runs. Use `Keep`, `Set`, and `Clear` property patches for formatting.
+
+**Reason:** The existing model supplies paragraphs and sections but has no page
+or section-joining policy. Explicit limits avoid inventing layout semantics or
+implicit paragraph IDs. Three-state property changes preserve the distinction
+between inherited values and direct overrides.
+
+**Consequences:** Character and paragraph formatting may span sections without
+changing structure. A collapsed character range does not create typing state;
+paragraph formatting targets the containing paragraph. Half-open paragraph
+ranges exclude a final paragraph at offset zero. Named-style assignment retains
+direct formatting and validates references without resolving styles. Unaffected
+run boundaries and properties remain intact; no-op patches and identical
+replacement content preserve the original partition. No new schema or dependency
+is required. Explicit paragraph splitting, cross-section joins, style resolution,
+and visual editing behavior remain later work.
+
+## 017: Keep bounded exact document snapshots for undo and redo
+
+**Decision:** Record one complete prior document per changed commit in the
+session's undo history, with a default limit of 100 snapshots and a configurable
+count including zero. Undo and redo restore exact values under fresh increasing
+session revisions. New changed commits clear redo; failures and no-ops preserve
+both stacks.
+
+**Reason:** Snapshot history makes transaction grouping and exact restoration
+straightforward while the engine is small. It avoids introducing inverse-command
+semantics before the operation set has stabilized. Fresh revisions preserve the
+stale-origin guarantees even when content returns to an earlier value.
+
+**Consequences:** Multiple staged operations form one undo step. IDs, formatting,
+Unicode text, and run boundaries restore exactly. History is bounded by count,
+not bytes, and full document snapshots can consume substantial memory.
+Validation and revision-overflow checks precede history publication. Empty stacks
+return structured errors; clearing history leaves document and revision intact.
+History is session-local, is not serialized, and performs no typing coalescing or
+grouping beyond a transaction. Structural sharing or more compact history should
+follow measured requirements rather than precede them.

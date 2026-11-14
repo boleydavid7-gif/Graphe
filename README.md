@@ -24,10 +24,13 @@ Milestone 3B adds detached transaction drafts, atomic validated commits, and
 session-scoped revision tokens. Committed documents remain immutable to callers;
 draft changes become visible together only after a successful commit.
 
-There are no text-editing operations, DOCX parsing, layout, rendering, or user
-interface yet.
+Milestone 3C adds Unicode-safe text insertion, deletion, and replacement,
+character and paragraph formatting, style assignment, and bounded undo/redo.
+Operations stage validated candidates inside transactions; each changed commit
+is one undo step.
+
+DOCX parsing, layout, rendering, and a user interface remain future work.
 Style inheritance is stored and validated; effective formatting is not resolved.
-Milestone 3C (text editing, formatting operations, and undo/redo) has not started.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -76,8 +79,7 @@ so the lockfile does not pin the compiler version.
 ## Model API
 
 IDs are supplied by the caller and must remain stable and unique within a
-document. Assemble complete parts and validate them; no text-editing API is
-included:
+document. Construction APIs assemble complete parts and validate them:
 
 ```rust
 use office_core::{Block, Document, DocumentMetadata, Id, Paragraph, Section, TextRun};
@@ -186,8 +188,83 @@ Session revisions are runtime state, separate from document schema version 1.
 The token includes opaque session identity, so equal counter numbers in different
 sessions do not identify the same revision. Transactions provide in-memory
 publication through an exclusive Rust borrow; they do not provide durable
-storage, collaboration, text operations, or history. No dependencies were added
-for 3B.
+storage or collaboration. Text operations and in-memory history build on this
+boundary without changing the document schema or adding dependencies.
+
+## Editing and undo/redo
+
+Use `Transaction::position` and `Transaction::selection` to create editing
+endpoints for the current draft. Raw inspection positions and selections cannot
+be passed to operations. A changed operation or any `draft_mut()` borrow
+invalidates existing editing endpoints; reacquire them before another operation.
+Failed and no-op operations preserve them. Every operation returns whether its
+candidate changed, while publication still requires a successful commit.
+
+```rust
+use office_core::{
+    Block, CharacterFormat, CharacterFormatPatch, Document, DocumentMetadata,
+    DocumentSession, GraphemeOffset, Id, Paragraph, PropertyChange, Section, TextRun,
+};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let paragraph_id = Id::new("paragraph-1")?;
+    let original = Document::from_parts(
+        Id::new("document-1")?,
+        DocumentMetadata::default(),
+        vec![Section::new(
+            Id::new("section-1")?,
+            vec![Block::Paragraph(Paragraph::new(
+                paragraph_id.clone(), vec![TextRun::new("Hi")],
+            ))],
+        )],
+        vec![],
+    )?;
+    let mut session = DocumentSession::new(original.clone());
+    let mut transaction = session.begin_transaction();
+    let at = transaction.position(&paragraph_id, GraphemeOffset::new(2))?;
+    assert!(transaction.insert_text(&at, ", 世界!", CharacterFormat::default())?);
+
+    // Insertion changed the draft, so acquire fresh formatting endpoints.
+    let start = transaction.position(&paragraph_id, GraphemeOffset::new(0))?;
+    let end_offset = transaction.text_coordinates(&paragraph_id)?.grapheme_len();
+    let end = transaction.position(&paragraph_id, end_offset)?;
+    let selection = transaction.selection(start, end)?;
+    transaction.apply_character_format(&selection, &CharacterFormatPatch {
+        bold: PropertyChange::Set(true),
+        ..Default::default()
+    })?;
+    session.commit(transaction)?;
+    assert_eq!(session.document().text_coordinates(&paragraph_id)?.text(), "Hi, 世界!");
+    let edited = session.document().clone();
+
+    session.undo()?; // Both operations were committed as one undo step.
+    assert_eq!(session.document(), &original);
+    session.redo()?;
+    assert_eq!(session.document(), &edited);
+    Ok(())
+}
+```
+
+Inserted text uses explicitly supplied `CharacterFormat`. Formatting patches
+distinguish `Keep`, `Set`, and `Clear`; clearing restores an unspecified property
+eligible for inheritance. Character formatting can span sections. Paragraph
+formatting and style assignment apply to touched paragraphs; a collapsed range
+targets its paragraph, and a range ending at offset zero excludes that final
+paragraph. Collapsed character formatting does not create typing state.
+
+Text replacement can span paragraphs in one section. It preserves the start
+paragraph's ID, style, and properties, retains the end suffix, and removes covered
+paragraphs. Cross-section text replacement is rejected. CR and LF remain literal
+text rather than creating paragraphs. New text adjacency can merge graphemes, so
+operations return no implicit result cursor; inspect the new draft coordinates.
+
+`DocumentSession::new` retains up to `DEFAULT_HISTORY_LIMIT` (100) complete undo
+snapshots. `with_history_limit` chooses another count, including zero to disable
+history. New changed commits clear redo; no-ops and rejected commits preserve it.
+Undo and redo restore exact model values under fresh increasing revisions, so
+old revision tokens remain stale. `clear_history` preserves document and revision.
+History is bounded by snapshot count rather than bytes and is not serialized;
+there is no automatic typing coalescing or grouping beyond a transaction.
 
 ## Repository
 

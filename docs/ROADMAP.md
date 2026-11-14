@@ -21,14 +21,16 @@ each milestone is implemented.
    **3B — Atomic validated editing transactions — implemented:** detached drafts,
    complete candidate validation, atomic in-memory publication, session-scoped
    revision tokens, stale/foreign rejection, and explicit no-op behavior.
-   Formatting, Clippy, tests, and build checks passed.
+   Formatting, Clippy, tests, and build checks passed. Merged into `main`.
 
-   **3C — Text editing operations,
-   formatting, and undo/redo — not started:** build operations and history on the
-   transaction foundation.
+   **3C — Text editing operations, formatting, and undo/redo — implemented:**
+   transaction-local editing endpoints; Unicode-safe insertion, deletion, and
+   replacement within a section; character and paragraph patches; named-style
+   assignment; and bounded exact-snapshot history. Cross-section text replacement
+   remains explicitly unsupported. Formatting, Clippy, tests, and build checks passed.
 
-   The 3A formatting, Clippy, test, and build gate passed before 3B began. Require
-   the same checks for 3B before beginning 3C; these remain distinct milestones.
+   The 3A formatting, Clippy, test, and build gate passed before 3B began; the 3B
+   gate passed before 3C began. Each remains a distinct validated milestone.
 4. **Serialization.** Extend the schema-1 JSON baseline introduced in Step 2 with
    persistence requirements, explicit migration policy, and additional error and
    compatibility coverage as the model grows. Basic lossless model round trips
