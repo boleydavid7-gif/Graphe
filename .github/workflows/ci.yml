@@ -36,3 +36,56 @@ jobs:
 
       - name: Build workspace
         run: cargo build --workspace
+
+  writer:
+    name: Writer browser integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/writer
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/writer/package-lock.json
+
+      - name: Install stable Rust and WebAssembly target
+        run: rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+
+      - name: Install matching WebAssembly bindings CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.130 --locked
+
+      - name: Install locked frontend dependencies
+        run: npm ci
+
+      - name: Check dependency advisories
+        run: npm audit --audit-level=moderate
+
+      - name: Build WebAssembly bindings
+        run: npm run build:wasm
+
+      - name: Check TypeScript
+        run: npm run typecheck
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Run frontend unit tests
+        run: npm test
+
+      - name: Test compiled WebAssembly bindings
+        run: npm run test:wasm
+
+      - name: Build production frontend
+        run: npm run build
+
+      - name: Install Chromium for integration tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Test production frontend in Chromium
+        run: npm run test:browser

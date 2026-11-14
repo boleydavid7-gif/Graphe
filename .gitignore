@@ -1,1 +1,7 @@
 /target/
+/apps/writer/node_modules/
+/apps/writer/dist/
+/apps/writer/src/wasm/
+/apps/writer/playwright-report/
+/apps/writer/test-results/
+/apps/writer/artifacts/

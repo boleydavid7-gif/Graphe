@@ -6,7 +6,9 @@ content, validation, schema-versioned JSON serialization, and Unicode-aware
 positions and selections. A runtime session now provides atomic validated
 transactions, Unicode-safe text and formatting operations, and bounded undo/redo.
 Native Writer persistence now separates byte serialization from filesystem
-storage. Layout, rendering, and Office format conversion remain future subsystems.
+storage. Step 4.5 adds a Rust/WebAssembly session boundary and a semantic browser
+prototype. Professional layout, platform-independent rendering, and Office
+format conversion remain future subsystems.
 
 ## Independent engine
 
@@ -15,9 +17,9 @@ not depend on React, JavaScript, browser APIs, or a particular application shell
 An interface translates user intent into engine operations and presents engine
 results.
 
-Browser integration will use WebAssembly. Any browser or JavaScript bindings
-belong at the integration boundary rather than in the core. Native desktop
-applications should be possible without rewriting the engine.
+Browser integration uses WebAssembly through `office-wasm`. Browser and
+JavaScript bindings belong at that boundary rather than in `office-core`. Native
+desktop applications should be possible without rewriting the core engine.
 
 ## Separate document, editing, layout, and rendering concerns
 
@@ -93,11 +95,11 @@ the model imposes no additional speculative layout limits.
 `NamedStyle` has a stable ID, nonblank unique case-sensitive display name,
 optional `based_on` reference, paragraph properties, and character defaults.
 Paragraph references and parent references resolve by ID, not display name.
-Validation rejects missing references and inheritance cycles. The model stores
-the style graph but does not compute effective formatting. A future resolver
-will apply the nearest specified style properties and then direct formatting.
-Character styles, numbering styles, theme fonts, and OOXML toggle semantics are
-not implemented.
+Validation rejects missing references and inheritance cycles. The core model
+stores the style graph without resolving effective formatting. The browser
+adapter adds a limited Rust display policy for inheritance and direct properties;
+it does not alter the optional source values. Character styles, numbering styles,
+theme fonts, and OOXML toggle semantics are not implemented.
 
 ### Validation and serialization
 
@@ -276,12 +278,12 @@ only document values; session identity, history, revisions, and endpoints are no
 persisted. Loading returns a validated `Document`; creating a new session from it
 starts a fresh revision lineage and empty history.
 
-Future browser storage adapters can transport the same bytes through their own
-storage APIs. DOCX import/export will be a separate adapter to and from the typed
-document model, with its own compatibility policy. Neither integration, nor
-autosave, cloud synchronization, storage bindings, or DOCX support is implemented
-in Step 4. Step 4.5 remains unstarted and requires a defined scope and acceptance
-criteria before development.
+Step 4.5 transports these same bytes through IndexedDB and native file
+import/export. Browser storage has its own completion, quota, eviction, and
+conflict semantics; it does not inherit the native filesystem guarantees above.
+DOCX import/export remains a separate future adapter to and from the typed model,
+requiring its own researched compatibility policy and approval. Autosave and
+cloud synchronization are not implemented.
 
 ### Unicode positions and selections (3A)
 
@@ -438,8 +440,9 @@ the complete paragraph text. Inserted UTF-8 is preserved exactly, including CR
 and LF as literal text; no paragraph IDs or structural breaks are synthesized.
 Inserted runs receive explicitly supplied direct `CharacterFormat`, avoiding
 an implicit typing-affinity or style-resolution policy. New adjacency can merge
-graphemes, such as an inserted combining mark joining preceding text. Operations
-return a changed flag without an implicit result cursor or automatic rebasing.
+graphemes, such as an inserted combining mark joining preceding text. Core
+operations return a changed flag without an implicit result cursor or automatic
+rebasing. The browser adapter's explicit caret policy is separate.
 
 A same-section multi-paragraph replacement preserves the start paragraph's ID,
 style reference, and paragraph properties. It combines its retained prefix,
@@ -523,15 +526,200 @@ identifiers without silently losing fidelity. Additional typed block variants
 and property records should be added when their behavior is implemented and
 covered by compatibility tests.
 
+## Browser Writer prototype (Step 4.5)
+
+The prototype is implemented on `dev/writer-browser-prototype`; local verification
+passes as recorded in [VERIFICATION.md](VERIFICATION.md). No merge or deployment
+is implied. Step 4's native persistence
+foundation is already merged at `52ac4e9` through PR #6. The engineering rules in
+[AGENTS.md](../AGENTS.md), primary-source evidence and retrospective findings in
+[RESEARCH.md](RESEARCH.md), and decisions 021 through 026 govern this addition.
+The research record contains the full source links and alternatives rather than
+duplicating them here.
+
+### Ownership and transport
+
+`office-wasm` owns a Rust `BrowserEngine`, which owns the live `DocumentSession`,
+directed selection, typing properties, and cursor history associated with core
+undo steps. `wasm-bindgen` exposes a small owning `WriterEngine` handle to the
+browser. The binding crate also builds natively so command, Unicode, persistence,
+and presentation policy can be tested outside a browser. `office-core` remains
+independent of React, JavaScript, browser storage, and browser APIs.
+
+`apps/writer` uses React, TypeScript, Vite, and CSS to render immutable presentation
+snapshots, dispatch commands, and manage dialogs, dirty/save state, DOM selection,
+composition, and browser storage. It maintains neither an editable JavaScript
+document model nor an independent undo stack. JSON command/snapshot DTOs are
+transport records, not another persisted document schema. Mutating a presentation
+value cannot change Rust-owned content.
+
+Commands return structured `{ok, view}` or `{ok, error}` responses. Errors carry
+a machine-readable code and a human-readable message. Session/revision handles
+cross the boundary as opaque strings; JavaScript never rounds a `u64` counter
+through its numeric type. Commands carry an expected revision so delayed input
+can be rejected. A cryptographic UUID namespace supplied by the host and a
+checked Rust counter allocate new identifiers; imported IDs remain opaque. DOM
+lookup uses identity maps rather than interpolating IDs into CSS selectors.
+
+### Browser input and Unicode policy
+
+The editing surface is a labeled multiline `contenteditable` textbox with
+semantic paragraphs and text spans. Rust snapshots control its committed content.
+Supported cancellable `beforeinput` commands become Rust transactions; unhandled
+or uncancellable `input` changes are reconciled through a supported command or
+restored from Rust with an error. Native browser navigation and directed
+selection remain available. Reconciliation retains unchanged presentation nodes
+where practical, and selection restoration is conditional rather than applied
+after every navigation or toolbar focus change.
+
+During an active IME composition, the browser DOM is deliberately a transient
+buffer. Reconciliation of that buffer pauses while its original Rust revision
+and selection are retained. Completion commits the final replacement once;
+cancellation and duplicate final-event paths must not delete text or double-commit.
+This exception concerns temporary browser interaction, not authority over the
+committed document. Browser undo/redo commands dispatch to Rust history.
+
+DOM text offsets are UTF-16 code units, while element offsets address child nodes.
+The presentation adapter maps both to stable paragraph identities and UTF-16
+positions. JavaScript string length is used only for DOM UTF-16 bookkeeping, not
+for grapheme counts. Rust's pinned Unicode 17 rules remain authoritative across
+all formatting runs, including combining sequences and multi-code-point emoji.
+
+The strict core conversions still reject surrogate interiors and invalid cursor
+boundaries. By default, a collapsed browser endpoint inside a grapheme moves to
+its following boundary and a range expands outward, preserving direction.
+Navigation requests explicitly choose leading/trailing affinity for the moving
+focus, allowing backward movement and Shift-selection contraction across runs.
+Input capture synchronizes pending native selection before applying an edit;
+it does not depend on asynchronous `selectionchange` arriving first. Distinct
+spellcheck target ranges retain outward normalization. A scalar-invalid UTF-16
+surrogate offset is rejected. Post-edit caret
+placement uses trailing Rust grapheme affinity because new adjacency can merge
+clusters. This is not a general position-rebasing or visual bidi engine.
+
+Enter and plain-text multiline paste use a targeted paragraph-break operation
+through the existing transaction boundary. The retained prefix keeps its ID;
+the suffix gets a new unique ID and inherits the start paragraph's style and
+paragraph properties. Original prefix/suffix runs are cut independently before
+new text is inserted, so a combining suffix cannot change the intended cut.
+Browser paste normalizes CRLF and CR into paragraph breaks; the low-level core
+text operations continue preserving literal CR/LF. One paste or completed
+composition is one transaction. Cross-section structural replacement remains
+explicitly unsupported. Opening a valid document with no paragraphs preserves
+that structure; the first deliberate edit can materialize an initial paragraph.
+
+Copy/cut obtain supported selected text from the Rust adapter's read-only
+`selected_text` API, which uses core Unicode coordinates and one LF per logical
+paragraph boundary. Native DOM `Selection.toString()` can add visual blank lines
+between paragraphs and is not the document clipboard format. Cut publishes a
+deletion only after clipboard writing succeeds. Clipboard input/output remains
+plain text; source formatting and soft-versus-structural line-break distinctions
+are not preserved by plain-text paste. Native Writer persistence remains exact.
+
+### Presentation and supported controls
+
+The Rust adapter overlays ancestor paragraph styles, the paragraph's direct
+properties, and run properties to produce effective display values. Missing
+values receive prototype defaults such as Arial 12 pt. Source optional values
+remain unchanged, so explicit false, unspecified values, styles, and native
+round trips retain their existing meaning. This policy is not complete Word
+style/toggle/theme/default evaluation. Fixed and minimum line spacing share a
+limited CSS presentation. Native negative indentation is preserved, but its
+browser projection does not implement full outdent/layout behavior. Host font
+fallback and metrics vary.
+
+The prototype exposes bold, italic, underline, font family, font size, paragraph
+alignment, title changes, word count, undo/redo, and document actions. Formatting
+controls represent mixed selections. Collapsed character controls update Rust
+typing properties for later insertion; they do not add an empty source run.
+The interface uses semantic labeled controls, visible focus, dialogs, and status
+messages. These choices support keyboard use without claiming accessibility
+certification or completed assistive-technology testing.
+
+### Explicit local storage and native files
+
+IndexedDB records store exact core-serialized `.writer` bytes with document ID,
+title, save etag, and timestamp metadata. No JSON reinterpretation in JavaScript
+becomes the native format. Saving compares the expected etag and writes the next
+record inside one read/write transaction; success is transaction completion.
+A new record expects no existing etag. A stale tab or same-ID imported document
+cannot silently overwrite another saved version; the user can reopen it or save
+a separate copy with a new document identity.
+
+Local Save captures document bytes and its Rust session/revision before awaiting
+storage. Dirty state clears only if that revision is still current when saving
+finishes. New, Open, Import, and Close guard unsaved replacement. Async open/import
+also checks that the live session did not change during the read. Rust fully
+validates candidate bytes before replacing the active session; opening a local
+record additionally verifies its document ID. Corrupt input, storage failures,
+and conflicts preserve live unsaved work. Export downloads exact native bytes
+without replacing local save state. History remains session-local and is not
+serialized.
+
+IndexedDB availability, quota, eviction, blocked upgrades, closure, corrupt
+records, and transaction failures are actionable application errors. A local
+transaction's completion does not guarantee backup, power-loss durability, or
+continued retention by the browser. Native filesystem synchronization/rename
+guarantees do not apply to IndexedDB. There is no autosave, cloud storage, or
+synchronization service.
+
+Library listing returns readable summaries and explicit per-record problems;
+one damaged record cannot hide healthy documents. Loading and overwriting remain
+strict, and listing never repairs or deletes bytes. Save-and-continue errors are
+announced inside the active modal rather than behind its inert backdrop.
+
+### Resource bounds, verification, and delivery
+
+The browser adapter limits accepted and produced native files to 5 MiB, total
+paragraph text to 200,000 UTF-16 code units, and documents to 2,000 paragraphs,
+2,000 sections, and 20,000 text runs. At most 128 named styles with inheritance
+depth at most 32 bound worst-case presentation and selection work. Its session
+retains at most 20 complete history snapshots, compared with the core's default
+100. These application bounds do not change model or native-format
+validity. Complete document copies, validation, JSON presentation snapshots,
+serialization, and history remain known costs. The history bound counts entries,
+not bytes; performance changes need evidence and a separate architectural review.
+
+Stable Rust builds `office-wasm` for `wasm32-unknown-unknown`; the generated web
+bindings require `wasm-bindgen-cli` 0.2.130 to match the locked crate. The frontend
+production build performs the WASM build before TypeScript checking and Vite
+bundling. `dist` is ready for preview/build inspection, not an authorization to
+publish. Required validation includes the engine's four checks, TypeScript,
+lint, unit tests, production build, and real-browser integration with production
+WASM asset loading. The milestone report records actual results, screenshots,
+and measured limitations separately from this design.
+Eight direct Node/V8 ABI tests execute generated web bindings against actual
+release WASM in addition to native Rust tests and production Chromium UI tests.
+The [pre-merge review](PRE_MERGE_REVIEW.md) gives the current gate and distinguishes
+clean process-restart evidence from untested crash/power-loss guarantees.
+
+Synthetic composition and Chromium integration cannot certify every OS IME,
+candidate window, dictation path, mobile browser, or assistive technology. Manual
+OS IME and accessibility review remain necessary. Browser CSS presentation is
+not professional page layout, pagination, or Word rendering compatibility.
+
+`cloudflare.config.ts.example` is inert preparation for a separate assets-only
+Writer Worker. It supplies no route or domain, disables workers.dev and preview
+URLs, and changes no live deployment or access setting. The future address
+`writer.proairetos.com` is not an implemented deployment. Turning this example
+into active configuration, installing a deployment toolchain, changing DNS or
+development-access restrictions, and releasing a site require explicit approval.
+Step 5 also requires a separate researched DOCX scope and approval; completing
+this prototype does not start it.
+
 ## Incremental workspace
 
-`office-core` is the only crate in the Cargo workspace. It exposes the engine
-version, document model, position/selection APIs, editing operations, and transaction
+`office-core` exposes the independent engine version, document model,
+position/selection APIs, editing operations, and transaction
 sessions with history. Serde, serde_json, and unicode-segmentation are declared in
 `[workspace.dependencies]` and inherited by the crate for serialization and Unicode
 segmentation. Serde JSON's `raw_value` feature reuses the model loader inside the
 native envelope. `tempfile` is a native-only workspace dependency for safe saving;
-it is excluded from `wasm32` builds along with the filesystem API.
+it is excluded from `wasm32` builds along with the filesystem API. `office-wasm`
+is the browser binding crate; `apps/writer` is its separate frontend project with
+a committed npm lockfile. Generated WASM bindings and frontend output are build
+artifacts. Additional dependencies are reviewed against the engineering rules;
+their licenses do not decide the project's pending software license.
 New crates should also inherit the workspace package settings and
 lints. Additional crates will be introduced only when concrete responsibilities
 require them; conceptual boundaries do not require empty crates or modules in

@@ -1,0 +1,15 @@
+// Inert preparation only. Do not rename, attach domains, or deploy without approval.
+// Requires a separately reviewed installation of the Cloudflare cf toolchain.
+import { defineConfig } from 'cf/config';
+
+export default defineConfig({
+  name: 'writer-office-engine',
+  compatibilityDate: '2026-11-14',
+  assets: { notFoundHandling: 'single-page-application' },
+  workersDev: false,
+  previewUrls: false,
+});
+
+// The future public address is writer.proairetos.com. Domain attachment and
+// private-development access controls require an approved deployment plan.
+// The Vite build provides assets; this assets-only Worker has no entrypoint.

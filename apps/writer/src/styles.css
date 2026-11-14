@@ -1,0 +1,110 @@
+/* System fonts keep private development local; no remote font requests. */
+:root {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #34312c;
+  background: #eae7e0;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --accent: #805522;
+  --line: #ded9cf;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, input, select { font: inherit; color: inherit; }
+button, select { cursor: pointer; }
+button { border: 1px solid transparent; background: transparent; border-radius: 4px; padding: 7px 12px; font-size: 13px; line-height: 1.4; }
+button:hover:not(:disabled) { background: #e9e4db; }
+button:disabled, select:disabled { cursor: default; opacity: .42; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid #906229; outline-offset: 3px; }
+button.primary-button { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary-button:hover:not(:disabled) { background: #67431b; }
+.writer-app { min-height: 100dvh; display: flex; flex-direction: column; }
+.top-bar { display: flex; align-items: center; min-height: 68px; gap: 25px; padding: 10px 24px; background: #faf8f3; border-bottom: 1px solid var(--line); }
+.identity { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #373027; font-weight: 650; font-size: 18px; letter-spacing: -.6px; flex-shrink: 0; }
+.writer-mark { display: inline-grid; place-items: center; width: 30px; height: 34px; background: #95672e; color: #fff9ed; font-family: Georgia, serif; font-size: 21px; font-weight: 400; border-radius: 3px 3px 7px 3px; box-shadow: inset -4px 0 #795222; }
+.title-area { display: flex; flex-direction: column; min-width: 100px; flex: 1; gap: 1px; }
+.document-title { max-width: 390px; width: 100%; padding: 3px 5px; margin-left: -5px; border: 1px solid transparent; border-radius: 3px; background: transparent; font-size: 14px; font-weight: 550; }
+.document-title:hover:not(:disabled), .document-title:focus { border-color: #cfc6b7; background: #fff; }
+.document-title:disabled { opacity: .55; }
+.save-state { color: #736c61; font-size: 10px; padding-top: 1px; }
+.file-actions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.file-actions button[aria-label='Undo'], .file-actions button[aria-label='Redo'] { font-size: 22px; line-height: 1; padding: 5px 9px 8px; }
+.action-divider { width: 1px; height: 22px; background: var(--line); margin: 0 5px; }
+.ribbon { background: #f6f3ed; border-bottom: 1px solid #d5cfc3; padding: 0 24px 9px; box-shadow: 0 2px 3px #4b3b2210; position: relative; z-index: 1; }
+.ribbon-tab { display: table; font-size: 12px; font-weight: 600; color: var(--accent); padding: 10px 5px 7px; border-bottom: 2px solid #96692f; margin-bottom: 10px; }
+.ribbon-controls { display: flex; align-items: center; gap: 20px; min-height: 38px; flex-wrap: wrap; }
+.ribbon-group { display: flex; align-items: center; gap: 3px; position: relative; margin: 0; padding: 0 19px 18px 0; border: 0; border-right: 1px solid var(--line); min-width: 0; }
+.ribbon-group legend { position: absolute; bottom: 0; width: calc(100% - 19px); text-align: center; font-size: 9px; color: #70685b; letter-spacing: .1px; }
+.ribbon-group select { border: 1px solid #d6d0c5; border-radius: 3px; background: #fffefa; height: 29px; font-size: 12px; padding: 3px 5px; }
+#font-family { max-width: 154px; width: 145px; }
+#font-size { width: 55px; margin-right: 8px; }
+.format-button { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 4px 6px; font-size: 15px; }
+.format-button[aria-pressed='true'] { background: #e7dac5; border-color: #c2a882; color: #684519; }
+.format-button[aria-pressed='mixed'] { background: repeating-linear-gradient(135deg, #ede4d5, #ede4d5 3px, #f6f1e7 3px, #f6f1e7 6px); border-color: #c2a882; }
+.format-bold { font-weight: 800; font-family: Georgia, serif; }
+.format-italic { font-style: italic; font-family: Georgia, serif; }
+.format-underline { text-decoration: underline; font-family: Georgia, serif; }
+.ribbon-hint { font-size: 10px; color: #70685b; margin-left: auto; padding-bottom: 14px; }
+.workspace { flex: 1; padding: 34px 24px 48px; background: #eae7e0; }
+.document-page { width: min(816px, 100%); min-height: 980px; margin: 0 auto; background: #fffefa; border: 1px solid #d9d3c9; box-shadow: 0 2px 5px #352a1712, 0 14px 38px #352a1709; }
+.editor-surface { min-height: 978px; padding: 76px 78px 94px; cursor: text; outline: none; overflow-wrap: anywhere; caret-color: #3b3023; white-space: pre-wrap; tab-size: 4; }
+.editor-surface:focus-visible { box-shadow: inset 0 0 0 2px #906229; }
+.writer-paragraph { min-height: 1em; white-space: pre-wrap; margin: 0; }
+.writer-paragraph:last-child { margin-bottom: 0 !important; }
+.editor-surface ::selection { background: #d9dfef; color: inherit; }
+.error-banner { display: flex; gap: 16px; align-items: center; justify-content: space-between; background: #fff0e9; color: #7b3021; padding: 10px 24px; font-size: 13px; border-bottom: 1px solid #ddb7a8; }
+.error-banner span { flex: 1; }
+.error-banner button { flex-shrink: 0; border-color: #c99780; }
+.status-bar { display: flex; align-items: center; gap: 20px; justify-content: space-between; min-height: 31px; padding: 7px 24px; border-top: 1px solid #d4cec2; background: #f6f3ed; color: #6a6357; font-size: 10px; }
+.status-message { flex: 1; text-align: center; }
+.privacy-badge { letter-spacing: .2px; white-space: nowrap; }
+.startup-message, .closed-document { margin: 70px auto; max-width: 440px; line-height: 1.7; text-align: center; }
+.closed-document h1, .startup-message h1 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; color: #54442f; }
+.closed-document p, .startup-message p { font-size: 14px; color: #6a6357; }
+.closed-document button { margin: 5px; border: 1px solid #c8bcaa; }
+dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); border: 1px solid #d5cabb; border-radius: 7px; background: #faf8f3; color: #38322b; padding: 23px 26px; box-shadow: 0 16px 80px #2d24193d; }
+dialog::backdrop { background: #302a224d; }
+.dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.dialog-heading h2 { font-size: 19px; font-weight: 600; letter-spacing: -.4px; margin: 0; }
+.icon-button { font-size: 22px; padding: 0 5px; }
+dialog p { font-size: 13px; line-height: 1.6; }
+.dialog-description { color: #776c5d; margin-bottom: 18px; }
+.document-library { max-height: 300px; overflow: auto; border-block: 1px solid var(--line); }
+.document-library > p { padding: 10px 0; color: #70685b; }
+.library-entry { display: flex; flex-direction: column; text-align: left; gap: 5px; width: 100%; padding: 13px 9px; border-radius: 0; border-bottom: 1px solid var(--line); }
+.library-entry:last-child { border-bottom: 0; }
+.library-entry span { font-weight: 550; overflow-wrap: anywhere; }
+.library-entry time { color: #70685b; font-size: 10px; }
+.dialog-error { border-left: 3px solid #a54b31; padding: 1px 12px; background: #fff0e9; color: #7b3021; margin-block: 14px; }
+.storage-note { font-size: 11px; color: #776c5d; }
+.dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 22px; }
+.dialog-actions button:not(.primary-button) { border-color: #d5cabb; background: #fffefa; }
+.visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 900px) {
+  .top-bar { gap: 15px; padding-inline: 16px; }
+  .identity > span:last-child { display: none; }
+  .file-actions button { padding-inline: 8px; }
+  .ribbon { padding-inline: 16px; }
+  .ribbon-hint { display: none; }
+  .editor-surface { padding: 56px 54px 80px; }
+  .document-page { min-height: 900px; }
+}
+@media (max-width: 620px) {
+  .top-bar { flex-wrap: wrap; gap: 10px; padding: 10px 12px; }
+  .title-area { flex-basis: calc(100% - 50px); }
+  .file-actions { width: 100%; gap: 2px; }
+  .file-actions button { flex: 1; padding-inline: 6px; font-size: 12px; }
+  .ribbon { padding-inline: 12px; }
+  .ribbon-controls { gap: 9px; }
+  .ribbon-group { padding-right: 9px; }
+  #font-family { width: 122px; }
+  #font-size { width: 49px; margin-right: 2px; }
+  .workspace { padding: 14px 10px 24px; }
+  .document-page { min-height: 650px; }
+  .editor-surface { padding: 30px 24px 60px; min-height: 648px; }
+  .status-bar { padding: 8px 12px; gap: 10px; flex-wrap: wrap; }
+  .privacy-badge { display: none; }
+  .status-message { text-align: right; }
+  .error-banner { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+}
