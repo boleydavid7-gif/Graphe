@@ -7,9 +7,11 @@
 //!
 //! The core must remain independent of React, JavaScript, and browser APIs so
 //! that future native applications and WebAssembly integrations can share it.
-//! The model stores UTF-8 text without assigning cursor semantics to byte offsets.
+//! The model stores exact UTF-8 text. [`TextCoordinates`] distinguishes bytes,
+//! UTF-16 code units, and extended graphemes. [`DocumentPosition`] and [`Selection`]
+//! identify logical cursor boundaries using stable document element IDs.
 //! See the repository architecture document for the versioned JSON contract,
-//! validation rules, and future Unicode position conventions.
+//! validation rules, and Unicode coordinate conventions.
 //!
 //! # Example
 //!
@@ -31,10 +33,15 @@
 //! # }
 //! ```
 
+mod coordinates;
 mod document;
 mod error;
 mod formatting;
+mod position;
 
+pub use coordinates::{
+    GRAPHEME_UNICODE_VERSION, GraphemeOffset, TextCoordinates, Utf8Offset, Utf16Offset,
+};
 pub use document::{
     Block, Document, DocumentMetadata, Id, NamedStyle, Paragraph, SCHEMA_VERSION, Section,
     SectionProperties, TextRun,
@@ -44,6 +51,7 @@ pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, ParagraphFormat, TextColor,
     Twips, Underline,
 };
+pub use position::{DocumentPosition, OffsetUnit, PositionError, Selection};
 
 /// Returns the version of the engine core, as declared in its Cargo manifest.
 #[must_use]

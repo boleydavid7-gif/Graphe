@@ -15,12 +15,20 @@ the sole `office-core` crate. Documents contain sections, paragraph blocks, UTF-
 text runs, formatting, metadata, and named paragraph styles. Construction and
 versioned JSON loading validate identifiers, references, and formatting.
 
+Milestone 3A adds explicit UTF-8, UTF-16, and grapheme offsets, checked document
+positions, and directed selections. Cursor boundaries use Unicode extended
+grapheme clusters across complete paragraphs, including formatting-run boundaries.
+The document model and its schema remain unchanged.
+
 There is no editing, DOCX parsing, layout, rendering, or user interface yet.
 Style inheritance is stored and validated; effective formatting is not resolved.
+Milestones 3B (atomic validated transactions) and 3C (text editing, formatting
+operations, and undo/redo) have not started.
 
 The project does not use an existing complete Office or word-processing engine.
-Serde and serde_json support model serialization. Established low-level libraries
-may be introduced when their responsibilities become necessary.
+Serde and serde_json support model serialization. The low-level
+unicode-segmentation library supplies Unicode grapheme boundaries. Additional
+libraries may be introduced when their responsibilities become necessary.
 
 ## Technology
 
@@ -90,9 +98,46 @@ fn example() -> Result<(), Box<dyn std::error::Error>> {
 
 Use `Document::new(id)` for an empty document. Inspection methods return shared
 references and ordered slices. See [the architecture document](docs/ARCHITECTURE.md)
-for the schema contract, validation rules, Unicode position plan, and compatibility
+for the schema contract, validation rules, Unicode position conventions, and compatibility
 limitations. A [sample Writer document](tests/fixtures/writer-sample-v1.json)
 demonstrates schema version 1.
+
+## Positions and selections
+
+`Utf8Offset`, `Utf16Offset`, and `GraphemeOffset` express different units. Their
+numeric constructors do not validate text; `TextCoordinates` performs strict
+conversions without snapping, clamping, or Unicode normalization. Raw UTF-8/UTF-16
+conversions require scalar boundaries. Cursor positions additionally require
+extended grapheme boundaries.
+
+```rust
+use office_core::{Document, GraphemeOffset, Id, Utf16Offset};
+
+fn select_to_utf16_boundary(
+    document: &Document,
+    paragraph_id: &Id,
+    end_offset: Utf16Offset,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let coordinates = document.text_coordinates(paragraph_id)?;
+    let start = document.position(paragraph_id, GraphemeOffset::new(0))?;
+    let end = document.position(paragraph_id, coordinates.utf16_to_grapheme(end_offset)?)?;
+    let selection = document.selection(start, end)?;
+    let range = selection.ordered_range(document)?;
+    assert_eq!(range.start.paragraph_id(), paragraph_id);
+    Ok(())
+}
+```
+
+The supplied UTF-16 endpoint must be a grapheme boundary. For example, offset 1
+is valid in a paragraph containing only ASCII `A`; an offset inside a combining
+sequence or surrogate pair returns a structured `PositionError`. For a direct
+grapheme index, use `document.position(paragraph_id, GraphemeOffset::new(1))`.
+
+Positions use stable document and paragraph IDs rather than run or array indices.
+Selections preserve anchor/focus direction and expose a logical ordered range.
+Positions and coordinate snapshots are runtime values; they do not track future
+edits or change document serialization. See [architecture](docs/ARCHITECTURE.md)
+for empty-paragraph behavior, cross-paragraph ranges, and snapshot limitations.
 
 ## Repository
 
@@ -100,8 +145,8 @@ demonstrates schema version 1.
 - `docs/ARCHITECTURE.md` describes long-term boundaries and principles.
 - `docs/ROADMAP.md` records the preliminary development sequence.
 - `docs/DECISIONS.md` explains the initial technology and scope decisions.
-- `tests/fixtures/` contains the versioned sample document and will hold future
-  compatibility fixtures.
+- `tests/fixtures/` contains the versioned sample document and official Unicode
+  grapheme-break conformance data.
 - `.github/workflows/ci.yml` defines the required validation workflow.
 
 Additional crates will be introduced only as their responsibilities become

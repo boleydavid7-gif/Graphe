@@ -2,8 +2,9 @@
 
 This document records long-term principles and the first document model. The
 workspace currently implements the repository foundation, structured Writer
-content, validation, and schema-versioned JSON serialization. Editing, layout,
-rendering, and format conversion remain future subsystems.
+content, validation, schema-versioned JSON serialization, and Unicode-aware
+positions and selections. Editing, layout, rendering, and format conversion
+remain future subsystems.
 
 ## Independent engine
 
@@ -65,7 +66,8 @@ IDs are opaque, caller-assigned, case-sensitive strings. They must be nonempty
 and have no leading or trailing whitespace. IDs of the document, sections,
 paragraphs, and style definitions share one document-wide uniqueness domain.
 Applications choose an allocation scheme and preserve IDs through persistence
-and future transactions. Text runs have no identity in schema 1; stable editing
+and future transactions. Text runs have no identity in schema 1. Positions use
+document and paragraph IDs with a logical grapheme offset; rebasable editing
 anchors remain a later design decision.
 
 ### Formatting and styles
@@ -142,26 +144,76 @@ yet. Schema changes must be explicit and require a new version or a documented
 compatibility decision with tests. Serialization preserves supported model
 information, not source JSON spelling or an original Office file.
 
-### Unicode positions and future transactions
+### Unicode positions and selections (3A)
 
 Text storage uses Rust UTF-8 strings. A byte offset, Unicode scalar index,
 grapheme-cluster index, and UTF-16 code-unit offset are different coordinates.
-No cursor or selection API exists in this milestone.
+Milestone 3A introduces explicit `Utf8Offset`, `Utf16Offset`, and `GraphemeOffset`
+types. Their constructors wrap unsigned numeric requests, not proofs of valid
+boundaries; conversions check them against actual paragraph text.
 
-Future user-visible cursor movement and selections should use extended grapheme
-cluster boundaries, accounting for combining marks, emoji sequences, and clusters
-that may span adjacent formatting runs. Rust string slicing must always check
-UTF-8 boundaries. External formats and APIs that use UTF-16 offsets will need
-explicit, boundary-checked conversion, including handling surrogate pairs and
-positions that land inside a grapheme cluster. Segmentation policy and offset
-mapping are future responsibilities; this model performs no normalization,
-segmentation, or offset conversion.
+`TextCoordinates::new` takes an owned snapshot of the exact logical paragraph
+text by concatenating runs without separators. Segmentation uses extended
+grapheme clusters from unicode-segmentation, resolved to version 1.13.3 in
+`Cargo.lock`, with Unicode **17.0.0** data. `GRAPHEME_UNICODE_VERSION` exposes the
+algorithm's Unicode version. Formatting changes, empty runs, and run boundaries
+do not split combining sequences, emoji sequences, or other clusters. Original
+text and run boundaries are preserved in the document; no normalization occurs.
+Unicode dependency updates require review with matching conformance fixtures,
+because boundary changes can affect the meaning of a grapheme offset.
 
-Future editing transactions should construct a candidate change, preserve
-unaffected IDs, validate the result, and commit atomically. Invariants should
-remain centralized rather than duplicated in interface code. Transaction
-granularity, anchor behavior, insertion/deletion, and undo/redo are not designed
-or implemented here.
+Raw UTF-8/UTF-16 conversion accepts any Unicode scalar boundary. It rejects byte
+offsets inside a UTF-8 scalar, code-unit offsets inside a surrogate pair, and
+out-of-range values. A scalar boundary inside a grapheme cluster remains valid
+for these raw conversions. Conversion to `GraphemeOffset` adds a strict extended
+grapheme boundary check; an interior scalar boundary is an error. No conversion
+snaps, clamps, or silently repairs an offset. Offsets are paragraph-relative,
+zero-based, and include the end boundary: N clusters have N+1 valid cursor
+positions, numbered 0 through N.
+
+`Document::position` checks a grapheme offset against the identified paragraph.
+The returned `DocumentPosition` stores stable document and paragraph IDs and a
+grapheme offset, not a section index, run index, or imported-format coordinate.
+`Document::validate_position` checks document identity, paragraph membership, and
+bounds. Empty paragraphs have boundary zero. Empty documents and sections have
+no paragraph cursor position; no default content is synthesized.
+
+`Document::selection` checks both endpoints and preserves anchor/focus direction.
+Equal endpoints form a collapsed selection. `Selection::ordered_range` returns
+their logical half-open range in section, block, and grapheme order. IDs are never
+sorted lexically. The end of a paragraph and the start of the next paragraph are
+distinct positions; the API does not invent newline offsets, extract selected
+text, or decide how future deletion treats structural boundaries. Logical order
+also differs from visual bidirectional cursor movement; visual movement and
+layout affinity are outside 3A.
+
+Positions, selections, and coordinate snapshots are runtime values without Serde
+implementations. The document model and schema version 1 are unchanged. They
+operate independently of a frontend or future DOCX mapping. Positions are not
+revision-aware or automatically rebased: revalidation detects missing elements
+and out-of-range offsets but cannot detect changed text meaning under the same
+IDs. Future transactions must define stale-position and affinity policies before
+reusing positions across edits.
+
+Building a coordinate snapshot takes O(paragraph text length) time and stores the
+text plus grapheme boundaries. Grapheme-to-byte lookup is O(1), byte-to-grapheme
+lookup is O(log number of clusters), and UTF-16 conversions scan text in O(text
+length). Document paragraph lookup scans sections and blocks. No document index
+or coordinate cache is added until performance evidence calls for one.
+
+Tests include exact offset cases, combining marks and emoji across run
+boundaries, invalid scalar/surrogate boundaries, RTL logical ordering, and the
+official Unicode 17 grapheme-break conformance fixture. These checks establish
+logical boundary behavior rather than visual editing behavior.
+
+### Later editing milestones
+
+Milestone 3B will add atomic validated transactions after 3A passes formatting,
+Clippy, tests, and builds. Transactions should construct a candidate change,
+preserve unaffected IDs, validate the result, and commit atomically. Invariants
+should remain centralized rather than duplicated in interface code. Milestone
+3C will add text editing operations, formatting operations, and undo/redo.
+Neither 3B nor 3C is implemented in 3A.
 
 ### DOCX compatibility limits and extension points
 
@@ -184,8 +236,9 @@ covered by compatibility tests.
 ## Incremental workspace
 
 `office-core` is the only crate in the Cargo workspace. It exposes the engine
-version and document-model API. Serde and serde_json are declared in
-`[workspace.dependencies]` and inherited by the crate for versioned serialization.
+version, document model, and position/selection APIs. Serde, serde_json, and
+unicode-segmentation are declared in `[workspace.dependencies]` and inherited by
+the crate for serialization and Unicode segmentation.
 New crates should also inherit the workspace package settings and
 lints. Additional crates will be introduced only when concrete responsibilities
 require them; conceptual boundaries do not require empty crates or modules in

@@ -138,3 +138,64 @@ clusters across run boundaries, and explicit conversion to external UTF-16
 offsets. No grapheme segmentation library or mapping implementation is introduced
 until needed. Unicode fixture tests check exact preservation rather than
 claiming editing correctness.
+
+The deferral in this decision described Step 2. Milestone 3A now implements the
+logical boundary and conversion APIs under decisions 010 and 011; text storage
+and normalization behavior remain unchanged.
+
+## 010: Use paragraph-wide grapheme positions and explicit coordinate units
+
+**Decision:** Introduce `Utf8Offset`, `Utf16Offset`, and `GraphemeOffset` as
+distinct types. Build an owned `TextCoordinates` snapshot from a paragraph's
+concatenated runs and segment extended grapheme clusters with the low-level
+unicode-segmentation library. The lockfile currently resolves version 1.13.3,
+using Unicode 17.0.0 data.
+
+**Reason:** Formatting-run boundaries are not Unicode character boundaries.
+Combining marks, emoji ZWJ sequences, and other graphemes may span multiple runs.
+Explicit units prevent byte offsets from being mistaken for code units or cursor
+positions. Established Unicode segmentation avoids maintaining a partial custom
+implementation.
+
+**Consequences:** Raw UTF-8/UTF-16 conversion accepts scalar boundaries, including
+those inside a grapheme. Cursor conversion adds an extended grapheme check.
+Invalid byte boundaries, surrogate interiors, grapheme interiors, and out-of-range
+values return structured errors without snapping or normalization. The complete
+official Unicode grapheme-break fixture verifies the matching Unicode version.
+Dependency upgrades must review boundary changes and update matching fixtures.
+Snapshots use linear text construction, a grapheme-boundary vector, and simple
+lookups rather than a premature document-wide index or cache.
+
+## 011: Anchor runtime positions to stable IDs and keep selections logical
+
+**Decision:** A `DocumentPosition` holds a stable document ID, stable paragraph
+ID, and checked grapheme offset. Directed selections retain anchor and focus;
+their ordered half-open ranges follow logical document order. These types are
+runtime values and do not alter document schema 1.
+
+**Reason:** Document order and formatting-run organization can differ from stable
+identity. Paragraph-relative positions avoid coupling the engine to frontend
+indices, visual layout, or DOCX coordinates. Logical selection behavior is useful
+before a renderer or editing system exists.
+
+**Consequences:** Empty paragraphs have one boundary; empty sections/documents
+have no paragraph positions. Adjacent paragraphs' end/start positions stay
+distinct without invented separator offsets. There is no selected-text extraction
+or visual bidi navigation. Positions are not revision-aware and do not rebase;
+revalidation detects missing IDs and bounds failures, not semantic changes under
+the same IDs. Future transactions must define stale-position and affinity policy.
+No position or selection serialization is introduced.
+
+## 012: Gate transaction and editing work behind the position milestone
+
+**Decision:** Split Step 3 into 3A (positions/selections), 3B (atomic validated
+editing transactions), and 3C (text editing, formatting operations, and undo/redo).
+Implement 3A first and require its formatting, Clippy, test, and build checks to
+pass before beginning 3B or 3C.
+
+**Reason:** Unicode boundary correctness must be established before operations
+can mutate text, and atomic validation must precede operations with history.
+
+**Consequences:** 3A changes neither the document model nor editing state. It
+implements no transactions, insertion/deletion, formatting operations, or history.
+3B and 3C remain separate future milestones.

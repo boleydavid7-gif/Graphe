@@ -1,0 +1,2 @@
+# Preserve the official Unicode test data byte-for-byte, including upstream spaces.
+tests/fixtures/unicode/GraphemeBreakTest.txt -text -whitespace
