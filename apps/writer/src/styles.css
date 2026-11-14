@@ -35,7 +35,7 @@ button.primary-button:hover:not(:disabled) { background: #67431b; }
 .ribbon-tab { display: table; font-size: 12px; font-weight: 600; color: var(--accent); padding: 10px 5px 7px; border-bottom: 2px solid #96692f; margin-bottom: 10px; }
 .ribbon-controls { display: flex; align-items: center; gap: 20px; min-height: 38px; flex-wrap: wrap; }
 .ribbon-group { display: flex; align-items: center; gap: 3px; position: relative; margin: 0; padding: 0 19px 18px 0; border: 0; border-right: 1px solid var(--line); min-width: 0; }
-.ribbon-group legend { position: absolute; bottom: 0; width: calc(100% - 19px); text-align: center; font-size: 9px; color: #776f62; letter-spacing: .1px; }
+.ribbon-group legend { position: absolute; bottom: 0; width: calc(100% - 19px); text-align: center; font-size: 9px; color: #70685b; letter-spacing: .1px; }
 .ribbon-group select { border: 1px solid #d6d0c5; border-radius: 3px; background: #fffefa; height: 29px; font-size: 12px; padding: 3px 5px; }
 #font-family { max-width: 154px; width: 145px; }
 #font-size { width: 55px; margin-right: 8px; }
@@ -45,11 +45,11 @@ button.primary-button:hover:not(:disabled) { background: #67431b; }
 .format-bold { font-weight: 800; font-family: Georgia, serif; }
 .format-italic { font-style: italic; font-family: Georgia, serif; }
 .format-underline { text-decoration: underline; font-family: Georgia, serif; }
-.ribbon-hint { font-size: 10px; color: #7a7367; margin-left: auto; padding-bottom: 14px; }
+.ribbon-hint { font-size: 10px; color: #70685b; margin-left: auto; padding-bottom: 14px; }
 .workspace { flex: 1; padding: 34px 24px 48px; background: #eae7e0; }
 .document-page { width: min(816px, 100%); min-height: 980px; margin: 0 auto; background: #fffefa; border: 1px solid #d9d3c9; box-shadow: 0 2px 5px #352a1712, 0 14px 38px #352a1709; }
 .editor-surface { min-height: 978px; padding: 76px 78px 94px; cursor: text; outline: none; overflow-wrap: anywhere; caret-color: #3b3023; white-space: pre-wrap; tab-size: 4; }
-.editor-surface:focus-visible { box-shadow: inset 0 0 0 2px #a0773a55; }
+.editor-surface:focus-visible { box-shadow: inset 0 0 0 2px #906229; }
 .writer-paragraph { min-height: 1em; white-space: pre-wrap; margin: 0; }
 .writer-paragraph:last-child { margin-bottom: 0 !important; }
 .editor-surface ::selection { background: #d9dfef; color: inherit; }
@@ -61,7 +61,7 @@ button.primary-button:hover:not(:disabled) { background: #67431b; }
 .privacy-badge { letter-spacing: .2px; white-space: nowrap; }
 .startup-message, .closed-document { margin: 70px auto; max-width: 440px; line-height: 1.7; text-align: center; }
 .closed-document h1, .startup-message h1 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; color: #54442f; }
-.closed-document p, .startup-message p { font-size: 14px; color: #74695a; }
+.closed-document p, .startup-message p { font-size: 14px; color: #6a6357; }
 .closed-document button { margin: 5px; border: 1px solid #c8bcaa; }
 dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); border: 1px solid #d5cabb; border-radius: 7px; background: #faf8f3; color: #38322b; padding: 23px 26px; box-shadow: 0 16px 80px #2d24193d; }
 dialog::backdrop { background: #302a224d; }
@@ -71,11 +71,12 @@ dialog::backdrop { background: #302a224d; }
 dialog p { font-size: 13px; line-height: 1.6; }
 .dialog-description { color: #776c5d; margin-bottom: 18px; }
 .document-library { max-height: 300px; overflow: auto; border-block: 1px solid var(--line); }
-.document-library > p { padding: 10px 0; color: #7d7263; }
+.document-library > p { padding: 10px 0; color: #70685b; }
 .library-entry { display: flex; flex-direction: column; text-align: left; gap: 5px; width: 100%; padding: 13px 9px; border-radius: 0; border-bottom: 1px solid var(--line); }
 .library-entry:last-child { border-bottom: 0; }
 .library-entry span { font-weight: 550; overflow-wrap: anywhere; }
-.library-entry time { color: #807565; font-size: 10px; }
+.library-entry time { color: #70685b; font-size: 10px; }
+.dialog-error { border-left: 3px solid #a54b31; padding: 1px 12px; background: #fff0e9; color: #7b3021; margin-block: 14px; }
 .storage-note { font-size: 11px; color: #776c5d; }
 .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 22px; }
 .dialog-actions button:not(.primary-button) { border-color: #d5cabb; background: #fffefa; }

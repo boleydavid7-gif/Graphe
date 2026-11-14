@@ -12,6 +12,17 @@ export interface StoredDocument extends DocumentBytes {
 
 export type StoredDocumentSummary = Omit<StoredDocument, 'bytes'>;
 
+/** A damaged record is reported without hiding or rewriting healthy documents. */
+export interface LibraryProblem {
+  readonly id?: string;
+  readonly message: string;
+}
+
+export interface DocumentLibrary {
+  readonly documents: readonly StoredDocumentSummary[];
+  readonly problems: readonly LibraryProblem[];
+}
+
 export type StorageErrorCode =
   | 'unavailable' | 'blocked' | 'closed' | 'not_found' | 'conflict'
   | 'corrupt' | 'quota' | 'invalid' | 'io';
@@ -141,20 +152,31 @@ export class WriterStorage {
     });
   }
 
-  /** List metadata without interpreting or rewriting native document bytes. */
-  async list(): Promise<readonly StoredDocumentSummary[]> {
+  /** List metadata and explicit record warnings without rewriting native bytes. */
+  async list(): Promise<DocumentLibrary> {
     const database = await this.database();
     return new Promise((resolve, reject) => {
       let transaction: IDBTransaction;
-      let result: StoredDocumentSummary[] = [];
+      let result: DocumentLibrary = { documents: [], problems: [] };
       let reason: StorageError | undefined;
       try {
         transaction = database.transaction(STORE, 'readonly');
         const request = transaction.objectStore(STORE).getAll();
         request.onsuccess = () => {
           try {
-            result = (request.result as unknown[]).map(decode).map(summary);
-            result.sort((left, right) => right.updatedAt - left.updatedAt || left.id.localeCompare(right.id));
+            const documents: StoredDocumentSummary[] = [];
+            const problems: LibraryProblem[] = [];
+            for (const value of request.result as unknown[]) {
+              try {
+                documents.push(summary(decode(value)));
+              } catch (cause) {
+                if (!(cause instanceof StorageError) || cause.code !== 'corrupt') throw cause;
+                const id = isRecord(value) && typeof value.id === 'string' && value.id.length > 0 ? value.id : undefined;
+                problems.push({ message: cause.message, ...(id ? { id } : {}) });
+              }
+            }
+            documents.sort((left, right) => right.updatedAt - left.updatedAt || left.id.localeCompare(right.id));
+            result = { documents, problems };
           } catch (cause) {
             reason = failure(cause);
             transaction.abort();

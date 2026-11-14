@@ -551,6 +551,10 @@ mod wasm {
         pub fn snapshot(&self) -> String {
             self.inner.snapshot()
         }
+        /// Copies exact selected plain text using the Rust paragraph policy.
+        pub fn selected_text(&self) -> Result<String, JsValue> {
+            self.inner.selected_text().map_err(js_error)
+        }
         /// Executes one structured command.
         pub fn dispatch(&mut self, command: &str) -> String {
             self.inner.dispatch(command)

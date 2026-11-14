@@ -539,3 +539,23 @@ selection when content exists; never replace existing content to create a cursor
 Forced DOM recovery reconstructs canonical presentation even for empty native
 documents. Regressions cover the critical integration defects listed in
 `RESEARCH.md`; substantial history/layout/style redesign remains deferred.
+
+## 027: Read clipboard structure from Rust and isolate recoverable local failures
+
+**Decision:** Copy/cut read the normalized selection through the Rust adapter,
+joining paragraph boundaries with one LF. Core Unicode coordinates determine
+the UTF-8 slices. Copying is read-only; cut deletes only after successful
+clipboard writing. Native format/schema and editing transaction APIs are unchanged.
+
+**Reason:** Actual browser testing found that DOM selection text adds visual
+blank lines, creating unintended paragraphs when pasted through the explicit
+plaintext policy. DOM presentation cannot define structural clipboard text.
+
+**Consequences:** Plain-text clipboard does not preserve source styling or
+distinguish literal soft line breaks from paragraph separators. Native `.writer`
+files still preserve the complete supported model. Additional Node/V8 tests run
+the actual compiled WASM ABI alongside native and production-browser suites.
+Library listing reports damaged records individually without repairing/deleting
+them; healthy records remain openable. Modal save errors appear inside the
+active dialog. These are targeted pre-merge corrections, not a major refactor.
+The exhaustive gate and manual testing limits are in `PRE_MERGE_REVIEW.md`.

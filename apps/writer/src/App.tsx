@@ -62,6 +62,7 @@ export default function App() {
   const [savedLocally, setSavedLocally] = useState(false);
   const [composing, setComposing] = useState(false);
   const [library, setLibrary] = useState<readonly LibraryEntry[] | null>(null);
+  const [libraryProblems, setLibraryProblems] = useState<readonly { message: string; id?: string }[]>([]);
   const [unsavedDialog, setUnsavedDialog] = useState(false);
   const [saveConflict, setSaveConflict] = useState(false);
 
@@ -181,23 +182,25 @@ export default function App() {
     } finally { setBusy(false); }
   }
 
-  async function saveCopy() {
-    if (!engine.current || busy || composing) return;
+  async function saveCopy(): Promise<boolean> {
+    if (!engine.current || busy || composing) return false;
     try {
       const next = engine.current.command({ type: 'fork_document' });
       association.current = null;
       setSavedLocally(false);
       updateView(next);
       setSaveConflict(false);
-      await saveDocument();
-    } catch (failure) { setError(message(failure)); }
+      return await saveDocument();
+    } catch (failure) { setError(message(failure)); return false; }
   }
 
   async function showLibrary() {
     if (!storage.current || busy || composing) return;
     setBusy(true);
     try {
-      setLibrary(await storage.current.list());
+      const listing = await storage.current.list();
+      setLibrary(listing.documents);
+      setLibraryProblems(listing.problems);
       setError('');
     } catch (failure) { setError(message(failure)); }
     finally { setBusy(false); }
@@ -264,6 +267,13 @@ export default function App() {
     });
   }
 
+  function finishPending() {
+    const action = pending.current;
+    pending.current = null;
+    setUnsavedDialog(false);
+    void action?.();
+  }
+
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || composing) return;
@@ -285,7 +295,7 @@ export default function App() {
   const formatState = view?.format;
   return <div className="writer-app">
     <header className="top-bar">
-      <a className="identity" href="#" onClick={(event) => event.preventDefault()} aria-label="Writer"><span className="writer-mark">W</span><span>Writer</span></a>
+      <div className="identity" role="img" aria-label="Writer"><span className="writer-mark">W</span><span>Writer</span></div>
       <div className="title-area">
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
@@ -339,14 +349,18 @@ export default function App() {
         <span className="ribbon-hint">Native Writer document · Private prototype</span>
       </div>
     </div>
-    {error && <div className="error-banner" role="alert"><span>{error}</span>
+    {error && !unsavedDialog && <div className="error-banner" role="alert"><span>{error}</span>
       {saveConflict && <button onClick={() => void saveCopy()} disabled={busy}>Save a separate copy</button>}
       <button aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
     <main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
         : documentOpen ? <div className="document-page"><EditorSurface ref={surface} view={view} onCommand={command}
-          onError={setError} onCompositionChange={setComposing} disabled={opening} /></div>
+          onError={setError} onCompositionChange={setComposing} disabled={opening}
+          onCopy={() => {
+            if (!engine.current) throw new Error('Writer is not ready to copy text.');
+            return engine.current.selectedText();
+          }} /></div>
           : <div className="closed-document"><span className="writer-mark">W</span><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
     <footer className="status-bar"><span>{documentOpen && view ? `${view.wordCount.toLocaleString()} ${view.wordCount === 1 ? 'word' : 'words'}` : 'Writer'}</span>
@@ -356,18 +370,28 @@ export default function App() {
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
     {library !== null && <Dialog title="Open document" onClose={() => setLibrary(null)} busy={busy}>
       <p className="dialog-description">Documents saved in this browser on this device.</p>
-      <div className="document-library">{library.length === 0 ? <p>No saved documents yet.</p> : library.map((entry) => <button className="library-entry" key={entry.id} disabled={busy}
+      {libraryProblems.length > 0 && <div className="dialog-error" role="alert">
+        <p>{libraryProblems.length} saved {libraryProblems.length === 1 ? 'document could' : 'documents could'} not be listed.
+          Their data remains on this device. Other documents can still be opened.</p>
+        {libraryProblems.map((problem, index) => <p key={index}>{problem.message}</p>)}
+      </div>}
+      <div className="document-library">{library.length === 0 ? <p>{libraryProblems.length ? 'No readable saved documents.' : 'No saved documents yet.'}</p> : library.map((entry) => <button className="library-entry" key={entry.id} disabled={busy}
         onClick={() => openSaved(entry.id)}><span>{entry.title || 'Untitled document'}</span><time dateTime={new Date(entry.updatedAt).toISOString()}>{new Date(entry.updatedAt).toLocaleString()}</time></button>)}</div>
       <p className="storage-note">Browser storage can be cleared or evicted. Keep exported .writer files as backups.</p>
       <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Import .writer file</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
     </Dialog>}
     {unsavedDialog && <Dialog title="Save your changes?" onClose={() => { pending.current = null; setUnsavedDialog(false); }} busy={busy}>
       <p>Save this document before continuing. Unsaved changes will be lost if you discard them.</p>
+      {error && <div className="dialog-error" role="alert"><p>{error}</p>
+        {saveConflict && <button disabled={busy} onClick={() => void saveCopy().then((saved) => {
+          if (saved) finishPending();
+        })}>Save a separate copy</button>}
+      </div>}
       <div className="dialog-actions">
         <button onClick={() => { pending.current = null; setUnsavedDialog(false); }} disabled={busy}>Cancel</button>
-        <button disabled={busy} onClick={() => { const action = pending.current; pending.current = null; setUnsavedDialog(false); void action?.(); }}>Discard changes</button>
+        <button disabled={busy} onClick={finishPending}>Discard changes</button>
         <button className="primary-button" disabled={busy} onClick={() => void saveDocument().then((saved) => {
-          if (saved) { const action = pending.current; pending.current = null; setUnsavedDialog(false); void action?.(); }
+          if (saved) finishPending();
         })}>Save and continue</button>
       </div>
     </Dialog>}

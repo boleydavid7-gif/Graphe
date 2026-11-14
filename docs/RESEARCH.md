@@ -147,6 +147,28 @@ DOCX import. Optional rich clipboard input and advanced accessibility remain
 deferred. See [verification](VERIFICATION.md) and [dependency review](DEPENDENCIES.md)
 for actual checks, measurements, resolved libraries, and security review.
 
+## Pre-merge follow-up
+
+The independent pre-merge review found a critical clipboard fidelity defect
+missed by the initial suite: DOM-selected paragraphs copied two newlines, and
+the Rust plaintext-paste policy interpreted them as an extra paragraph. The
+correction reads exact selected text through core Unicode coordinates in Rust,
+with one structural LF, and performs cut only after successful clipboard writing.
+Native, direct compiled-WASM, and actual Ctrl+C/X/V regressions cover this.
+
+Important targeted corrections isolate damaged library records with explicit
+warnings, put save failures inside the active unsaved modal, and improve measured
+label/focus contrast. No new dependency or major architectural layer was needed.
+The expanded tests cover full native-fixture saving, fresh browser-process
+restart, startup failure/retry, physical mouse selection, unsaved actions and
+reload cancellation. A separate Node/V8 suite runs actual release WASM bindings;
+it does not substitute for browser testing or claim a wasm-bindgen-test harness.
+
+See [PRE_MERGE_REVIEW.md](PRE_MERGE_REVIEW.md) for every requirement, actual rerun
+results, and remaining untested platform/IME/accessibility/durability scopes.
+Clean browser restart is verified separately from crash or power-loss recovery;
+injected quota failures are not a test of real storage exhaustion.
+
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event
 [editcontext]: https://developer.mozilla.org/en-US/docs/Web/API/EditContext

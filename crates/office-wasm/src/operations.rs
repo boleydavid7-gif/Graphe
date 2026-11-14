@@ -98,6 +98,55 @@ fn caret(point: Point) -> BrowserSelection {
 }
 
 impl BrowserEngine {
+    /// Reads selected plain text without changing the document, cursor, or history.
+    ///
+    /// Logical paragraph boundaries contribute exactly one LF, including across
+    /// sections. Literal text, including any CR/LF inside runs, is preserved
+    /// exactly. A collapsed or absent selection returns an empty string.
+    pub fn selected_text(&self) -> Result<String, EngineError> {
+        let Some(selection) = self.current_selection(None)? else {
+            return Ok(String::new());
+        };
+        if selection.anchor == selection.focus {
+            return Ok(String::new());
+        }
+        let document = self.session.document();
+        let (start, end) = ordered(document, &selection)?;
+        let (_, _, first) = paragraph(document, &start.paragraph_id)?;
+        let (_, _, last) = paragraph(document, &end.paragraph_id)?;
+        let mut result = String::new();
+        for (index, block) in document
+            .sections()
+            .iter()
+            .flat_map(|section| section.blocks())
+            .enumerate()
+            .take(last + 1)
+            .skip(first)
+        {
+            let Block::Paragraph(paragraph) = block;
+            let coordinates = TextCoordinates::new(paragraph);
+            let from = if index == first {
+                coordinates
+                    .utf16_to_utf8(Utf16Offset::new(start.utf16))?
+                    .get()
+            } else {
+                0
+            };
+            let to = if index == last {
+                coordinates
+                    .utf16_to_utf8(Utf16Offset::new(end.utf16))?
+                    .get()
+            } else {
+                coordinates.text().len()
+            };
+            if index != first {
+                result.push('\n');
+            }
+            result.push_str(&coordinates.text()[from..to]);
+        }
+        Ok(result)
+    }
+
     pub(super) fn normalize_selection(
         &self,
         selection: &BrowserSelection,

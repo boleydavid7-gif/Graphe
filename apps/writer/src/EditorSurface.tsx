@@ -10,6 +10,7 @@ export interface EditorSurfaceProps {
   readonly view: WriterView;
   readonly onCommand: (command: WriterCommand) => WriterView | undefined;
   readonly onError: (message: string) => void;
+  readonly onCopy: () => string;
   readonly onCompositionChange?: (composing: boolean) => void;
   readonly disabled?: boolean;
 }
@@ -49,6 +50,7 @@ class SurfaceController {
     element.addEventListener('input', this.input);
     element.addEventListener('keydown', this.keyDown);
     element.addEventListener('paste', this.paste);
+    element.addEventListener('copy', this.copy);
     element.addEventListener('cut', this.cut);
     element.addEventListener('drop', this.drop);
     element.addEventListener('compositionstart', this.compositionStart);
@@ -63,6 +65,7 @@ class SurfaceController {
     this.element.removeEventListener('input', this.input);
     this.element.removeEventListener('keydown', this.keyDown);
     this.element.removeEventListener('paste', this.paste);
+    this.element.removeEventListener('copy', this.copy);
     this.element.removeEventListener('cut', this.cut);
     this.element.removeEventListener('drop', this.drop);
     this.element.removeEventListener('compositionstart', this.compositionStart);
@@ -441,26 +444,41 @@ class SurfaceController {
     this.apply({ type: 'replace_text', text: event.clipboardData.getData('text/plain'), ...this.origin() });
   };
 
-  private cut = (event: ClipboardEvent): void => {
+  private copySelection(event: ClipboardEvent): WriterView | undefined {
+    event.preventDefault();
     if (this.composition || this.props().disabled) {
-      event.preventDefault();
       return;
     }
-    event.preventDefault();
     const origin = this.origin();
-    if (!event.clipboardData || !origin.selection) return;
-    const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) return;
+    if (!origin.selection || sameSelection(origin.selection, {
+      anchor: origin.selection.anchor, focus: origin.selection.anchor,
+    })) return;
+    if (!event.clipboardData) {
+      this.props().onError('The browser did not provide clipboard access. Nothing was copied or cut.');
+      return;
+    }
     const normalized = this.apply({
       type: 'set_selection', selection: origin.selection, expectedRevision: origin.expectedRevision,
     });
     if (!normalized?.selection) return;
     try {
-      event.clipboardData.setData('text/plain', window.getSelection()?.toString() ?? '');
+      // The native DOM adds visual blank lines between paragraph nodes. Only
+      // Rust knows the structural selection and its one-LF clipboard policy.
+      event.clipboardData.setData('text/plain', this.props().onCopy());
     } catch {
       this.props().onError('The browser could not copy the selected text. Nothing was cut.');
       return;
     }
+    return normalized;
+  }
+
+  private copy = (event: ClipboardEvent): void => {
+    this.copySelection(event);
+  };
+
+  private cut = (event: ClipboardEvent): void => {
+    const normalized = this.copySelection(event);
+    if (!normalized?.selection) return;
     this.apply({ type: 'replace_text', text: '', selection: normalized.selection, expectedRevision: normalized.revision });
   };
 

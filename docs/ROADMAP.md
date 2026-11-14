@@ -58,6 +58,9 @@ their detailed milestones will be defined when their development begins.
 
 Implemented on `dev/writer-browser-prototype`; all local verification gates pass
 as recorded in [VERIFICATION.md](VERIFICATION.md).
+The follow-up [pre-merge review](PRE_MERGE_REVIEW.md) supersedes initial counts,
+adds targeted reliability regressions, and distinguishes functional, partial,
+and untested requirements.
 This milestone has not been merged or deployed. It adds the independent
 `office-wasm` session boundary, a React/TypeScript/Vite interface in `apps/writer`,
 semantic browser input with Rust-owned Unicode and edits, a targeted paragraph

@@ -1,5 +1,9 @@
 # Step 4.5 verification and delivery
 
+This is the **initial delivery** record for `c3e690c`. The subsequent
+[pre-merge review](PRE_MERGE_REVIEW.md) supersedes its test counts, records new
+fixes and verification, and distinguishes functional, partial and untested scope.
+
 Verified on 2026-11-14 on `dev/writer-browser-prototype`. Step 4 was merged with
 approval at `52ac4e9` ([PR #6](https://github.com/boleydavid7-gif/stuff/pull/6)).
 Step 4.5 remains unmerged and undeployed. Step 5 has not started.

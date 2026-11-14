@@ -44,6 +44,8 @@ interaction state rather than a second document engine.
 See the [verification report](docs/VERIFICATION.md) for exact results, limitations,
 and [desktop](docs/images/writer-desktop.png) / [mobile](docs/images/writer-mobile.png)
 screenshots of the running application.
+The [pre-merge review](docs/PRE_MERGE_REVIEW.md) supersedes the initial counts
+and lists every completion criterion, corrections, and untested scope.
 
 DOCX parsing, professional document layout, and platform-independent rendering
 remain future work. The browser adapter computes a limited effective display
@@ -121,13 +123,16 @@ Run the frontend checks from `apps/writer`:
 npm run typecheck
 npm run lint
 npm test
+npm run test:wasm
 npm run build
 npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
 The production `build` includes the WASM build, TypeScript checking, and Vite
-bundling. `test:browser` starts the built application through Vite preview and
+bundling. After `build:wasm` or `build`, `test:wasm` executes the real generated
+bindings and release WASM in Node/V8 without an engine mock. `test:browser`
+starts the built application through Vite preview and
 tests it in Chromium. It can use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` or an
 installed `/usr/bin/chromium`; otherwise install Playwright's Chromium. To
 inspect production output manually, run:
@@ -165,6 +170,9 @@ identity. Failures retain the live document and unsaved state. An imported docum
 is not automatically associated with an existing saved record. Save conflicts
 offer a separate copy with a new document identity. Export downloads native bytes
 without replacing the local save or clearing the need to save.
+Damaged library records are reported individually while healthy documents remain
+openable; no damaged record is silently repaired or deleted. Save failures are
+announced inside the unsaved-changes dialog when it is open.
 
 The browser adapter applies these prototype resource limits:
 

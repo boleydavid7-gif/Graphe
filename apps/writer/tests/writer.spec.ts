@@ -1,5 +1,7 @@
-import { readFile } from 'node:fs/promises';
-import { test, expect, type Page } from '@playwright/test';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 
 interface NativeRun { text: string; format: Record<string, unknown> }
 interface NativeParagraph { id: string; style: string | null; format: Record<string, unknown>; runs: NativeRun[] }
@@ -77,6 +79,20 @@ async function fixture(): Promise<NativeFile> {
   return JSON.parse(await readFile(new URL('../../../tests/fixtures/native/writer-v1.writer', import.meta.url), 'utf8')) as NativeFile;
 }
 
+test('a failed WebAssembly fetch reports startup failure and retry starts the real engine', async ({ page }) => {
+  await page.route('**/*.wasm', (route) => route.abort('failed'));
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Writer could not start' })).toBeVisible();
+  await expect(editor(page)).toHaveCount(0);
+  await page.unroute('**/*.wasm');
+  await page.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(editor(page)).toBeVisible();
+  await expect(save(page)).toBeEnabled();
+  await editor(page).click();
+  await page.keyboard.insertText('Recovered engine');
+  await expect(paragraph(page, 0)).toHaveText('Recovered engine');
+});
+
 test('production WebAssembly initializes and keyboard editing uses engine history', async ({ page }) => {
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(error.message));
@@ -106,6 +122,34 @@ test('production WebAssembly initializes and keyboard editing uses engine histor
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(editor(page).locator('p')).toHaveCount(2);
   expect(failures).toEqual([]);
+});
+
+test('mouse drag selection formats exactly the selected Rust text', async ({ page }) => {
+  await start(page);
+  await editor(page).click();
+  await page.keyboard.insertText('Select these words in Writer.');
+  const points = await paragraph(page, 0).evaluate((element) => {
+    const node = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode();
+    if (!node) throw new Error('Missing rendered text');
+    function at(offset: number) {
+      const range = document.createRange();
+      range.setStart(node as Node, offset);
+      range.collapse(true);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x + 0.2, y: rect.y + rect.height / 2 };
+    }
+    return { start: at(0), end: at(6) };
+  });
+  await page.mouse.move(points.start.x, points.start.y);
+  await page.mouse.down();
+  await page.mouse.move(points.end.x, points.end.y, { steps: 10 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('Select');
+  await page.getByRole('button', { name: 'Bold', exact: true }).click();
+  const native = await exported(page);
+  const runs = native.document.sections[0]?.blocks[0]?.content.runs;
+  expect(runs?.map((run) => run.text).join('')).toBe('Select these words in Writer.');
+  expect(runs?.filter((run) => run.format.bold === true).map((run) => run.text).join('')).toBe('Select');
 });
 
 test('mixed formatting, directed selections, font controls and paragraph alignment', async ({ page }) => {
@@ -243,6 +287,53 @@ test('keyboard Select All replaces a multi-paragraph selection in one undo step'
   await expect(editor(page).locator('p')).toHaveCount(2);
   await expect(paragraph(page, 0)).toHaveText('First paragraph');
   await expect(paragraph(page, 1)).toHaveText('Second paragraph');
+});
+
+test('native copy and cut preserve structural paragraph separators and Unicode', async ({ page, context }) => {
+  await start(page);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await editor(page).click();
+  const original = 'Alpha e\u0301\nBeta 👩🏽‍💻';
+  await page.keyboard.insertText(original);
+  await select(page, 1, 12, 0, 6);
+  await page.keyboard.press('Control+c');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('e\u0301\nBeta 👩🏽‍💻');
+  await select(page, 1, 12);
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Control+v');
+  await expect(editor(page).locator('p')).toHaveText(['Alpha e\u0301', 'Beta 👩🏽‍💻', 'e\u0301', 'Beta 👩🏽‍💻']);
+  await page.keyboard.press('Control+z');
+  await expect(editor(page).locator('p')).toHaveText(['Alpha e\u0301', 'Beta 👩🏽‍💻', '']);
+  await page.keyboard.press('Control+z');
+  const beforeCut = await exported(page);
+  await select(page, 1, 12, 0, 0);
+  await page.keyboard.press('Control+x');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(original);
+  await expect(editor(page).locator('p')).toHaveText(['']);
+  await page.keyboard.press('Control+v');
+  await expect(editor(page).locator('p')).toHaveText(['Alpha e\u0301', 'Beta 👩🏽‍💻']);
+  await page.keyboard.press('Control+z');
+  await expect(editor(page).locator('p')).toHaveText(['']);
+  await page.keyboard.press('Control+z');
+  expect(await exported(page)).toEqual(beforeCut);
+});
+
+test('clipboard write failure leaves selected content and history unchanged', async ({ page }) => {
+  await start(page);
+  await editor(page).click();
+  await page.keyboard.insertText('Keep e\u0301 and 👩🏽‍💻');
+  const before = await exported(page);
+  await select(page, 0, 0, 0, 19);
+  await editor(page).evaluate((element) => {
+    const clipboard = new DataTransfer();
+    clipboard.setData = () => { throw new DOMException('Clipboard unavailable', 'NotAllowedError'); };
+    element.dispatchEvent(new ClipboardEvent('cut', { clipboardData: clipboard, bubbles: true, cancelable: true }));
+  });
+  await expect(page.getByRole('alert')).toContainText('Nothing was cut');
+  expect(await exported(page)).toEqual(before);
+  await editor(page).click();
+  await page.keyboard.press('Control+z');
+  await expect(paragraph(page, 0)).toHaveText('');
 });
 
 test('Chromium IME composition commits once and synthetic cancellation preserves selection', async ({ page, context }) => {
@@ -393,6 +484,100 @@ test('explicit local saving supports close, reopen, reload and native export', a
   expect(await exported(page)).toEqual(before);
 });
 
+test('an edited complete native fixture survives local save, close, reload and reopen exactly', async ({ page }) => {
+  await start(page);
+  const source = await fixture();
+  await importNative(page, source);
+  const initialText = source.document.sections[0]?.blocks[0]?.content.runs.map((run) => run.text).join('');
+  if (initialText === undefined) throw new Error('Missing fixture paragraph');
+  await select(page, 0, initialText.length);
+  await page.keyboard.insertText(' — reviewed e\u0301 👩🏽‍💻');
+  await page.getByRole('button', { name: 'Align right' }).click();
+  const title = 'Reviewed native fixture — 日本語';
+  await page.getByRole('textbox', { name: 'Document title' }).fill(title);
+  await save(page).click();
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+  const expected = await exported(page);
+  expect(expected.document.id).toBe(source.document.id);
+  expect(expected.document.styles).toMatchObject(source.document.styles);
+  expect(expected.document.sections).toHaveLength(2);
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your document is closed' })).toBeVisible();
+  await page.reload();
+  await expect(editor(page)).toBeVisible();
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(title) }).click();
+  await expect(paragraph(page, 0)).toHaveText(`${initialText} — reviewed e\u0301 👩🏽‍💻`);
+  await expect(paragraph(page, 0)).toHaveCSS('text-align', 'right');
+  expect(await exported(page)).toEqual(expected);
+});
+
+test('complete saved content survives closing and restarting the Chromium process', async ({ playwright }, testInfo) => {
+  const profile = await mkdtemp(join(tmpdir(), 'writer-process-reopen-'));
+  let context: BrowserContext | undefined;
+  const launch = () => playwright.chromium.launchPersistentContext(profile, {
+    ...testInfo.project.use.launchOptions,
+    baseURL: testInfo.project.use.baseURL ?? 'http://127.0.0.1:4173',
+    headless: true,
+    acceptDownloads: true,
+  });
+  try {
+    context = await launch();
+    const page = await context.newPage();
+    await start(page);
+    const source = await fixture();
+    await importNative(page, source);
+    await select(page, 0, 0);
+    await page.keyboard.insertText('Restart verified e\u0301 👩🏽‍💻 — ');
+    const title = 'Browser process restart — 日本語';
+    await page.getByRole('textbox', { name: 'Document title' }).fill(title);
+    await save(page).click();
+    await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+    const expected = await exported(page);
+    await context.close();
+    context = undefined;
+    // A new Chromium process opens the same on-disk profile, rather than just
+    // reusing a page, IndexedDB connection, or the old in-memory Rust session.
+    context = await launch();
+    const reopened = await context.newPage();
+    await start(reopened);
+    await reopened.getByRole('button', { name: 'Open', exact: true }).click();
+    await reopened.getByRole('button', { name: new RegExp(title) }).click();
+    expect(await exported(reopened)).toEqual(expected);
+    await expect(reopened.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+  } finally {
+    await context?.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});
+
+test('damaged local records are reported without hiding healthy saved documents', async ({ page }) => {
+  await start(page);
+  await page.getByRole('textbox', { name: 'Document title' }).fill('Healthy saved document');
+  await editor(page).click();
+  await page.keyboard.insertText('Preserve this e\u0301 👩🏽‍💻');
+  await save(page).click();
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+  const expected = await exported(page);
+  await page.evaluate(() => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open('writer-documents', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction('documents', 'readwrite');
+      transaction.objectStore('documents').put({ id: 'damaged-neighbor', title: 'Damaged record', bytes: 'not native bytes', updatedAt: Number.MAX_VALUE });
+      transaction.oncomplete = () => { db.close(); resolve(); };
+      transaction.onerror = () => { db.close(); reject(transaction.error); };
+    };
+  }));
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Open document', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Open document', exact: true });
+  await expect(dialog.getByRole('alert')).toContainText(/damaged|corrupt|could not/i);
+  await dialog.getByRole('button', { name: /Healthy saved document/ }).click();
+  expect(await exported(page)).toEqual(expected);
+});
+
 test('corrupt and future native imports preserve the current document and unsaved guards', async ({ page }) => {
   await start(page);
   await editor(page).click();
@@ -437,6 +622,79 @@ test('storage I/O failure retains unsaved work and the previously committed reco
   await other.getByRole('button', { name: /Durable original/ }).click();
   await expect(paragraph(other, 0)).toHaveText('Original');
   await expect(paragraph(page, 0)).toHaveText('Original plus unsaved');
+});
+
+test('failed save-and-continue keeps the modal error, unsaved work and prior local save', async ({ page, context }) => {
+  await start(page);
+  await page.getByRole('textbox', { name: 'Document title' }).fill('Save-and-continue original');
+  await editor(page).click();
+  await page.keyboard.insertText('Original');
+  await save(page).click();
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+  await select(page, 0, 8);
+  await page.keyboard.insertText(' plus unsaved');
+  const unsaved = await exported(page);
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Save your changes?', exact: true });
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => {
+    IDBObjectStore.prototype.put = function (): IDBRequest<IDBValidKey> {
+      throw new DOMException('Test quota failure', 'QuotaExceededError');
+    };
+  });
+  await dialog.getByRole('button', { name: 'Save and continue', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('storage is full');
+  await expect(dialog).toBeVisible();
+  await expect(paragraph(page, 0)).toHaveText('Original plus unsaved');
+  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+  const other = await context.newPage();
+  await start(other);
+  await other.getByRole('button', { name: 'Open', exact: true }).click();
+  await other.getByRole('button', { name: /Save-and-continue original/ }).click();
+  await expect(paragraph(other, 0)).toHaveText('Original');
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(await exported(page)).toEqual(unsaved);
+});
+
+test('save-and-continue, discard and dismissed browser reload preserve the intended version', async ({ page }) => {
+  await start(page);
+  await page.getByRole('textbox', { name: 'Document title' }).fill('Guarded version');
+  await editor(page).click();
+  await page.keyboard.insertText('The version to keep.');
+  const kept = await exported(page);
+  await page.getByRole('button', { name: 'New', exact: true }).click();
+  const guard = page.getByRole('dialog', { name: 'Save your changes?', exact: true });
+  await guard.getByRole('button', { name: 'Save and continue', exact: true }).click();
+  await expect(guard).not.toBeVisible();
+  await expect(paragraph(page, 0)).toHaveText('');
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: /Guarded version/ }).click();
+  expect(await exported(page)).toEqual(kept);
+
+  await select(page, 0, 20);
+  await page.keyboard.insertText(' Discard this change.');
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await guard.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your document is closed' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: /Guarded version/ }).click();
+  expect(await exported(page)).toEqual(kept);
+
+  await select(page, 0, 20);
+  await page.keyboard.insertText(' Keep this unsaved change.');
+  const unsaved = await exported(page);
+  const protocol = await page.context().newCDPSession(page);
+  const prompt = page.waitForEvent('dialog');
+  // A canceled reload emits no load event. Request the real browser reload
+  // through CDP instead of leaving Playwright waiting for a load that must not occur.
+  const reload = protocol.send('Page.reload');
+  const dialog = await prompt;
+  expect(dialog.type()).toBe('beforeunload');
+  await dialog.dismiss();
+  await reload;
+  await protocol.detach();
+  expect(await exported(page)).toEqual(unsaved);
+  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
 });
 
 test('typing during an IndexedDB save remains dirty and does not alter its byte snapshot', async ({ page, context }) => {

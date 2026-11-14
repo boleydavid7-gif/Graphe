@@ -581,3 +581,139 @@ fn text_limit_counts_content_without_structural_paragraph_separators() {
     assert_eq!(response["ok"], true);
     assert_eq!(engine.export_document().unwrap(), bytes);
 }
+
+#[test]
+fn selected_text_preserves_split_run_graphemes_and_reverse_selection_without_mutation() {
+    let document = Document::from_parts(
+        id("doc"),
+        Default::default(),
+        vec![Section::new(
+            id("s"),
+            vec![Block::Paragraph(Paragraph::new(
+                id("p"),
+                vec![
+                    TextRun::new("Ae"),
+                    TextRun {
+                        text: "\u{301}".into(),
+                        format: CharacterFormat {
+                            bold: Some(true),
+                            ..Default::default()
+                        },
+                    },
+                    TextRun::new("👩"),
+                    TextRun::new("🏽‍💻"),
+                    TextRun::new("Z"),
+                ],
+            ))],
+        )],
+        vec![],
+    )
+    .unwrap();
+    let original = serialize_document(&document).unwrap();
+    let mut engine = BrowserEngine::new("clipboard").unwrap();
+    let opened: Value = serde_json::from_str(&engine.open_document(&original)).unwrap();
+    assert_eq!(opened["ok"], true);
+    execute(
+        &mut engine,
+        json!({"type":"set_title","title":"Clipboard sample"}),
+    );
+    for (anchor, focus) in [(1, 10), (10, 1)] {
+        execute(
+            &mut engine,
+            json!({"type":"set_selection","selection":selection("p",anchor,focus)}),
+        );
+        let snapshot = engine.snapshot();
+        let bytes = engine.export_document().unwrap();
+        assert_eq!(engine.selected_text().unwrap(), "e\u{301}👩🏽‍💻");
+        assert_eq!(engine.snapshot(), snapshot);
+        assert_eq!(engine.export_document().unwrap(), bytes);
+    }
+    execute(&mut engine, json!({"type":"undo"}));
+    assert_eq!(engine.export_document().unwrap(), original);
+    execute(&mut engine, json!({"type":"redo"}));
+    assert_eq!(view(&engine)["title"], "Clipboard sample");
+}
+
+#[test]
+fn selected_text_adds_one_lf_per_paragraph_boundary_and_preserves_literal_crlf() {
+    let document = Document::from_parts(
+        id("doc"),
+        Default::default(),
+        vec![
+            Section::new(
+                id("s1"),
+                vec![
+                    Block::Paragraph(Paragraph::new(id("p1"), vec![TextRun::new("first")])),
+                    Block::Paragraph(Paragraph::new(id("p2"), vec![])),
+                    Block::Paragraph(Paragraph::new(
+                        id("p3"),
+                        vec![TextRun::new("line\r\ninside")],
+                    )),
+                ],
+            ),
+            Section::new(
+                id("s2"),
+                vec![Block::Paragraph(Paragraph::new(
+                    id("p4"),
+                    vec![TextRun::new("last")],
+                ))],
+            ),
+        ],
+        vec![],
+    )
+    .unwrap();
+    let mut engine = BrowserEngine::new("clipboard").unwrap();
+    let opened: Value =
+        serde_json::from_str(&engine.open_document(&serialize_document(&document).unwrap()))
+            .unwrap();
+    assert_eq!(opened["ok"], true);
+    for (anchor, focus) in [
+        (point("p1", 1), point("p4", 3)),
+        (point("p4", 3), point("p1", 1)),
+    ] {
+        execute(
+            &mut engine,
+            json!({"type":"set_selection","selection":{"anchor":anchor,"focus":focus}}),
+        );
+        let snapshot = engine.snapshot();
+        assert_eq!(
+            engine.selected_text().unwrap(),
+            "irst\n\nline\r\ninside\nlas"
+        );
+        assert_eq!(engine.snapshot(), snapshot);
+    }
+    execute(
+        &mut engine,
+        json!({"type":"set_selection","selection":{"anchor":point("p1",5),"focus":point("p2",0)}}),
+    );
+    assert_eq!(engine.selected_text().unwrap(), "\n");
+    assert_eq!(
+        engine.export_document().unwrap(),
+        serialize_document(&document).unwrap()
+    );
+}
+
+#[test]
+fn selected_text_of_absent_or_collapsed_selection_is_empty_without_materializing() {
+    let mut engine = BrowserEngine::new("clipboard").unwrap();
+    for text in ["", "content"] {
+        execute(&mut engine, json!({"type":"replace_text","text":text}));
+        let snapshot = engine.snapshot();
+        assert_eq!(engine.selected_text().unwrap(), "");
+        assert_eq!(engine.snapshot(), snapshot);
+    }
+    execute(
+        &mut engine,
+        json!({"type":"set_selection","selection":null}),
+    );
+    let snapshot = engine.snapshot();
+    assert_eq!(engine.selected_text().unwrap(), "");
+    assert_eq!(engine.snapshot(), snapshot);
+    let empty = serialize_document(&Document::new(id("empty")).unwrap()).unwrap();
+    let opened: Value = serde_json::from_str(&engine.open_document(&empty)).unwrap();
+    assert_eq!(opened["ok"], true);
+    let snapshot = engine.snapshot();
+    assert_eq!(engine.selected_text().unwrap(), "");
+    assert_eq!(engine.snapshot(), snapshot);
+    assert_eq!(engine.export_document().unwrap(), empty);
+}

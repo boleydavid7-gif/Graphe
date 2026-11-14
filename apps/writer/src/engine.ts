@@ -68,6 +68,12 @@ export class EngineClient {
     catch (error) { throw failure(error); }
   }
 
+  /** Exact Rust-selected plain text, with one LF per paragraph boundary. */
+  selectedText(): string {
+    try { return this.handle.selected_text(); }
+    catch (error) { throw failure(error); }
+  }
+
   dispose(): void { this.handle.free(); }
 
   private accept(json: string): WriterView {

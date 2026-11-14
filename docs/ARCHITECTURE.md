@@ -608,6 +608,14 @@ composition is one transaction. Cross-section structural replacement remains
 explicitly unsupported. Opening a valid document with no paragraphs preserves
 that structure; the first deliberate edit can materialize an initial paragraph.
 
+Copy/cut obtain supported selected text from the Rust adapter's read-only
+`selected_text` API, which uses core Unicode coordinates and one LF per logical
+paragraph boundary. Native DOM `Selection.toString()` can add visual blank lines
+between paragraphs and is not the document clipboard format. Cut publishes a
+deletion only after clipboard writing succeeds. Clipboard input/output remains
+plain text; source formatting and soft-versus-structural line-break distinctions
+are not preserved by plain-text paste. Native Writer persistence remains exact.
+
 ### Presentation and supported controls
 
 The Rust adapter overlays ancestor paragraph styles, the paragraph's direct
@@ -655,6 +663,11 @@ continued retention by the browser. Native filesystem synchronization/rename
 guarantees do not apply to IndexedDB. There is no autosave, cloud storage, or
 synchronization service.
 
+Library listing returns readable summaries and explicit per-record problems;
+one damaged record cannot hide healthy documents. Loading and overwriting remain
+strict, and listing never repairs or deletes bytes. Save-and-continue errors are
+announced inside the active modal rather than behind its inert backdrop.
+
 ### Resource bounds, verification, and delivery
 
 The browser adapter limits accepted and produced native files to 5 MiB, total
@@ -675,6 +688,10 @@ publish. Required validation includes the engine's four checks, TypeScript,
 lint, unit tests, production build, and real-browser integration with production
 WASM asset loading. The milestone report records actual results, screenshots,
 and measured limitations separately from this design.
+Eight direct Node/V8 ABI tests execute generated web bindings against actual
+release WASM in addition to native Rust tests and production Chromium UI tests.
+The [pre-merge review](PRE_MERGE_REVIEW.md) gives the current gate and distinguishes
+clean process-restart evidence from untested crash/power-loss guarantees.
 
 Synthetic composition and Chromium integration cannot certify every OS IME,
 candidate window, dictation path, mobile browser, or assistive technology. Manual

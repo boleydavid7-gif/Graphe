@@ -43,6 +43,18 @@ async function rawPut(value: unknown): Promise<void> {
   database.close();
 }
 
+async function rawRecords(): Promise<unknown[]> {
+  const database = await rawOpen();
+  try {
+    return await new Promise((resolve, reject) => {
+      const transaction = database.transaction('documents', 'readonly');
+      const request = transaction.objectStore('documents').getAll();
+      transaction.oncomplete = () => resolve(request.result as unknown[]);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } finally { database.close(); }
+}
+
 beforeEach(() => {
   factory = new IDBFactory();
   opened = [];
@@ -65,9 +77,10 @@ describe('WriterStorage', () => {
     expect(saved.title).toBe(original.title);
     expect(saved.etag).toBeTruthy();
     expect((await library.load(original.id))).toEqual(saved);
-    expect(await library.list()).toEqual([{
-      id: original.id, title: original.title, etag: saved.etag, updatedAt: saved.updatedAt,
-    }]);
+    expect(await library.list()).toEqual({
+      documents: [{ id: original.id, title: original.title, etag: saved.etag, updatedAt: saved.updatedAt }],
+      problems: [],
+    });
   });
 
   it('captures input bytes before asynchronous open and returns independent copies', async () => {
@@ -144,17 +157,49 @@ describe('WriterStorage', () => {
   it('rejects missing records without creating or repairing them', async () => {
     const library = storage();
     await expect(library.load('absent')).rejects.toMatchObject({ code: 'not_found' });
-    expect(await library.list()).toEqual([]);
+    expect(await library.list()).toEqual({ documents: [], problems: [] });
     await expect(library.save(document(), 'missing-token')).rejects.toMatchObject({ code: 'conflict' });
-    expect(await library.list()).toEqual([]);
+    expect(await library.list()).toEqual({ documents: [], problems: [] });
   });
 
   it('reports corrupted record metadata without silently overwriting it', async () => {
     await rawPut({ id: 'broken', title: 'Broken', bytes: 'not byte data', etag: 'old', updatedAt: 1 });
     const library = storage();
     await expect(library.load('broken')).rejects.toMatchObject({ code: 'corrupt' });
-    await expect(library.list()).rejects.toMatchObject({ code: 'corrupt' });
+    expect(await library.list()).toMatchObject({ documents: [], problems: [{ id: 'broken', message: expect.stringContaining('damaged') }] });
     await expect(library.save(document('broken'), 'old')).rejects.toMatchObject({ code: 'corrupt' });
+  });
+
+  it('keeps healthy documents accessible beside damaged records without changing either', async () => {
+    const library = storage();
+    const healthy = await library.save(document('healthy', '{"text":"Keep á and 👩🏽‍💻"}'), null);
+    await rawPut({ id: 'broken-bytes', title: 'Damaged bytes', bytes: 'invalid bytes', etag: 'old', updatedAt: 1 });
+    await rawPut({ ...document('broken-date'), etag: 'old', updatedAt: 8_640_000_000_000_001 });
+    const before = await rawRecords();
+
+    const listing = await library.list();
+    expect(listing.documents).toEqual([{
+      id: healthy.id, title: healthy.title, etag: healthy.etag, updatedAt: healthy.updatedAt,
+    }]);
+    expect(listing.problems).toEqual([
+      { id: 'broken-bytes', message: expect.stringContaining('damaged') },
+      { id: 'broken-date', message: expect.stringContaining('damaged') },
+    ]);
+    expect(await library.load(healthy.id)).toEqual(healthy);
+    await expect(library.load('broken-bytes')).rejects.toMatchObject({ code: 'corrupt' });
+    await expect(library.load('broken-date')).rejects.toMatchObject({ code: 'corrupt' });
+    expect(await rawRecords()).toEqual(before);
+  });
+
+  it('reports an invalid record identifier without inventing an openable document id', async () => {
+    // IndexedDB accepts numeric keys even though Writer identities are strings.
+    await rawPut({ id: 91, title: 'Invalid identity', bytes: new Uint8Array([1]), etag: 'old', updatedAt: 1 });
+    const before = await rawRecords();
+    const listing = await storage().list();
+    expect(listing.documents).toEqual([]);
+    expect(listing.problems).toEqual([{ message: expect.stringContaining('damaged') }]);
+    expect(listing.problems[0]).not.toHaveProperty('id');
+    expect(await rawRecords()).toEqual(before);
   });
 
   it('rejects an out-of-range timestamp before UI date formatting and preserves the record', async () => {
@@ -164,7 +209,7 @@ describe('WriterStorage', () => {
     await rawPut(original);
     const library = storage();
     await expect(library.load(original.id)).rejects.toMatchObject({ code: 'corrupt' });
-    await expect(library.list()).rejects.toMatchObject({ code: 'corrupt' });
+    expect(await library.list()).toMatchObject({ documents: [], problems: [{ id: original.id, message: expect.stringContaining('damaged') }] });
     await expect(library.save(document(original.id, 'replacement'), original.etag)).rejects.toMatchObject({ code: 'corrupt' });
     const database = await rawOpen();
     const unchanged = await new Promise<unknown>((resolve, reject) => {
@@ -191,8 +236,9 @@ describe('WriterStorage', () => {
     clock.mockReturnValue(20);
     await library.save(document('new'), null);
     const listed = await library.list();
-    expect(listed.map((entry) => entry.id)).toEqual(['new', 'old']);
-    expect(listed.every((entry) => !('bytes' in entry))).toBe(true);
+    expect(listed.documents.map((entry) => entry.id)).toEqual(['new', 'old']);
+    expect(listed.documents.every((entry) => !('bytes' in entry))).toBe(true);
+    expect(listed.problems).toEqual([]);
   });
 
   it('enforces application size and token bounds before opening a transaction', async () => {
@@ -201,7 +247,7 @@ describe('WriterStorage', () => {
     await expect(library.save({ ...document(), bytes: new Uint8Array(MAX_STORED_DOCUMENT_BYTES + 1) }, null)).rejects.toMatchObject({ code: 'invalid' });
     await expect(library.save(document(), '')).rejects.toMatchObject({ code: 'invalid' });
     await expect(library.load('')).rejects.toMatchObject({ code: 'invalid' });
-    expect(await library.list()).toEqual([]);
+    expect(await library.list()).toEqual({ documents: [], problems: [] });
   });
 
   it('reports unavailable and denied browser storage clearly', async () => {
