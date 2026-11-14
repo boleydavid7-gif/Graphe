@@ -1,7 +1,8 @@
 import initialize, { WriterEngine } from './wasm/office_wasm.js';
 import wasmUrl from './wasm/office_wasm_bg.wasm?url';
 import type {
-  CompatibilityReport, EngineFailure, EngineResponse, LayoutOptions, LayoutView,
+  CompatibilityReport, EngineFailure, EngineResponse, FindSnapshot, LayoutAction,
+  LayoutActionView, LayoutOptions, LayoutSelectionView, LayoutView,
   WriterCommand, WriterView,
 } from './types';
 
@@ -76,6 +77,41 @@ export class EngineClient {
     } catch (error) { throw failure(error); }
   }
 
+  /** Applies Rust visual hit-testing/navigation without creating a document edit. */
+  interact(action: LayoutAction, options: LayoutOptions = {},
+    expectedOrigin?: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>): WriterView {
+    try {
+      if (expectedOrigin) this.assertOrigin(expectedOrigin);
+      const result = JSON.parse(this.handle.layout_action(
+        JSON.stringify(options), JSON.stringify(action), expectedOrigin?.revision ?? this.current.revision,
+      )) as LayoutActionView;
+      this.assertOrigin(result);
+      this.assertOrigin(result.view);
+      this.current = result.view;
+      return this.current;
+    } catch (error) { throw failure(error); }
+  }
+
+  /** Current selection/caret rectangles, measured and mapped entirely in Rust. */
+  selectionGeometry(options: LayoutOptions = {}): LayoutSelectionView {
+    try {
+      const result = JSON.parse(this.handle.selection_geometry(
+        JSON.stringify(options), this.current.revision,
+      )) as LayoutSelectionView;
+      this.assertOrigin(result);
+      return result;
+    } catch (error) { throw failure(error); }
+  }
+
+  /** Case-sensitive literal search returns Rust-validated document selections. */
+  find(query: string): FindSnapshot {
+    try {
+      const result = JSON.parse(this.handle.find_text(query)) as FindSnapshot;
+      this.assertOrigin(result);
+      return result;
+    } catch (error) { throw failure(error); }
+  }
+
   command(command: WriterCommand): WriterView {
     const guarded = command.type === 'new_document' || command.type === 'fork_document'
       ? command
@@ -128,5 +164,12 @@ export class EngineClient {
     if (!response.ok) throw new EngineError(response.error);
     this.current = response.view;
     return this.current;
+  }
+
+  private assertOrigin(result: { readonly sessionId: string; readonly documentId: string; readonly revision: string }): void {
+    if (result.sessionId !== this.current.sessionId || result.documentId !== this.current.documentId
+        || result.revision !== this.current.revision) {
+      throw new EngineError({ code: 'stale_layout', message: 'The result no longer identifies the active document.' });
+    }
   }
 }

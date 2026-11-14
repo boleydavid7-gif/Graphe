@@ -99,8 +99,8 @@ jobs:
       - name: Build production frontend
         run: npm run build:cloudflare
 
-      - name: Install Chromium for integration tests
-        run: npx playwright install --with-deps chromium
+      - name: Install browser engines for integration tests
+        run: npx playwright install --with-deps chromium firefox webkit
 
-      - name: Test production frontend in Chromium
+      - name: Test production frontend and basic browser compatibility
         run: npm run test:browser

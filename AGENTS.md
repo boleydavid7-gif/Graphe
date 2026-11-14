@@ -46,10 +46,10 @@ and explicit approvals govern the task's scope.
 - Use Rust's pinned grapheme rules and explicit UTF-8/UTF-16 conversions. Do not
   substitute JavaScript string length or a different segmenter for engine offsets.
 - Keep unsaved Rust state intact on input, import, or storage failure.
-- The missing Step 5 DOCX conversion is isolated in PR #10 on
-  `dev/docx-conversion`. Step 6 continues on `dev/typography-layout-engine`, based
-  on that prerequisite. Keep both changes reviewable; do not merge either branch
-  or deploy without approval.
+- Steps 5 and 6 were merged through PR #10 and PR #11 at main `86f2ad8`.
+  Step 7 is on `dev/writer-lamplight`. Preserve those foundations and keep this
+  milestone focused on a small, usable editor. Do not merge or deploy without
+  approval for this milestone.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -61,8 +61,7 @@ and explicit approvals govern the task's scope.
   do not accept newer fields under old schema/envelope version labels.
 - Distinguish current-content DOCX export from original download. Disclose that a
   source-bearing native file may contain text removed from the edited document.
-- Other formats, merges and deployments require separate authorization. Step 6
-  remains requested, with DOCX completion as its prerequisite. Do not infer Word
+- Other formats, merges and deployments require separate authorization. Do not infer Word
   fidelity from self-roundtrips or library probes.
 - Rust owns font resolution, shaping, line breaking and pagination. Browser
   layout previews render Rust-provided glyph paths and geometry; do not use
@@ -73,6 +72,24 @@ and explicit approvals govern the task's scope.
 - Layout limits must return structured errors without mutating the document.
   Keep layout snapshots and caches outside persisted documents and undo history;
   reject stale revision snapshots at the browser boundary.
+- The owner's primary desktop and rough mobile visual references are
+  `docs/design/writer-lamplight-reference.png` and
+  `docs/design/writer-lamplight-mobile-reference.png`. See `docs/design/README.md`.
+  Preserve these files and document meaningful deviations. Use opaque warm
+  brown/charcoal surfaces, restrained gold and white paper, without glass or
+  decorative gradients. Show only working commands; local saving is not cloud sync.
+- In paged editing, visible glyphs, caret/selection geometry and navigation come
+  from Rust. A controlled semantic DOM input projection may buffer composition;
+  it is not an independent document or layout engine. Do not hide it from keyboard
+  or assistive input with `display:none`. Keep browser visual navigation from
+  overriding Rust page geometry, while retaining valid logical input selections.
+- Autosave and explicit Save share one serialized write lane and existing etag
+  checks. Guard completions by engine/session/document/revision and replacement
+  epoch. Do not clear newer dirty work, overwrite conflicts, serialize transient
+  IME text, or label active composition saved. Lifecycle flushing is best effort.
+- After Step 7 approval, pause feature development for the owner's comprehensive
+  technical, security, DOCX-compatibility and commercial-licensing audit. Do not
+  begin Step 8 or the comprehensive audit automatically during this milestone.
 
 ## Required engine checks
 

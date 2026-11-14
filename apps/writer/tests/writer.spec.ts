@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { documentAction, focusEditor, glyphPoint, readyPages } from './step7-test-helpers';
 
 interface NativeRun { text: string; format: Record<string, unknown> }
 interface NativeParagraph { id: string; style: string | null; format: Record<string, unknown>; runs: NativeRun[] }
@@ -63,7 +64,7 @@ async function paste(page: Page, plain: string, html = '<b>untrusted rich HTML</
 
 async function exported(page: Page): Promise<NativeFile> {
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await documentAction(page, 'Export');
   const file = await download;
   expect(file.suggestedFilename()).toMatch(/\.writer$/);
   const path = await file.path();
@@ -88,7 +89,7 @@ test('a failed WebAssembly fetch reports startup failure and retry starts the re
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
   await expect(editor(page)).toBeVisible();
   await expect(save(page)).toBeEnabled();
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Recovered engine');
   await expect(paragraph(page, 0)).toHaveText('Recovered engine');
 });
@@ -102,7 +103,7 @@ test('production WebAssembly initializes and keyboard editing uses engine histor
   expect(response.ok()).toBe(true);
   expect(response.headers()['content-type']).toMatch(/application\/wasm/);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Research notes');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('A dependable beginning.');
   await page.keyboard.press('Enter');
   await page.keyboard.type('Second paragraph');
@@ -126,20 +127,9 @@ test('production WebAssembly initializes and keyboard editing uses engine histor
 
 test('mouse drag selection formats exactly the selected Rust text', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Select these words in Writer.');
-  const points = await paragraph(page, 0).evaluate((element) => {
-    const node = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode();
-    if (!node) throw new Error('Missing rendered text');
-    function at(offset: number) {
-      const range = document.createRange();
-      range.setStart(node as Node, offset);
-      range.collapse(true);
-      const rect = range.getBoundingClientRect();
-      return { x: rect.x + 0.2, y: rect.y + rect.height / 2 };
-    }
-    return { start: at(0), end: at(6) };
-  });
+  const points = { start: await glyphPoint(page, 0, 0), end: await glyphPoint(page, 0, 6) };
   await page.mouse.move(points.start.x, points.start.y);
   await page.mouse.down();
   await page.mouse.move(points.end.x, points.end.y, { steps: 10 });
@@ -154,7 +144,7 @@ test('mouse drag selection formats exactly the selected Rust text', async ({ pag
 
 test('mixed formatting, directed selections, font controls and paragraph alignment', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('Plain and styled');
   await select(page, 0, 16, 0, 10);
   await page.getByRole('button', { name: 'Bold', exact: true }).click();
@@ -162,29 +152,30 @@ test('mixed formatting, directed selections, font controls and paragraph alignme
   await page.getByRole('button', { name: 'Underline', exact: true }).click();
   const family = page.getByRole('combobox', { name: 'Font family' });
   await family.focus();
-  await family.selectOption('Georgia');
+  await family.selectOption('Tinos');
   await expect(family).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(family).toHaveValue('Times New Roman');
+  await expect(family).toHaveValue('Noto Sans Arabic');
   await expect(family).toBeFocused();
   await page.keyboard.press('ArrowUp');
-  await expect(family).toHaveValue('Georgia');
+  await expect(family).toHaveValue('Tinos');
   const size = page.getByRole('combobox', { name: 'Font size' });
   await size.focus();
   await size.selectOption('18');
   await expect(size).toBeFocused();
-  await expect(paragraph(page, 0).locator('span').last()).toHaveCSS('font-weight', '700');
-  await expect(paragraph(page, 0).locator('span').last()).toHaveCSS('font-style', 'italic');
-  await expect(paragraph(page, 0).locator('span').last()).toHaveCSS('text-decoration-line', 'underline');
-  await expect(paragraph(page, 0).locator('span').last()).toHaveCSS('font-size', '24px');
+  await readyPages(page);
+  await expect(page.getByTestId('paged-editor').locator('[data-layout-decoration="underline"]').first()).toBeVisible();
   await page.getByRole('button', { name: 'Align center' }).click();
-  await expect(paragraph(page, 0)).toHaveCSS('text-align', 'center');
   await select(page, 0, 0, 0, 16);
   await expect(page.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'mixed');
   const native = await exported(page);
   const runs = native.document.sections[0]?.blocks[0]?.content.runs;
   expect(runs?.map((run) => run.text).join('')).toBe('Plain and styled');
   expect(runs?.filter((run) => run.format.bold === true && run.format.italic === true && run.format.underline === 'single').map((run) => run.text).join('')).toBe('styled');
+  const selectedRuns = runs?.filter((run) => run.format.bold === true) ?? [];
+  expect(selectedRuns.length).toBeGreaterThan(0);
+  for (const run of selectedRuns) expect(run.format).toMatchObject({ font_family: 'Tinos', font_size: 36 });
+  expect(native.document.sections[0]?.blocks[0]?.content.format.alignment).toBe('center');
   await select(page, 0, 16);
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('Shift+ArrowLeft');
@@ -194,7 +185,7 @@ test('mixed formatting, directed selections, font controls and paragraph alignme
 
 test('Unicode deletion treats combining marks, emoji and flags as graphemes', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Cafe\u0301 👩🏽‍💻 🇺🇳');
   await expect(paragraph(page, 0)).toHaveText('Cafe\u0301 👩🏽‍💻 🇺🇳');
   await page.keyboard.press('Backspace');
@@ -254,7 +245,7 @@ test('native arrows cross graphemes split across differently formatted runs', as
 
 test('plain-text multiline paste is one atomic undo step and ignores rich HTML', async ({ page, context }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('Before ');
   await paste(page, 'First\r\nSecond 👩🏽‍💻\rThird e\u0301');
   await expect(editor(page).locator('p')).toHaveCount(3);
@@ -277,7 +268,7 @@ test('plain-text multiline paste is one atomic undo step and ignores rich HTML',
 
 test('keyboard Select All replaces a multi-paragraph selection in one undo step', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await paste(page, 'First paragraph\nSecond paragraph');
   await page.keyboard.press('Control+a');
   await page.keyboard.insertText('Replacement 👩🏽‍💻');
@@ -292,7 +283,7 @@ test('keyboard Select All replaces a multi-paragraph selection in one undo step'
 test('native copy and cut preserve structural paragraph separators and Unicode', async ({ page, context }) => {
   await start(page);
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await editor(page).click();
+  await focusEditor(page);
   const original = 'Alpha e\u0301\nBeta 👩🏽‍💻';
   await page.keyboard.insertText(original);
   await select(page, 1, 12, 0, 6);
@@ -320,7 +311,7 @@ test('native copy and cut preserve structural paragraph separators and Unicode',
 
 test('clipboard write failure leaves selected content and history unchanged', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Keep e\u0301 and 👩🏽‍💻');
   const before = await exported(page);
   await select(page, 0, 0, 0, 19);
@@ -331,14 +322,14 @@ test('clipboard write failure leaves selected content and history unchanged', as
   });
   await expect(page.getByRole('alert')).toContainText('Nothing was cut');
   expect(await exported(page)).toEqual(before);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.press('Control+z');
   await expect(paragraph(page, 0)).toHaveText('');
 });
 
 test('Chromium IME composition commits once and synthetic cancellation preserves selection', async ({ page, context }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   const cdp = await context.newCDPSession(page);
   await cdp.send('Input.imeSetComposition', { text: 'に', selectionStart: 1, selectionEnd: 1 });
   await cdp.send('Input.imeSetComposition', { text: '日本語', selectionStart: 3, selectionEnd: 3 });
@@ -369,7 +360,7 @@ test('Chromium IME composition commits once and synthetic cancellation preserves
 
 test('noncancellable browser input is committed safely and unknown DOM mutations are reverted', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('cat');
   await select(page, 0, 0, 0, 3);
   await editor(page).evaluate((element) => {
@@ -400,7 +391,8 @@ test('native fixture, styles, sections and opaque identifiers survive import/exp
   await expect(page.getByRole('textbox', { name: 'Document title' })).toHaveValue('Quarterly research report');
   await expect(editor(page).locator('p')).toHaveCount(3);
   await expect(paragraph(page, 0)).toHaveText('Research progress: Q3');
-  await expect(paragraph(page, 0).locator('span').first()).toHaveCSS('font-weight', '700');
+  await select(page, 0, 0, 0, 8);
+  await expect(page.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const roundTrip = await exported(page);
   expect(roundTrip).toMatchObject({ ...native, format_version: 2,
     document: { ...native.document, schema_version: 2 } });
@@ -414,7 +406,7 @@ test('native fixture, styles, sections and opaque identifiers survive import/exp
   expect(roundTrip.document.sections).toHaveLength(2);
   await select(page, 0, 0, 0, 8);
   await page.getByRole('button', { name: 'Italic', exact: true }).click();
-  await expect(paragraph(page, 0).locator('span').first()).toHaveCSS('font-style', 'italic');
+  await expect(page.getByRole('button', { name: 'Italic', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('unsupported cross-section edits fail without changing the document', async ({ page }) => {
@@ -436,7 +428,7 @@ test('a structurally empty native document stays empty until the first transacti
   await importNative(page, native);
   await expect(page.getByRole('textbox', { name: 'Document title' })).toHaveValue('Empty document');
   expect((await exported(page)).document.sections).toEqual([]);
-  await editor(page).click();
+  await focusEditor(page);
   await editor(page).evaluate((element) => {
     const placeholder = element.querySelector('p');
     if (placeholder) placeholder.textContent = 'uncommitted browser text';
@@ -445,7 +437,7 @@ test('a structurally empty native document stays empty until the first transacti
   await expect(paragraph(page, 0)).toHaveText('');
   await expect(page.getByRole('alert')).toContainText('unchanged');
   expect((await exported(page)).document.sections).toEqual([]);
-  await editor(page).click();
+  await focusEditor(page);
   await editor(page).evaluate((element) => {
     element.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: '' }));
     const placeholder = element.querySelector('p');
@@ -454,7 +446,7 @@ test('a structurally empty native document stays empty until the first transacti
   });
   await expect(paragraph(page, 0)).toHaveText('');
   expect((await exported(page)).document.sections).toEqual([]);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('First 👩🏽‍💻');
   await expect(paragraph(page, 0)).toHaveText('First 👩🏽‍💻');
   expect((await exported(page)).document.sections).toHaveLength(1);
@@ -465,14 +457,14 @@ test('a structurally empty native document stays empty until the first transacti
 test('explicit local saving supports close, reopen, reload and native export', async ({ page }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Local research — 日本語');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Cafe\u0301 and 👩🏽‍💻');
   await select(page, 0, 0, 0, 5);
   await page.getByRole('button', { name: 'Bold', exact: true }).click();
   await save(page).click();
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
   const before = await exported(page);
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await documentAction(page, 'Close');
   await expect(page.getByRole('heading', { name: 'Your document is closed' })).toBeVisible();
   await page.getByRole('button', { name: 'Open document', exact: true }).click();
   await page.getByRole('button', { name: /Local research — 日本語/ }).click();
@@ -502,14 +494,15 @@ test('an edited complete native fixture survives local save, close, reload and r
   expect(expected.document.id).toBe(source.document.id);
   expect(expected.document.styles).toMatchObject(source.document.styles);
   expect(expected.document.sections).toHaveLength(2);
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await documentAction(page, 'Close');
   await expect(page.getByRole('heading', { name: 'Your document is closed' })).toBeVisible();
   await page.reload();
   await expect(editor(page)).toBeVisible();
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   await page.getByRole('button', { name: new RegExp(title) }).click();
   await expect(paragraph(page, 0)).toHaveText(`${initialText} — reviewed e\u0301 👩🏽‍💻`);
-  await expect(paragraph(page, 0)).toHaveCSS('text-align', 'right');
+  await select(page, 0, 0, 0, 8);
+  await expect(page.getByRole('button', { name: 'Align right', exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(await exported(page)).toEqual(expected);
 });
 
@@ -555,7 +548,7 @@ test('complete saved content survives closing and restarting the Chromium proces
 test('damaged local records are reported without hiding healthy saved documents', async ({ page }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Healthy saved document');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Preserve this e\u0301 👩🏽‍💻');
   await save(page).click();
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
@@ -571,7 +564,7 @@ test('damaged local records are reported without hiding healthy saved documents'
       transaction.onerror = () => { db.close(); reject(transaction.error); };
     };
   }));
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await documentAction(page, 'Close');
   await page.getByRole('button', { name: 'Open document', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Open document', exact: true });
   await expect(dialog.getByRole('alert')).toContainText(/damaged|corrupt|could not/i);
@@ -581,7 +574,7 @@ test('damaged local records are reported without hiding healthy saved documents'
 
 test('corrupt and future native imports preserve the current document and unsaved guards', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('Keep this work');
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Save your changes?' })).toBeVisible();
@@ -602,7 +595,7 @@ test('corrupt and future native imports preserve the current document and unsave
 test('storage I/O failure retains unsaved work and the previously committed record', async ({ page, context }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Durable original');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('Original');
   await save(page).click();
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
@@ -616,7 +609,7 @@ test('storage I/O failure retains unsaved work and the previously committed reco
   await save(page).click();
   await expect(page.getByRole('alert')).toContainText('storage is full');
   await expect(paragraph(page, 0)).toHaveText('Original plus unsaved');
-  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+  await expect(page.locator('.save-state')).toContainText('Unsaved');
   const other = await context.newPage();
   await start(other);
   await other.getByRole('button', { name: 'Open', exact: true }).click();
@@ -628,7 +621,7 @@ test('storage I/O failure retains unsaved work and the previously committed reco
 test('failed save-and-continue keeps the modal error, unsaved work and prior local save', async ({ page, context }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Save-and-continue original');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Original');
   await save(page).click();
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
@@ -647,7 +640,7 @@ test('failed save-and-continue keeps the modal error, unsaved work and prior loc
   await expect(dialog.getByRole('alert')).toContainText('storage is full');
   await expect(dialog).toBeVisible();
   await expect(paragraph(page, 0)).toHaveText('Original plus unsaved');
-  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+  await expect(page.locator('.save-state')).toContainText('Unsaved');
   const other = await context.newPage();
   await start(other);
   await other.getByRole('button', { name: 'Open', exact: true }).click();
@@ -660,7 +653,7 @@ test('failed save-and-continue keeps the modal error, unsaved work and prior loc
 test('save-and-continue, discard and dismissed browser reload preserve the intended version', async ({ page }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Guarded version');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('The version to keep.');
   const kept = await exported(page);
   await page.getByRole('button', { name: 'New', exact: true }).click();
@@ -674,7 +667,7 @@ test('save-and-continue, discard and dismissed browser reload preserve the inten
 
   await select(page, 0, 20);
   await page.keyboard.insertText(' Discard this change.');
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await documentAction(page, 'Close');
   await guard.getByRole('button', { name: 'Discard changes', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your document is closed' })).toBeVisible();
   await page.getByRole('button', { name: 'Open', exact: true }).click();
@@ -695,18 +688,20 @@ test('save-and-continue, discard and dismissed browser reload preserve the inten
   await reload;
   await protocol.detach();
   expect(await exported(page)).toEqual(unsaved);
-  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+  await expect(page.locator('.save-state')).toContainText('Unsaved');
 });
 
-test('typing during an IndexedDB save remains dirty and does not alter its byte snapshot', async ({ page, context }) => {
+test('typing during an IndexedDB save preserves its byte snapshot and autosave catches up', async ({ page, context }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Save snapshot');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('Captured');
   await page.evaluate(() => {
     const original = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (value: unknown): IDBRequest<IDBValidKey> {
       IDBObjectStore.prototype.put = original;
+      (window as Window & { capturedWriterSnapshot?: string }).capturedWriterSnapshot
+        = new TextDecoder().decode((value as { bytes: Uint8Array }).bytes);
       const request = original.call(this, value);
       // Deliver another browser input while the real save transaction is active,
       // after its byte snapshot was captured and before transaction completion.
@@ -718,19 +713,24 @@ test('typing during an IndexedDB save remains dirty and does not alter its byte 
   });
   await save(page).click();
   await expect(paragraph(page, 0)).toHaveText('Captured plus later typing');
-  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
-  await expect(page.getByRole('status')).toContainText('Earlier version saved');
+  await expect(page.locator('.save-state')).toContainText('Unsaved');
+  const captured = await page.evaluate(() => (window as Window & { capturedWriterSnapshot?: string }).capturedWriterSnapshot);
+  const capturedFile = JSON.parse(captured ?? '{}') as NativeFile;
+  expect(capturedFile.document.sections[0]?.blocks[0]?.content.runs.map((run) => run.text).join('')).toBe('Captured');
+  // Autosave is now intentional: the original byte snapshot stays unchanged,
+  // then a later transaction commits the new revision before reopening.
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device', { timeout: 10000 });
   const other = await context.newPage();
   await start(other);
   await other.getByRole('button', { name: 'Open', exact: true }).click();
   await other.getByRole('button', { name: /Save snapshot/ }).click();
-  await expect(paragraph(other, 0)).toHaveText('Captured');
+  await expect(paragraph(other, 0)).toHaveText('Captured plus later typing');
 });
 
 test('two tabs cannot overwrite a newer saved version and can save a separate copy', async ({ page, context }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Shared local document');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.type('Original');
   await save(page).click();
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
@@ -759,7 +759,7 @@ test('two tabs cannot overwrite a newer saved version and can save a separate co
 
 test('measure Rust-backed typing latency on a realistic ten-thousand-character document', async ({ page }, testInfo) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   const text = 'Review document integrity, international text, and local save recovery. Preserve formatting and stable identifiers. ';
   const content = Array.from({ length: 50 }, (_, index) => `${index + 1}. ${text}${text}`).join('\n');
   await paste(page, content);
@@ -804,10 +804,10 @@ test('measure Rust-backed typing latency on a realistic ten-thousand-character d
 test('responsive layout, semantic controls and actual running application screenshots', async ({ page }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Quarterly planning notes');
-  await editor(page).click();
+  await focusEditor(page);
   await paste(page, 'Quarterly planning notes\nThe next review will focus on native document fidelity, dependable editing, and local save recovery. Each change should preserve the existing document structure.\nReview priorities\nConfirm Unicode behavior — Cafe\u0301, 日本語, 👩🏽‍💻 — and verify that formatting survives a complete save and reopen cycle.');
   await select(page, 0, 0, 0, 24);
-  await page.getByRole('combobox', { name: 'Font family' }).selectOption('Georgia');
+  await page.getByRole('combobox', { name: 'Font family' }).selectOption('Tinos');
   await page.getByRole('combobox', { name: 'Font size' }).selectOption('24');
   await page.getByRole('button', { name: 'Bold', exact: true }).click();
   await select(page, 2, 0, 2, 17);
@@ -817,7 +817,7 @@ test('responsive layout, semantic controls and actual running application screen
   await select(page, 3, 0);
   await page.getByRole('button', { name: 'Save', exact: true }).focus();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.screenshot({ path: '../../docs/images/writer-desktop.png', fullPage: true });
+  await page.screenshot({ path: '../../docs/images/writer-lamplight-editing-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
@@ -826,5 +826,5 @@ test('responsive layout, semantic controls and actual running application screen
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Italic', exact: true })).toBeFocused();
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await page.screenshot({ path: '../../docs/images/writer-mobile.png', fullPage: true });
+  await page.screenshot({ path: '../../docs/images/writer-lamplight-editing-mobile.png', fullPage: true });
 });

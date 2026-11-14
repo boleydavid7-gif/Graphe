@@ -4,6 +4,11 @@ use std::{error::Error, fmt};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum LayoutError {
+    /// An interaction coordinate or endpoint does not identify this layout.
+    InvalidPosition {
+        /// Explanation of the rejected transient position.
+        message: String,
+    },
     /// Options or effective geometry cannot produce a usable layout.
     InvalidOptions {
         /// Explanation of the rejected setting.
@@ -44,6 +49,7 @@ impl LayoutError {
     #[must_use]
     pub const fn code(&self) -> &'static str {
         match self {
+            Self::InvalidPosition { .. } => "invalid_layout_position",
             Self::InvalidOptions { .. } => "invalid_layout_options",
             Self::InvalidDocument { .. } => "invalid_document",
             Self::Unsupported { .. } => "unsupported_layout",
@@ -56,6 +62,7 @@ impl LayoutError {
 impl fmt::Display for LayoutError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidPosition { message } => write!(f, "invalid layout position: {message}"),
             Self::InvalidOptions { message } => write!(f, "invalid layout options: {message}"),
             Self::InvalidDocument { message } => write!(f, "invalid layout document: {message}"),
             Self::Unsupported { feature, .. } => write!(f, "unsupported layout: {feature}"),

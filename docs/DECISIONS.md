@@ -740,3 +740,110 @@ The current contenteditable/CSS view remains a prototype editing projection.
 SVG raster edges can differ across browsers even when geometry matches. Step 7
 may build editing on tested layout mappings; no such redesign, merge, deployment
 or live access change is implied by this decision.
+
+## 037: Use Rust geometry for paginated interaction and retain proven input handling
+
+**Decision:** Extend the existing layout boundary with hit testing, caret and
+selection geometry, visual navigation and explicit affinity. Render interactive
+pages from Rust glyph geometry while retaining controlled semantic browser input
+as the keyboard, clipboard and IME adapter. Committed text, selections, edits,
+validation and history remain owned by Rust.
+
+**Reason:** The read-only Step 6 preview established the shaping/rendering
+boundary. Everyday page editing now requires position-aware interaction, but
+does not require replacing the existing model or embedding another editor.
+Reusing input recovery/composition handling keeps a tested path for browser
+events while avoiding a competing CSS page-layout or JavaScript document engine.
+EditContext remains unsuitable as a required cross-browser foundation.
+
+**Consequences:** Page coordinates and core UTF-8/UTF-16/grapheme positions stay
+distinct. Requests are revision/session-bound; navigation changes no document
+content or undo history. Mandatory breaks, bidi affinity and vertical preferred-x
+need regression coverage. The input projection remains focusable and semantic;
+its native CSS navigation cannot replace Rust visual decisions. Composition is a
+temporary buffer and commits once through the existing transactions. Clipboard
+remains deliberate plain text, and cut follows successful clipboard writing.
+Manual OS IME, mobile editing and assistive-technology limitations must remain
+visible rather than being inferred away by passing Chromium tests.
+Glyph memo comparisons may skip unchanged Rust output only when every rendered
+path, transform, color, decoration and line property agrees; they do not derive
+layout or change the document. The isolated 30-event before/after measurement in
+RESEARCH shows improved tail time but similar medians, with approximately 0.1 s
+full-layout latency on its 11.8k-character sample. Retain that important limit
+for the planned audit instead of introducing an unmeasured layout architecture.
+
+## 038: Serialize autosave and explicit Save through one local write lane
+
+**Decision:** Add a small save controller around existing full native byte
+serialization and `WriterStorage`. Debounced autosave and explicit Save use one
+write lane and etag lineage. Each attempt captures immutable bytes and its
+document/session/revision at execution time; document changes invalidate queued
+status through an epoch. Pause on storage/conflict failures and during IME.
+
+**Reason:** Independent background/manual writes could conflict with their own
+previous write or incorrectly mark newer content saved. The existing IndexedDB
+transaction/etag protocol already protects records and requires no new storage
+format, database version, accounts or synchronization system.
+
+**Consequences:** A completed earlier write advances only its still-current
+binding's expected etag; dirty clears only for the exact saved revision. Old
+callbacks cannot affect another session even when its document ID is reused.
+Foreground autosave waits for 750 ms of inactivity, with a 5-second maximum
+pending wait so continuous typing cannot postpone every save indefinitely;
+composition suspends both timers. Browser timer throttling can extend those waits.
+Failures retain editable in-memory content and an understandable persistent save
+status, with retry/copy/export options. Untouched blank documents need not create
+background library records. Visibility-hidden flushing and unload warnings are
+best effort; neither promises completion during abrupt browser termination.
+Autosave never labels an active, uncommitted composition buffer as saved.
+
+## 039: Keep the Lamplight application small and backed by working commands
+
+**Decision:** Use the approved Lamplight reference for compact warm brown and
+charcoal chrome, restrained gold accents and white document pages. Present only
+working editing/document controls, counts and zoom with simplified smaller-screen
+adaptation. Preserve full native/DOCX original handling and existing compatibility
+limits rather than filling the interface with speculative feature placeholders.
+The approved "Paragraph style where available" selector applies already-present
+named styles through the existing Rust operation; it does not add style creation,
+editing, template management or a new style/inheritance model.
+
+**Reason:** Step 7 is a dependable everyday Writer milestone, not an attempt to
+recreate every Word feature or redesign the established engine. A restrained
+interface leaves clear space for later capabilities without adding empty modules
+or architectural layers now.
+
+**Consequences:** Tables/images, headers/footers, advanced formatting/reviewing,
+style creation/editing, templates, PDF, cloud integration and additional formats
+remain future work. Responsive
+layout does not imply polished mobile selection or full mobile IME support.
+Actual application screenshots and executed tests establish the delivered state;
+the reference alone does not. Development pauses after this milestone for the
+owner's planned comprehensive technical and commercial licensing audit. Existing
+font/dependency notices and the pending project-license decision are preserved.
+Merging, deployment and live access changes still require separate approval.
+
+## 040: Keep ordinary collapsed typing within its edited formatting run
+
+**Decision:** When inserting nonempty text at a collapsed selection, extend only
+the final nonempty retained left-prefix run whose direct `CharacterFormat`
+exactly equals the supplied format. Otherwise create the inserted run as before.
+Keep the complete right suffix, empty runs and pre-existing adjacent partitions;
+do not add a document-wide run normalization pass. Noncollapsed replacement and
+identical-content no-op rules remain unchanged.
+
+**Reason:** A retrospective regression reproduced 1,000 separately committed
+ordinary keystrokes creating 1,000 runs. The browser's 20,000-run safety budget
+would therefore limit an ordinary unformatted writing session by keystroke count
+and incur avoidable per-run layout work. Extending the edited prefix addresses
+that foundation defect without rewriting the model or increasing safety limits.
+
+**Consequences:** Direct-format equality includes optional-property presence;
+`None` and `Some(false)` remain distinct even if currently rendered alike.
+Comparison does not resolve styles or assume equivalent visual appearance.
+Untouched imported run boundaries and empty suffix records survive; insertion
+within an existing run may still retain its separately partitioned right part.
+Unicode boundaries remain determined by core text coordinates. Transactions,
+revision/undo semantics, public APIs and native schemas do not change. Regression
+coverage must verify run growth, Unicode, exact overrides, retained partitions,
+no-ops and undo/redo rather than merely checking final text.

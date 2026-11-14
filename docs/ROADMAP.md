@@ -41,7 +41,7 @@ each milestone is implemented.
    Basic model round trips were introduced in Step 2; Step 4 adds the file and
    storage contract. The conversion branch now adds native format 2/model schema 2
    and strict legacy migration, retaining an optional original outside history.
-5. **Basic DOCX import/export — conversion implemented on the review branch.**
+5. **Basic DOCX import/export — implemented and merged.**
    Step 5A package inspection/original retention was merged through PR #9 at
    `a504e2f`. Work on `dev/docx-conversion` adds supported semantic import/export,
    generic page geometry and page-break-before, versioned source-bearing native
@@ -50,20 +50,31 @@ each milestone is implemented.
    The shared model stays format-neutral. No additional formats are implemented.
    See [DOCX.md](DOCX.md), [the conversion contract](DOCX_CONVERSION.md) and
    [actual verification](DOCX_CONVERSION_VERIFICATION.md). This conversion work
-   has not been merged or deployed.
-6. **Typography and layout — implementation on the Step 6 review branch.**
+   was merged through PR #10 at `8ab784a`.
+6. **Typography and layout — implemented and merged.**
    After the DOCX prerequisite passed its checks, `dev/typography-layout-engine`
    adds a separate Rust layout crate with pinned fonts, shaping, Unicode line
    breaking/bidi, paragraph geometry and pagination. A revision-bound WASM API
    supplies glyph outlines and geometry to a read-only page preview. The existing
-   semantic editor remains available. Neither branch is merged or deployed;
+   semantic editor remains available. Merged through PR #11 at `86f2ad8`;
    [LAYOUT.md](LAYOUT.md) documents the independent layout profile and remaining
    Word-compatibility limits. [Actual verification](LAYOUT_VERIFICATION.md)
    records 399 Rust, 25 compiled-WASM and 41 real-browser tests passing locally,
    plus builds and linting; final remote CI results belong to the PR checks.
-7. **Rendering and browser integration beyond the prototype.** Extend the
-   Step 4.5 WebAssembly/React baseline with rendering of laid-out documents and
-   the acceptance criteria needed for professional browser integration.
+7. **Lightweight Writer and Lamplight UI — implemented on the review branch.**
+   `dev/writer-lamplight` connects Rust page geometry to everyday typing,
+   selections, navigation, formatting and clipboard input; preserves the existing
+   model, transactions, persistence and DOCX adapters; and adds reliable local
+   autosave using the existing etag transactions. The interface follows the
+   owner's approved desktop and rough mobile references. Existing named styles
+   can be assigned; advanced style authoring/templates and other future features
+   are absent. [WRITER_STEP7.md](WRITER_STEP7.md) documents the boundary and limits;
+   [verification](WRITER_STEP7_VERIFICATION.md) records actual tests and screenshots.
+   No merge or deployment is authorized for this review branch.
+
+   **Audit gate after Step 7 approval:** pause feature development for the
+   comprehensive technical, security, DOCX-compatibility and commercial-licensing
+   audit. Do not begin Step 8 automatically.
 8. **Advanced Word compatibility.** Expand DOCX fidelity and Word-compatible
    behavior using increasingly demanding documents and regression coverage.
 

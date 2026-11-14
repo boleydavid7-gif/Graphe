@@ -27,7 +27,7 @@ pub(crate) fn character_view(format: &CharacterFormat) -> CharacterView {
             Some(Underline::Double) => "double",
             _ => "none",
         },
-        font_family: format.font_family.clone().unwrap_or_else(|| "Arial".into()),
+        font_family: format.font_family.clone().unwrap_or_else(|| "Arimo".into()),
         font_size_pt: format.font_size.map_or(12., |size| f64::from(size.0) / 2.),
         color: match format.color {
             Some(TextColor::Rgb { red, green, blue }) => format!("#{red:02x}{green:02x}{blue:02x}"),
@@ -58,6 +58,7 @@ pub(crate) fn paragraphs(document: &Document) -> Vec<ParagraphView> {
             result.push(ParagraphView {
                 id: paragraph.id().as_str().into(),
                 section_id: section.id().as_str().into(),
+                style_id: paragraph.style().map(|id| id.as_str().into()),
                 runs,
                 format: ParagraphFormatView {
                     alignment: format.alignment.unwrap_or(Alignment::Left),

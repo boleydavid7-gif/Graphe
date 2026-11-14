@@ -423,6 +423,149 @@ transaction model to store a soft LF; DOM-only terminal break markers preserve
 its exact text and offsets. See [the final verification](LAYOUT_VERIFICATION.md)
 for executed full-suite results, native/WASM parity and measured costs.
 
+## Step 7 — lightweight paginated editing and local autosave
+
+The implementation starts from merged main `86f2ad8`. The document, transaction,
+history, native-file/DOCX and typography boundaries from Steps 1–6 remain in use.
+The owner supplied the approved [Lamplight visual reference](design/writer-lamplight-reference.png)
+after the initial repository search. Visual fidelity must be assessed against
+that reference and screenshots of the running application, not inferred from
+the earlier Step 4.5/6 interface. No new editor framework, file format or cloud
+service is justified by this milestone.
+
+| Question and authoritative evidence | Accepted strategy and tradeoffs |
+| --- | --- |
+| Input and IME: [MDN beforeinput](https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event), [Input Events Level 2, October 2026 draft](https://www.w3.org/TR/2026/WD-input-events-2-20261015/), [EditContext](https://developer.mozilla.org/en-US/docs/Web/API/EditContext) | Retain the controlled semantic input/composition adapter already exercised in the prototype. It is an input projection of Rust state; visible pages, caret, selection and visual navigation come from Rust layout. Handle both cancellable `beforeinput` and recovery `input`, since real browser/OS paths can omit or bypass cancellation. Preserve an active composition buffer and commit its final replacement once. A new general editor or a required EditContext dependency would add complexity and exclude browsers where that API remains unavailable. |
+| Pointer selection and coordinate mapping: [Pointer capture](https://developer.mozilla.org/en-US/docs/Web/API/Element/setPointerCapture), [Selection API](https://www.w3.org/TR/selection-api/) | Convert viewport coordinates only into the Rust page coordinate system. Rust hit testing, caret geometry, visual navigation and selection rectangles choose positions using existing IDs and core Unicode boundaries. Retain explicit leading/trailing affinity and a preferred x for vertical movement. Pointer capture keeps a drag coherent across page boundaries; cancellation must release it. A CSS/input-proxy caret must not become a second visual layout policy. |
+| Clipboard: [ClipboardEvent](https://developer.mozilla.org/en-US/docs/Web/API/ClipboardEvent) and existing Rust clipboard semantics | Keep Rust's structural plain-text extraction and one-transaction paste. Cut removes text only after clipboard writing succeeds. Browser HTML is neither the committed model nor an implicit rich-format importer. This deliberately does not add rich clipboard fidelity. |
+| Accessibility and keyboard: [ARIA multiline textbox](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/textbox_role), [WAI-ARIA toolbar pattern](https://www.w3.org/WAI/ARIA/apg/patterns/toolbar/) | Keep a labeled semantic input target with predictable focus and native text exposure. SVG paths alone are not an accessible editor. Geometry-driven navigation must not interfere with IME or toolbar controls. A `toolbar` role entails its keyboard pattern; a simpler labeled group with normal native controls is preferable to an incomplete composite widget. Manual screen-reader, OS IME, dictation and mobile selection-handle behavior still need explicit testing beyond automated events. |
+| Autosave and write ordering: [IndexedDB transactions](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction), [transaction completion](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/complete_event), existing `WriterStorage` etags | One small save controller schedules debounced autosave and explicit Save through the same write lane. Capture immutable native bytes, document/session/revision and expected etag when an attempt begins. A successful earlier write advances that binding's etag even when later edits remain dirty; queued work then captures the latest revision and token. Success means transaction completion. No schema, local database version or JavaScript document model changes are needed. |
+| Page lifecycle and unsaved work: [visibilitychange](https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event), [beforeunload](https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event) | Flush pending committed work when the page becomes hidden as a best effort. `beforeunload` is a warning aid, especially unreliable on mobile, not a place to promise async save completion. Active composition suspends autosave and counts as uncommitted work even if the last Rust revision was already saved. Quota/conflict/I/O failures retain in-memory work, a persistent unsaved status and an explicit retry/export path. |
+
+### Retrospective findings and implementation gates
+
+Reviewed core model/version migration, stable IDs/Unicode coordinates, atomic
+editing/history, full native files/original preservation, DOCX profile gates,
+layout snapshots/carets and existing browser input/IndexedDB flows. No new
+critical defect in those completed foundations was confirmed by the initial
+review. Step 7 must retain their invariants rather than replacing them.
+
+- **Critical gates:** a paginated interaction cannot apply stale geometry to
+  another session/revision or translate a glyph count into a text offset. Bidi
+  ranges can produce separate visual rectangles. Mandatory-break downstream
+  affinity and wrap affinity need distinct handling; duplicate visual candidates
+  are not distinct logical insertion destinations. Failures must not publish a
+  partial edit, change source bytes or add layout/navigation entries to history.
+- **Critical save gates:** autosave and manual Save cannot race independently
+  against the same old etag, clear dirty state for an earlier revision, or let an
+  obsolete document/session update the active status/association. Reopening the
+  same document ID still changes the save epoch. A conflict pauses writes rather
+  than overwriting another tab; a quota/error cannot silently become a saved
+  status after the next successful typing command.
+- **Important, existing integration gap:** the initial `beforeunload` guard used
+  committed dirty state only. A clean document can have an active, visible IME
+  buffer that is not yet a Rust transaction. The new save/status wiring must
+  suspend saving and warn about that buffer without pretending to persist it.
+  Browser termination can still discard uncommitted input; no lifecycle event
+  provides a universal durability guarantee.
+- **Important:** a semantic input projection needs the Rust caret origin for
+  composition placement, while native browser selection changes must not undo
+  geometry-driven navigation. Keep the input focusable/accessible rather than
+  applying `hidden` or `display:none`. Avoid unconditional focus restoration
+  after every render or asynchronous completion; Step 6 already found such
+  races during title typing and preview transitions.
+- **Important limits retained:** tabs/unsupported layout controls, finite font
+  coverage, exact-box clipping differences, independent Writer spacing defaults
+  and bounded full-layout snapshots remain explicit. A fallback presentation, if
+  offered, must preserve the document and disclose unavailable pagination rather
+  than manufacture CSS page counts. DOCX originals and unsupported-content
+  diagnostics remain unchanged by the interface work.
+- **Optional future work:** richer mobile selection handles, advanced visual
+  navigation, rich clipboard formats and measured incremental rendering/layout.
+  These do not justify tables/images, reviewing, PDF, cloud features or another
+  document model in Step 7.
+
+The small Lamplight command surface uses the approved warm brown/charcoal,
+restrained gold and white-page direction. Commands remain tied to actual engine
+capabilities; a static icon is not evidence that a feature works. Browser tests
+must exercise real paginated typing, selection, caret movement, clipboard,
+undo/redo, persistence and failure recovery. Chromium, Firefox and WebKit results
+must be reported separately and only after execution. Synthetic IME is useful
+regression coverage, not OS-level or accessibility certification.
+
+The approved design's "Paragraph style where available" control reuses the
+existing Rust assignment operation for named styles already in the document.
+It does not add style creation/editing, templates, a style model or a second
+inheritance policy. Direct overrides remain explicit. Advanced style/template
+tools remain future work.
+
+### Step 7 implementation review
+
+Independent native review found an LTR-only assumption in horizontal line
+transitions. A wrapped RTL paragraph needs its line progression derived from
+shaped logical endpoint placements, rather than always pairing Right with the
+next physical line. The correction retains explicit bidi/wrap affinity. Five
+independent quality regressions passed with strict scoped Clippy: complete RTL
+multi-page walks and pointer-selected wrap edges, disjoint bidi selection with
+reversed direction, CRLF downstream geometry across a page, and invalid/extreme
+coordinate requests. The bridge retains native geometry beside its serialized
+response, avoiding a full glyph-JSON parse per pointer/navigation request; failed
+bounded interaction transport restores selection, typing and visual state.
+
+Surface review also identified three browser integration risks before final
+verification: a canceled touch must not be treated as a tap; displayed-pointer
+coordinates must carry their originating snapshot through the client/native
+revision guard, including same-task edits before React commits; and background
+geometry refresh must not restore a DOM selection into an unfocused editor.
+The [Selection API focus behavior](https://developer.mozilla.org/en-US/docs/Web/API/Selection_API#selection_and_input_focus)
+makes the last risk observable across browsers. The corresponding code paths
+were corrected. All five focused regression cases passed in actual Chromium:
+same-task stale-pointer rejection, pointer cancellation, title/Find focus during
+refresh, the first key immediately after New, and an initially clean document's
+IME save suspension/cancellation with unchanged persisted bytes. These results
+do not certify other browsers or manual OS composition/assistive technology.
+
+Autosave review found that a pure trailing debounce could defer every write
+indefinitely during continuous typing. The shared write lane now combines a
+750 ms inactivity timer with a 5-second foreground deadline, suspending both
+during composition and retaining its pause-on-error rule. These are scheduling
+targets, not guarantees against background timer throttling or process death.
+
+Further foundation review confirmed a **critical ordinary-typing budget defect**:
+the core created a new run for every collapsed insertion. A deliberately failing
+pre-fix regression committed 1,000 individual keystrokes and found 1,000 runs
+instead of one; the browser's 20,000-run safety cap could consequently reject an
+ordinary writing session. The targeted correction extends only a nonempty
+retained left prefix with exactly equal direct properties (including `Option`
+presence). It does not merge existing neighbors, absorb the right suffix,
+resolve styles or alter noncollapsed replacement/no-op policy. Independent diff
+review confirmed the restricted branch; Decision 040 records the contract.
+All eight focused typing regressions passed after the correction, including the
+1,000-keystroke case producing one run and retaining undo/redo. The independent
+quality reviewer reran those eight successfully. The ensuing full Rust gate
+passed 442 tests with formatting, strict workspace Clippy and build checks.
+
+A separate production performance sample used 11,840 characters in 50 paragraphs
+and 30 sequential trusted keyboard events, awaiting each visible geometry update.
+Before the targeted presentation optimization, `beforeinput` to committed
+revision/ready DOM mutation measured median 94.0 ms, p95 132.9 ms, maximum
+136.6 ms; the next animation-frame callback measured 120.6/162.2/171.8 ms.
+An isolated rerun after exact memo comparisons of unchanged Rust glyph output
+measured committed DOM geometry at 90.6/109.0/113.3 ms and the next animation
+frame at 124.8/144.4/151.8 ms (median/p95/maximum). The observed geometry p95
+fell about 18%; its median remained similar and the next-frame median increased.
+One 30-event run per version is not statistical proof of a general speedup.
+These warm-font, machine-specific figures measure neither OS input latency nor
+actual painted pixels. Roughly 0.1-second full-layout/JSON latency on this
+11.8k-character sample remains an **important** performance limitation for the
+planned audit. No worker/cache architecture or browser text-layout substitute
+was introduced to conceal it. Future measurements must retain the same scenario.
+
+The planned comprehensive technical/commercial licensing audit follows Step 7.
+This milestone preserves existing notices and the pending project-license
+decision; it does not claim that broader audit has been performed. Final test
+results, screenshots and unresolved limitations belong in the milestone report.
+
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event
 [editcontext]: https://developer.mozilla.org/en-US/docs/Web/API/EditContext

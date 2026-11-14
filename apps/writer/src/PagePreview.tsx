@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import type { PageInfo } from './PagedEditor';
 import type { LayoutView } from './types';
 
 export interface LayoutOrigin {
@@ -14,6 +15,7 @@ interface PagePreviewProps extends LayoutOrigin {
   readonly zoom: PreviewZoom;
   readonly onZoomChange: (zoom: PreviewZoom) => void;
   readonly onClose: () => void;
+  readonly onPageInfo?: (info: PageInfo) => void;
 }
 
 type PreviewState =
@@ -33,12 +35,18 @@ const zoomOptions: readonly { readonly value: PreviewZoom; readonly label: strin
 
 /** Read-only projection of Rust page geometry and glyph outlines. */
 export function PagePreview({
-  sessionId, revision, documentId, loadLayout, zoom, onZoomChange, onClose,
+  sessionId, revision, documentId, loadLayout, zoom, onZoomChange, onClose, onPageInfo,
 }: PagePreviewProps) {
   const namespace = useId();
   const instructions = useId();
   const [state, setState] = useState<PreviewState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const pages = useRef(new Map<number, SVGSVGElement>());
+  const latestPageInfo = useRef(onPageInfo);
+  const reportedInfo = useRef('');
+
+  useLayoutEffect(() => { latestPageInfo.current = onPageInfo; });
 
   useEffect(() => {
     let active = true;
@@ -73,7 +81,61 @@ export function PagePreview({
   const outlineId = (id: number) => `${namespace}-glyph-${id}`;
   const scale = zoom === 'fit' ? 1 : Number(zoom) / 100;
 
-  return <div id="writer-page-preview" className="layout-preview"
+  const reportPageInfo = useCallback(() => {
+    const status = state.status === 'error' ? 'unavailable' : state.status;
+    const viewport = root.current?.closest<HTMLElement>('.workspace')?.getBoundingClientRect()
+      ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    let currentPage: number | null = null;
+    let zoomPercent: number | null = null;
+    let greatestVisibleHeight = -1;
+    if (status === 'ready' && layout) {
+      for (const page of layout.pages) {
+        const rectangle = pages.current.get(page.number)?.getBoundingClientRect();
+        if (!rectangle || rectangle.width <= 0 || rectangle.height <= 0) continue;
+        const visibleHeight = Math.max(0, Math.min(rectangle.bottom, viewport.bottom)
+          - Math.max(rectangle.top, viewport.top));
+        if (visibleHeight > greatestVisibleHeight) {
+          greatestVisibleHeight = visibleHeight;
+          currentPage = page.number;
+          // Only the physical SVG display scale is measured here. Rust owns all
+          // glyph, paragraph and page geometry, including the native page width.
+          zoomPercent = Math.round(rectangle.width / (page.width / layout.unitsPerPoint * (96 / 72)) * 100);
+        }
+      }
+      currentPage ??= layout.pages[0]?.number ?? null;
+    }
+    const info: PageInfo = { status, currentPage, zoomPercent,
+      pageCount: status === 'ready' && layout ? layout.pages.length : null };
+    const signature = JSON.stringify(info);
+    if (signature !== reportedInfo.current) {
+      reportedInfo.current = signature;
+      latestPageInfo.current?.(info);
+    }
+  }, [layout, state.status]);
+
+  useEffect(() => {
+    let frame: number | undefined;
+    const update = () => {
+      if (frame !== undefined) return;
+      frame = requestAnimationFrame(() => { frame = undefined; reportPageInfo(); });
+    };
+    const observer = new ResizeObserver(update);
+    if (root.current) observer.observe(root.current);
+    for (const page of pages.current.values()) observer.observe(page);
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    window.visualViewport?.addEventListener('resize', update);
+    return () => {
+      observer.disconnect();
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+      window.visualViewport?.removeEventListener('resize', update);
+    };
+  }, [reportPageInfo, zoom]);
+
+  return <div ref={root} id="writer-page-preview" className="layout-preview"
     role="region" aria-label="Document page preview" aria-describedby={instructions}
     aria-busy={state.status === 'loading'} tabIndex={-1}
     data-layout-document-id={snapshot?.documentId}
@@ -115,7 +177,8 @@ export function PagePreview({
             data-layout-page={page.number} data-layout-width={page.width} data-layout-height={page.height}
             style={{ width: page.width / layout.unitsPerPoint * (96 / 72) * scale, maxWidth: zoom === 'fit' ? '100%' : 'none' }}>
             <div className="layout-page-paper" style={{ aspectRatio: `${page.width} / ${page.height}` }}>
-              <svg viewBox={`0 0 ${page.width} ${page.height}`} width="100%" height="100%" aria-hidden="true" focusable="false">
+              <svg ref={(element) => { if (element) pages.current.set(page.number, element); else pages.current.delete(page.number); }}
+                viewBox={`0 0 ${page.width} ${page.height}`} width="100%" height="100%" aria-hidden="true" focusable="false">
                 {page.lines.map((line) => <g key={JSON.stringify([line.paragraphId, line.lineIndex])}
                   data-layout-line={line.lineIndex} data-layout-paragraph-id={line.paragraphId}
                   data-layout-utf16-start={line.textRange.startUtf16} data-layout-utf16-end={line.textRange.endUtf16}

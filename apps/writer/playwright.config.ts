@@ -18,10 +18,22 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     acceptDownloads: true,
   },
-  projects: [{
-    name: 'chromium',
-    use: { ...devices['Desktop Chrome'], launchOptions: { executablePath } },
-  }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], launchOptions: { executablePath } },
+    },
+    {
+      name: 'firefox',
+      testMatch: '**/step7-compat.spec.ts',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      testMatch: '**/step7-compat.spec.ts',
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',
     url: 'http://127.0.0.1:4173',

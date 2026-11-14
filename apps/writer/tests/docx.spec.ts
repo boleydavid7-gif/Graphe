@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { test, expect, type BrowserContext, type Download, type Page } from '@playwright/test';
+import { documentAction, focusEditor } from './step7-test-helpers';
 
 interface NativeFile {
   format_version: number;
@@ -45,12 +46,12 @@ async function downloaded(download: Download): Promise<Buffer> {
 
 async function original(page: Page): Promise<Buffer> {
   const pending = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download original', exact: true }).click();
+  await documentAction(page, 'Download original');
   return downloaded(await pending);
 }
 
 async function exportNative(page: Page): Promise<Buffer> {
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await documentAction(page, 'Export');
   const dialog = page.getByRole('dialog', { name: 'Export Writer file', exact: true });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(/original/i);
@@ -124,20 +125,20 @@ test('DOCX original is saved before editing and survives native save, reopen, ex
   expect(Buffer.from(initial[0]?.source?.bytes_base64 ?? '', 'base64')).toEqual(source);
 
   const edited = 'Only the edited version 👋';
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.press('Control+a');
   await page.keyboard.insertText(edited);
   await page.getByRole('textbox', { name: 'Document title' }).fill('DOCX preservation');
   await save(page).click();
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await documentAction(page, 'Close');
   await page.getByRole('button', { name: 'Open', exact: true }).click();
   await page.getByRole('button', { name: /DOCX preservation/ }).click();
   await expect(editor(page)).toHaveText(edited);
   expect(await original(page)).toEqual(source);
 
   const pendingWord = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export Word', exact: true }).click();
+  await documentAction(page, 'Export Word');
   const wordDownload = await pendingWord;
   expect(wordDownload.suggestedFilename()).toMatch(/\.docx$/);
   const xml = zipPart(await downloaded(wordDownload), 'word/document.xml');
@@ -187,7 +188,7 @@ test('DOCX mixed formatting and section geometry remain present in the saved nat
 
 test('unsupported DOCX stays read-only and its exact original is downloadable without replacing unsaved work', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Keep this unsaved work');
   await importDocx(page, 'writer-source-preservation.docx');
   await page.getByRole('dialog', { name: 'Save your changes?', exact: true }).getByRole('button', { name: 'Discard changes', exact: true }).click();
@@ -195,18 +196,18 @@ test('unsupported DOCX stays read-only and its exact original is downloadable wi
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(/unsupported/i);
   await expect(page.locator('.editor-surface')).toHaveText('Keep this unsaved work');
-  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+  await expect(page.locator('.save-state')).toContainText('Unsaved');
   const pending = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Download original DOCX', exact: true }).click();
   expect(await downloaded(await pending)).toEqual(await readFile(fixtureUrl('writer-source-preservation.docx')));
-  await dialog.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
   expect(await storedFiles(page)).toHaveLength(0);
 });
 
 test('a DOCX preservation save failure keeps the prior live content, history and dirty state', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Prior live work');
   await page.evaluate(() => {
     IDBObjectStore.prototype.put = function (): IDBRequest<IDBValidKey> {
@@ -217,7 +218,7 @@ test('a DOCX preservation save failure keeps the prior live content, history and
   await page.getByRole('dialog', { name: 'Save your changes?', exact: true }).getByRole('button', { name: 'Discard changes', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('storage is full');
   await expect(editor(page)).toHaveText('Prior live work');
-  await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+  await expect(page.locator('.save-state')).toContainText('Unsaved');
   await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Download original', exact: true })).toHaveCount(0);
   expect(await storedFiles(page)).toHaveLength(0);
@@ -226,7 +227,7 @@ test('a DOCX preservation save failure keeps the prior live content, history and
 test('DOCX editing is activated only after the original-preservation transaction commits', async ({ page }) => {
   await start(page);
   await page.getByRole('textbox', { name: 'Document title' }).fill('Prior unsaved document');
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Keep the prior session until commit');
   await page.evaluate(() => {
     const state = window as Window & { docxPreservationHeld?: boolean; releaseDocxPreservation?: boolean };
@@ -258,7 +259,7 @@ test('DOCX editing is activated only after the original-preservation transaction
     await expect(editor(page)).toHaveAttribute('contenteditable', 'false');
     await expect(page.getByRole('textbox', { name: 'Document title' })).toHaveValue('Prior unsaved document');
     await expect(page.getByRole('textbox', { name: 'Document title' })).toBeDisabled();
-    await expect(page.locator('.save-state')).toHaveText('Unsaved changes');
+    await expect(page.locator('.save-state')).toContainText('Unsaved');
     await expect(page.getByRole('button', { name: 'Download original', exact: true })).toHaveCount(0);
   } finally {
     await page.evaluate(() => { (window as Window & { releaseDocxPreservation?: boolean }).releaseDocxPreservation = true; });

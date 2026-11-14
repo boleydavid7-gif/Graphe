@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect, type Page } from '@playwright/test';
+import { documentAction, focusEditor } from './step7-test-helpers';
 
 const fixture = new URL('../../../tests/fixtures/layout/layout-v1.writer', import.meta.url);
 const editor = (page: Page) => page.getByRole('textbox', { name: 'Document content', exact: true });
@@ -20,7 +21,7 @@ async function importReference(page: Page) {
 }
 
 async function showPreview(page: Page) {
-  await page.getByRole('button', { name: 'Page preview', exact: true }).click();
+  await documentAction(page, 'Page preview');
   await expect(preview(page)).toBeVisible();
   await expect(preview(page)).toHaveAttribute('aria-busy', 'false');
   // Preserved leading spaces have valid empty outlines and zero-sized <use>
@@ -78,7 +79,7 @@ test('page preview renders Rust glyph outlines and geometry, with a vector visua
   await importReference(page);
   const region = await showPreview(page);
   await expect(region).toBeFocused();
-  await expect(page.getByRole('button', { name: 'Page preview', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.document-menu-panel button').filter({ hasText: /^Page preview$/ })).toHaveAttribute('aria-pressed', 'true');
   await expect(region).toHaveAttribute('data-layout-document-id', 'layout-reference-document');
   await expect(region).toHaveAttribute('data-layout-font-catalog-id', /\S+/);
   const pages = region.locator('[data-layout-page]');
@@ -96,6 +97,7 @@ test('page preview renders Rust glyph outlines and geometry, with a vector visua
   const vector = await firstPageVector(page);
   expect(vector.lines.some((line) => line.startUtf16 !== null && line.endUtf16 !== null)).toBe(true);
   expect(JSON.stringify(vector, null, 2)).toMatchSnapshot('layout-vector-v1.json');
+  await page.locator('details.document-menu summary').click();
   const notices = page.getByRole('link', { name: 'Font licenses', exact: true });
   await expect(notices).toBeVisible();
   const href = await notices.getAttribute('href');
@@ -103,12 +105,13 @@ test('page preview renders Rust glyph outlines and geometry, with a vector visua
   const response = await page.request.get(new URL(href, page.url()).href);
   expect(response.ok()).toBe(true);
   expect(await response.text()).toBe(await readFile(new URL('../../../crates/office-layout/fonts/NOTICE.txt', import.meta.url), 'utf8'));
-  await page.screenshot({ path: '../../docs/images/writer-layout-desktop.png', fullPage: true });
+  await page.keyboard.press('Escape');
+  await page.screenshot({ path: '/tmp/writer-step7-preview.png', fullPage: true });
 });
 
 test('page preview follows Rust editing, formatting, undo and redo revisions without replacing editing selection', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Cafe\u0301 👩🏽‍💻 العربية नमस्ते שלום');
   await page.keyboard.press('Control+a');
   await page.getByRole('button', { name: 'Bold', exact: true }).click();
@@ -144,7 +147,7 @@ test('native save, close, reload and reopen reproduce the same page preview', as
   const before = await firstPageVector(page);
   const count = await preview(page).locator('[data-layout-page]').count();
   await returnToEditing(page);
-  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await documentAction(page, 'Close');
   await page.reload();
   await expect(editor(page)).toBeVisible();
   await page.getByRole('button', { name: 'Open', exact: true }).click();
@@ -176,7 +179,7 @@ test('preview revision refresh does not steal focus or lose title keystrokes', a
 
 test('Shift+Enter inserts a Rust soft break in the same paragraph and undo restores the original', async ({ page }) => {
   await start(page);
-  await editor(page).click();
+  await focusEditor(page);
   await page.keyboard.insertText('Before 👩🏽‍💻');
   const paragraph = editor(page).locator('p').first();
   const id = await paragraph.getAttribute('data-paragraph-id');
@@ -218,14 +221,14 @@ test('DOCX geometry reaches the preview and fit-width presentation avoids narrow
   });
   await expect(editor(page)).toContainText('日本語');
   const importedText = await editor(page).textContent();
-  await page.getByRole('button', { name: 'Page preview', exact: true }).click();
+  await documentAction(page, 'Page preview');
   await expect(preview(page).getByRole('alert')).toContainText(/tab/i);
   await expect(preview(page).locator('svg use')).toHaveCount(0);
   await returnToEditing(page);
   await expect(editor(page)).toHaveText(importedText ?? '');
   // Tab-stop policy is deliberately unsupported. Replace this one tab through
   // the normal browser-input/Rust-transaction path before testing geometry.
-  await editor(page).click();
+  await focusEditor(page);
   await editor(page).evaluate((element) => {
     const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
