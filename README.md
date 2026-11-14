@@ -20,10 +20,14 @@ positions, and directed selections. Cursor boundaries use Unicode extended
 grapheme clusters across complete paragraphs, including formatting-run boundaries.
 The document model and its schema remain unchanged.
 
-There is no editing, DOCX parsing, layout, rendering, or user interface yet.
+Milestone 3B adds detached transaction drafts, atomic validated commits, and
+session-scoped revision tokens. Committed documents remain immutable to callers;
+draft changes become visible together only after a successful commit.
+
+There are no text-editing operations, DOCX parsing, layout, rendering, or user
+interface yet.
 Style inheritance is stored and validated; effective formatting is not resolved.
-Milestones 3B (atomic validated transactions) and 3C (text editing, formatting
-operations, and undo/redo) have not started.
+Milestone 3C (text editing, formatting operations, and undo/redo) has not started.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -138,6 +142,52 @@ Selections preserve anchor/focus direction and expose a logical ordered range.
 Positions and coordinate snapshots are runtime values; they do not track future
 edits or change document serialization. See [architecture](docs/ARCHITECTURE.md)
 for empty-paragraph behavior, cross-paragraph ranges, and snapshot limitations.
+
+## Atomic transactions
+
+`DocumentSession` owns a validated document and its current `Revision` token.
+`begin_transaction` clones candidate metadata, sections, and styles into a
+detached `DocumentDraft`. Drafts may be temporarily invalid; `commit` consumes a
+transaction and validates the final candidate before publishing anything.
+Dropping a draft or rejecting a commit leaves the document and revision unchanged.
+
+```rust
+use office_core::{Document, DocumentSession, Id};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut session = DocumentSession::new(Document::new(Id::new("document-1")?)?);
+    let origin = session.revision();
+    let mut transaction = session.begin_transaction();
+    transaction.draft_mut().metadata.title = "Research report".into();
+    assert_eq!(session.document().metadata().title, "");
+
+    let outcome = session.commit(transaction)?;
+    assert!(outcome.changed());
+    assert_eq!(session.document().metadata().title, "Research report");
+    assert!(session.validate_revision(&origin).is_err());
+    session.validate_revision(outcome.revision())?;
+    Ok(())
+}
+```
+
+Every changed commit advances the session revision once. An identical candidate
+is a no-op and preserves the revision. Foreign-session and stale transactions
+are rejected, including stale candidates that happen to equal current content.
+Start a new transaction after a conflict; the engine does not merge or retry it.
+
+Capture the originating revision alongside positions or selections. Before
+reusing them, call `session.validate_revision(&origin)?`, then the existing
+document position or selection validation. Bare 3A positions do not carry a
+revision: pairing an old position with a fresh token does not make it current.
+Changed commits invalidate all earlier tokens, even for unchanged paragraphs;
+no-op commits preserve them. There is no automatic rebasing or affinity policy.
+
+Session revisions are runtime state, separate from document schema version 1.
+The token includes opaque session identity, so equal counter numbers in different
+sessions do not identify the same revision. Transactions provide in-memory
+publication through an exclusive Rust borrow; they do not provide durable
+storage, collaboration, text operations, or history. No dependencies were added
+for 3B.
 
 ## Repository
 

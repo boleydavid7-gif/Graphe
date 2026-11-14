@@ -96,8 +96,10 @@ impl Error for PositionError {}
 /// They are runtime values, not part of the document serialization schema.
 ///
 /// Identity is stable, but offsets are not automatically rebased. A position is
-/// valid against the content used for validation; no revision tracking, editing
-/// affinity, or guarantees about use after future edits are provided in 3A.
+/// valid against the content used for validation. Bare positions do not carry
+/// revisions. When using [`crate::DocumentSession`], retain the originating
+/// [`crate::Revision`] and validate it before reuse. No automatic rebasing or
+/// editing affinity is provided.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DocumentPosition {
     document_id: Id,

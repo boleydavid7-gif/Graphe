@@ -6,28 +6,29 @@ each milestone is implemented.
 
 1. **Repository foundation — implemented.** Rust workspace, minimal `office-core`
    library, formatting and lint rules, tests, continuous integration, and initial
-   documentation. Delivered on a development branch; merging requires approval.
+   documentation. Merged into `main`.
 2. **Document model — implemented.** Structured documents, sections, paragraphs,
    text runs, formatting, named paragraph styles, validation, versioned JSON, and
    focused tests with a realistic fixture. No editing, layout, or DOCX conversion.
-   Delivered on a development branch; merging requires approval.
+   Merged into `main`.
 3. **Positions and editing, divided into three gated milestones.**
 
    **3A — Unicode-aware positions and selections — implemented:** explicit UTF-8,
    UTF-16, and grapheme offsets; strict boundary conversions; stable document and
    paragraph IDs; logical selections; comprehensive Unicode tests. The document
-   model remains unchanged. Deliver on a development branch; merging requires
-   approval.
+   model remains unchanged. Merged into `main`.
 
-   **3B — Atomic validated editing transactions — not started:** define atomic
-   candidate validation and commit behavior.
+   **3B — Atomic validated editing transactions — implemented:** detached drafts,
+   complete candidate validation, atomic in-memory publication, session-scoped
+   revision tokens, stale/foreign rejection, and explicit no-op behavior.
+   Formatting, Clippy, tests, and build checks passed.
 
    **3C — Text editing operations,
    formatting, and undo/redo — not started:** build operations and history on the
    transaction foundation.
 
-   Do not begin 3B or 3C until all 3A formatting, Clippy, test, and build checks pass;
-   these remain distinct implementation milestones.
+   The 3A formatting, Clippy, test, and build gate passed before 3B began. Require
+   the same checks for 3B before beginning 3C; these remain distinct milestones.
 4. **Serialization.** Extend the schema-1 JSON baseline introduced in Step 2 with
    persistence requirements, explicit migration policy, and additional error and
    compatibility coverage as the model grows. Basic lossless model round trips

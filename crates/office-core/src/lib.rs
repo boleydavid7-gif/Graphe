@@ -10,6 +10,8 @@
 //! The model stores exact UTF-8 text. [`TextCoordinates`] distinguishes bytes,
 //! UTF-16 code units, and extended graphemes. [`DocumentPosition`] and [`Selection`]
 //! identify logical cursor boundaries using stable document element IDs.
+//! [`DocumentSession`] publishes validated transaction drafts and issues
+//! session-scoped [`Revision`] tokens without changing the document schema.
 //! See the repository architecture document for the versioned JSON contract,
 //! validation rules, and Unicode coordinate conventions.
 //!
@@ -38,6 +40,7 @@ mod document;
 mod error;
 mod formatting;
 mod position;
+mod transaction;
 
 pub use coordinates::{
     GRAPHEME_UNICODE_VERSION, GraphemeOffset, TextCoordinates, Utf8Offset, Utf16Offset,
@@ -52,6 +55,9 @@ pub use formatting::{
     Twips, Underline,
 };
 pub use position::{DocumentPosition, OffsetUnit, PositionError, Selection};
+pub use transaction::{
+    CommitOutcome, DocumentDraft, DocumentSession, Revision, Transaction, TransactionError,
+};
 
 /// Returns the version of the engine core, as declared in its Cargo manifest.
 #[must_use]

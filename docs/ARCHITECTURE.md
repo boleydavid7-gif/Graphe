@@ -3,7 +3,8 @@
 This document records long-term principles and the first document model. The
 workspace currently implements the repository foundation, structured Writer
 content, validation, schema-versioned JSON serialization, and Unicode-aware
-positions and selections. Editing, layout, rendering, and format conversion
+positions and selections. A runtime session now provides atomic validated
+transactions. Text-editing operations, layout, rendering, and format conversion
 remain future subsystems.
 
 ## Independent engine
@@ -192,8 +193,9 @@ implementations. The document model and schema version 1 are unchanged. They
 operate independently of a frontend or future DOCX mapping. Positions are not
 revision-aware or automatically rebased: revalidation detects missing elements
 and out-of-range offsets but cannot detect changed text meaning under the same
-IDs. Future transactions must define stale-position and affinity policies before
-reusing positions across edits.
+IDs. Session revision tokens in 3B provide a conservative origin check before
+reuse; callers retain the token associated with each raw position or selection.
+Editing affinity and rebasing remain future work.
 
 Building a coordinate snapshot takes O(paragraph text length) time and stores the
 text plus grapheme boundaries. Grapheme-to-byte lookup is O(1), byte-to-grapheme
@@ -206,14 +208,76 @@ boundaries, invalid scalar/surrogate boundaries, RTL logical ordering, and the
 official Unicode 17 grapheme-break conformance fixture. These checks establish
 logical boundary behavior rather than visual editing behavior.
 
-### Later editing milestones
+### Atomic validated transactions (3B)
 
-Milestone 3B will add atomic validated transactions after 3A passes formatting,
-Clippy, tests, and builds. Transactions should construct a candidate change,
-preserve unaffected IDs, validate the result, and commit atomically. Invariants
-should remain centralized rather than duplicated in interface code. Milestone
-3C will add text editing operations, formatting operations, and undo/redo.
-Neither 3B nor 3C is implemented in 3A.
+`DocumentSession` owns one validated committed `Document` and a session-scoped
+`Revision`. Committed access is immutable. The document model, construction
+invariants, and schema version 1 remain unchanged; sessions and transactions are
+runtime values without serialization. Reopening a saved document creates a new
+session lineage at revision zero.
+
+`begin_transaction` returns a detached `Transaction` with the originating token,
+fixed document ID, and a `DocumentDraft`. The draft contains cloned metadata,
+sections, and named styles. Callers can assemble candidate records without
+mutating the committed state. Intermediate drafts may violate invariants; only
+the final candidate is checked. The document ID and schema cannot be changed
+through the draft. These staging records provide a transaction boundary for
+future operations; 3B adds no insertion, deletion, or formatting-operation API.
+
+Commit consumes the transaction on success or failure and proceeds in this order:
+
+1. Reject a token issued by another session.
+2. Reject an originating revision that differs from the current revision.
+3. Build and validate the complete candidate with `Document::from_parts`, using
+   the same model validation as construction and loading.
+4. Compare the candidate with the committed document. Structural equality is a
+   no-op: it succeeds without replacing content or advancing the revision.
+5. For a changed candidate, check that incrementing the revision cannot overflow,
+   then publish the document and new revision under one exclusive Rust borrow.
+
+`CommitOutcome` reports the resulting token and whether content changed.
+Different run boundaries or property representations count as changes even if
+the displayed text would look identical. Validation never repairs, normalizes,
+or merges candidate content. Stale candidates are rejected before equality is
+considered, so a stale draft cannot succeed merely because its content matches.
+
+`TransactionError` distinguishes foreign sessions, stale revisions, invalid
+documents, and revision exhaustion. Every rejection leaves both committed
+document and revision untouched. Dropping a transaction aborts it; a panic in
+caller-side staging also cannot mutate the session. No user callbacks run during
+publication. Atomicity here means in-memory visibility through `&mut self`, not
+durable storage, a lock-free protocol, or distributed concurrency. Start a fresh
+transaction after a conflict; no automatic retry or merge occurs.
+
+Revision tokens contain a private `Arc` identity and a checked `u64` counter.
+Equality checks both session identity and counter. Two independent sessions with
+the same document ID and revision number still have different tokens. The number
+returned by `Revision::number` is diagnostic, not a globally comparable identity.
+Sessions and transactions cannot be cloned; tokens and detached construction
+records can. Changed commits advance the counter once; no-op commits preserve
+it. Counter exhaustion rejects changed commits without wrapping, while a no-op
+can still succeed.
+
+Any changed commit invalidates all previous revision tokens conservatively,
+including tokens associated with unchanged paragraphs. When computing raw 3A
+positions or selections, capture `session.revision()` alongside them. Before
+reuse, call `session.validate_revision(&origin)` and then the existing structural
+position or selection validation against `session.document()`. Never restamp an
+old position with a new token. The token check cannot prove the association with
+a separately supplied raw position; callers retain that provenance. Positions
+do not become revision-aware or automatically rebased in 3B. This policy rejects
+old origins even after content changes from A to B and back to A.
+
+Beginning a transaction copies candidate content in O(document size) time and
+memory. Commit validates the complete document and compares structural equality,
+also requiring work proportional to document size. No persistent tree, operation
+framework, cache, event stream, or history is added without demonstrated need.
+
+### Later editing milestone
+
+Milestone 3C will add text editing operations, formatting operations, and undo/redo
+on the transaction foundation. It remains unstarted. The position, transaction,
+and operation milestones retain separate acceptance checks.
 
 ### DOCX compatibility limits and extension points
 
@@ -236,9 +300,9 @@ covered by compatibility tests.
 ## Incremental workspace
 
 `office-core` is the only crate in the Cargo workspace. It exposes the engine
-version, document model, and position/selection APIs. Serde, serde_json, and
-unicode-segmentation are declared in `[workspace.dependencies]` and inherited by
-the crate for serialization and Unicode segmentation.
+version, document model, position/selection APIs, and transaction sessions. Serde,
+serde_json, and unicode-segmentation are declared in `[workspace.dependencies]`
+and inherited by the crate for serialization and Unicode segmentation.
 New crates should also inherit the workspace package settings and
 lints. Additional crates will be introduced only when concrete responsibilities
 require them; conceptual boundaries do not require empty crates or modules in

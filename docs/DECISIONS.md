@@ -199,3 +199,56 @@ can mutate text, and atomic validation must precede operations with history.
 **Consequences:** 3A changes neither the document model nor editing state. It
 implements no transactions, insertion/deletion, formatting operations, or history.
 3B and 3C remain separate future milestones.
+
+Milestone 3A subsequently passed its checks and was merged into `main`. Milestone
+3B implements the transaction foundation under decisions 013 and 014. Milestone
+3C remains unstarted.
+
+## 013: Stage detached candidates and validate before atomic publication
+
+**Decision:** Introduce `DocumentSession` as the runtime owner of a validated
+committed document. A detached `Transaction` clones metadata, sections, and styles
+into a mutable `DocumentDraft`, retaining the document ID. Commit consumes the
+transaction, validates the final candidate through `Document::from_parts`, and
+publishes only after every fallible check succeeds.
+
+**Reason:** Compound changes need one validation and visibility boundary. Invalid
+intermediate construction records must not leak into committed state. Reusing
+the existing validator keeps model invariants centralized and preserves document
+schema 1 without exposing mutable committed access.
+
+**Consequences:** Failed commits, dropped transactions, and caller-side staging
+panics leave committed content and revision unchanged. No callbacks execute
+during publication. Atomicity uses an exclusive Rust borrow and is in memory;
+it provides no durable persistence or collaboration protocol. Beginning a draft
+copies document content, and commit performs full validation and structural
+comparison. These initial linear costs are explicit; structural sharing or
+incremental validation should follow measured requirements. There are no text
+operations, formatting operations, undo/redo, events, or new dependencies in 3B.
+
+## 014: Scope revisions to live sessions and reject stale origins
+
+**Decision:** A `Revision` token privately combines an opaque `Arc` session
+identity with a checked `u64` counter. Commit rejects foreign sessions and stale
+tokens before candidate validation. Changed commits advance the counter once;
+structurally identical candidates are no-ops that retain the current revision.
+
+**Reason:** Document ID and counter alone cannot distinguish independent editing
+sessions or reopened documents. Explicit origin checking prevents stale drafts
+from overwriting later commits. No-ops should not invalidate positions or other
+pending drafts when no model value changed.
+
+**Consequences:** Revision numbers are session-local diagnostics, not global
+identities. Sessions and transactions cannot be cloned, and none of their runtime
+state is serialized into the document. Counter overflow rejects changed commits
+without wrapping. A stale draft is rejected even if its candidate matches current
+content, and an A-to-B-to-A sequence does not revive old tokens. Conflicts require
+a fresh transaction; automatic merging and retries are absent.
+
+Changed commits conservatively invalidate all earlier tokens, including origins
+for unchanged paragraphs; no-op commits preserve them. Raw 3A positions and
+selections still contain no revision. Callers capture the originating token with
+those values, validate it before reuse, then apply existing structural checks.
+Pairing an old value with a fresh token does not establish correct provenance.
+Revision-aware position wrappers, rebasing, and editing affinity remain later
+decisions before position-consuming text operations are introduced.
