@@ -1,0 +1,14 @@
+[package]
+name = "office-docx"
+description = "Bounded DOCX package inspection for future Office Engine import and export"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+zip.workspace = true
+quick-xml.workspace = true
+roxmltree.workspace = true
+
+[lints]
+workspace = true

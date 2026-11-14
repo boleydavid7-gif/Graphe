@@ -188,6 +188,56 @@ Live Worker/build reads are denied by the current connection, and Access reports
 it is not enabled; no production/preview endpoint is assumed private from an
 inert configuration example or an outbound-proxy 403. No deployment is claimed.
 
+## Step 5A — DOCX adapter and preservation review
+
+The user authorized Step 5 and selected **preserve unsupported originals before
+editing**, then required a format-specific adapter around the shared model.
+[DOCX.md](DOCX.md) records the questions, primary sources, dependency evaluation,
+limits and independently testable import/export sequence. Decisions 029–030
+record the accepted boundary; no additional formats are implemented.
+
+Reviewed the existing model/validator, Unicode positions, transactions, editing,
+history, schema/native serialization, native storage, browser bindings and tests
+before adding code. All baseline engine checks passed (191 tests including
+doctests), as did existing TypeScript, lint, storage, compiled-WASM and hosted
+build tests. No confirmed critical defect in those existing foundations blocks
+read-only package inspection.
+
+- **Critical adapter corrections, addressed with regressions:** bound ZIP entry
+  indexing before library allocation; reject ambiguous end-record signatures in
+  comments and ZIP64 local headers; verify CRC/observed expansion, header and
+  streamed data-descriptor consistency, including descriptor overlaps. Bound XML
+  attributes/namespaces/raw DOM capacity markers before
+  parsing and MIME name lengths before repeated inventory copies. Reject invalid
+  scalar references and invalid namespace bindings that
+  the selected DOM library otherwise accepts. Correct the Strict root
+  `officeDocument` relationship URI and resolve canonical package-absolute
+  internal targets. These are corrections in the new adapter, not changes to
+  native document semantics.
+- **Important, later semantic-import gates:** core sections cannot yet retain
+  page properties/headers; Word defaults/themes/script fonts and style toggles
+  need explicit mappings; tables, fields, lists, revisions, links and unknown
+  markup cannot be projected losslessly. Native IDs, empty containers, CR and
+  XML-illegal controls also require export policies. Do not weaken core
+  validation or embed DOCX structures to bypass these constraints. Editable
+  projection/source association, persistence and edit-aware export need a
+  reviewed design before enabling edits. The namespace-family result is not
+  OOXML schema conformance. External URI inventory is not a fetch-security API.
+- **Optional:** later fuzzing/corpus expansion and streaming optimizations after
+  measuring this bounded profile. No speculative registry or format hierarchy.
+
+The new byte API retains the complete immutable original, including unsupported
+semantic parts; it neither edits nor reconstructs a document. Handcrafted
+Transitional and relocated Strict fixtures exercise this contract. Word and
+LibreOffice interoperability, broader encodings/URI profiles, full normative
+PDF review and live browser DOCX integration remain untested. See
+[DOCX.md](DOCX.md) for advisory-check limitations and
+[DOCX_VERIFICATION.md](DOCX_VERIFICATION.md) for actual commands/results.
+
+The corrected Strict URI is independently documented by
+[Microsoft's ISO 29500 implementation note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/32be961f-d71a-4812-913f-b675c79aa88a)
+and [LibreOffice's package detector](https://docs.libreoffice.org/oox/html/filterdetect_8cxx_source.html).
+
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event
 [editcontext]: https://developer.mozilla.org/en-US/docs/Web/API/EditContext

@@ -40,9 +40,14 @@ each milestone is implemented.
    approval.
    Basic model round trips were introduced in Step 2; Step 4 adds the file and
    storage contract. No migration exists until another version needs one.
-5. **Basic DOCX import/export — not started.** Research and obtain approval for
-   an explicitly bounded subset of DOCX, with compatibility fixtures and a clear
-   policy for unsupported information. Completing Step 4.5 does not authorize it.
+5. **Basic DOCX import/export — started with explicit approval.** Step 5A adds
+   bounded read-only OPC/ZIP and XML inspection plus exact immutable original
+   retention in the format-specific `office-docx` adapter. The shared model stays
+   format-neutral. The user selected preserving unsupported originals before
+   editing. Editable import (5B), export and independent interoperability (5C)
+   remain later subphases; original-byte retention alone does not establish
+   fidelity after edits. See [DOCX.md](DOCX.md) for scope and compatibility limits.
+   No other file format is implemented in Step 5.
 6. **Typography and layout.** Develop text measurement, line layout, and pagination
    toward platform-independent document layout.
 7. **Rendering and browser integration beyond the prototype.** Extend the
@@ -83,7 +88,7 @@ milestone report. No Word page layout, DOCX adapter, autosave, cloud storage,
 deployment, DNS, or access-control change is included. The Cloudflare example is
 inert preparation for a separate Worker; build output is not a published site.
 
-After this milestone, propose a researched Step 5 scope with explicit fidelity
-goals, supported constructs, unsupported-element handling, and regression
-fixtures. Wait for approval before starting that work or making significant new
-architectural changes.
+Step 5 has since received explicit authorization. Its researched scope, fidelity
+limits, preservation policy and regression fixtures are recorded in
+[DOCX.md](DOCX.md). Significant architectural changes outside that authorization
+still require approval.

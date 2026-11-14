@@ -17,7 +17,35 @@ Existing Serde and Unicode segmentation libraries remain the engine's source
 of serialization and grapheme behavior. IndexedDB uses native browser APIs;
 there is no storage wrapper, JavaScript document model, or browser undo library.
 
-## Development dependencies
+## DOCX adapter dependencies (Step 5A)
+
+| Dependency | Exact version | License | Purpose |
+| --- | --- | --- | --- |
+| zip | 9.5.1 | MIT | Checked stored/deflate ZIP reads; other compressors/encryption disabled |
+| quick-xml | 0.42.0 | MIT | Bounded token preflight before DOM work |
+| roxmltree | 0.21.2 | MIT OR Apache-2.0 | Namespace-aware XML well-formedness and OPC metadata |
+
+These dependencies belong exclusively to `office-docx`, with default features
+disabled. The deflate backend uses `flate2` (MIT OR Apache-2.0) and `zlib-rs`
+(Zlib). The ZIP crate requires Rust 1.88; quick-xml requires 1.86; the workspace
+uses stable 1.100.0 on the review date. A native and WebAssembly compile were
+checked. `zip` enables a WASM getrandom backend in its dependency graph; this
+does not add bindings or dependencies to `office-core` or `office-wasm`.
+
+Two XML parsers are deliberate: a bounded token pass limits namespace/attribute
+work before the DOM parser, which provides stricter namespace/name validation.
+Targeted preflight checks correct invalid scalar/namespace acceptance observed
+in roxmltree 0.21.2. See [DOCX.md](DOCX.md) for the explicit limits and tradeoffs.
+
+Versions and licenses were checked in registry metadata and source manifests.
+The graph was compared manually with the official RustSec database at commit
+`4ef2df8e806a65e2f1ecc14f56f51249062b23d6`; applicable affected ranges do not
+include the selected versions. In particular quick-xml 0.42.0 includes fixes for
+RUSTSEC-2026-0194/0195 (older attribute/namespace DoS). This was not a `cargo audit`
+run. OSV access returned HTTP 403; no claim of an OSV scan is made. Recheck
+advisories when updating versions or preparing a public release.
+
+## Frontend development dependencies
 
 | Dependency | Version | License | Purpose |
 | --- | --- | --- | --- |

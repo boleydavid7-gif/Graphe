@@ -49,10 +49,16 @@ screenshots of the running application.
 The [pre-merge review](docs/PRE_MERGE_REVIEW.md) supersedes the initial counts
 and lists every completion criterion, corrections, and untested scope.
 
-DOCX parsing, professional document layout, and platform-independent rendering
-remain future work. The browser adapter computes a limited effective display
-policy for existing styles and direct properties; full Word style semantics are
-not implemented.
+Step 5A begins DOCX support with a separate `office-docx` adapter: bounded package
+inspection and immutable original-byte retention. It does not yet import editable
+documents, reconstruct/export DOCX, or add browser DOCX controls. Unsupported
+originals must be preserved before editing is enabled. The core model remains
+format-neutral for future adapters; no additional formats are implemented now.
+See [the DOCX scope and API](docs/DOCX.md).
+
+Professional document layout and platform-independent rendering remain future
+work. The browser adapter computes a limited effective display policy for
+existing styles and direct properties; full Word style semantics are not implemented.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -204,8 +210,8 @@ autosave, cloud service, synchronization, DOCX support, or custom page layout.
 
 The engineering rules in [AGENTS.md](AGENTS.md), primary-source research and
 retrospective findings in [RESEARCH.md](docs/RESEARCH.md), and accepted
-[decisions](docs/DECISIONS.md) govern this milestone and future work. Step 5 needs
-separate approval and a researched, explicitly bounded DOCX scope.
+[decisions](docs/DECISIONS.md) govern this milestone and future work. The authorized
+Step 5 scope and preservation policy are recorded in [DOCX.md](docs/DOCX.md).
 
 `apps/writer/cloudflare.config.ts.example` is inert preparation for a separate
 assets-only Worker. It attaches no routes or domains, disables workers.dev and
@@ -482,6 +488,8 @@ conversion are not implemented.
 - `crates/office-core/` contains the interface-independent engine and persistence.
 - `crates/office-wasm/` owns the browser session, command transport, Unicode
   selection affinity, and effective presentation values.
+- `crates/office-docx/` owns DOCX package inspection and exact original-source
+  retention; later semantic import/export belongs at this format boundary.
 - `apps/writer/` contains the React/TypeScript prototype, build tooling, and
   frontend/browser tests.
 - `docs/ARCHITECTURE.md` describes long-term boundaries and principles.

@@ -57,6 +57,10 @@ jobs:
       - name: Install stable Rust and WebAssembly target
         run: rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
 
+      - name: Check DOCX byte adapter on WebAssembly
+        working-directory: .
+        run: cargo check --locked -p office-docx --target wasm32-unknown-unknown
+
       - name: Install matching WebAssembly bindings CLI
         run: cargo install wasm-bindgen-cli --version 0.2.130 --locked
 
