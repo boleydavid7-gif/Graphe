@@ -61,7 +61,9 @@ as recorded in [VERIFICATION.md](VERIFICATION.md).
 The follow-up [pre-merge review](PRE_MERGE_REVIEW.md) supersedes initial counts,
 adds targeted reliability regressions, and distinguishes functional, partial,
 and untested requirements.
-This milestone has not been merged or deployed. It adds the independent
+This milestone was merged through PR #7 at `0a5d806` with post-merge CI passing.
+Cloudflare deployment remains unverified; the follow-up build bootstrap is
+documented in [CLOUDFLARE_BUILD.md](CLOUDFLARE_BUILD.md). It adds the independent
 `office-wasm` session boundary, a React/TypeScript/Vite interface in `apps/writer`,
 semantic browser input with Rust-owned Unicode and edits, a targeted paragraph
 break operation, a limited Rust effective-formatting policy, and explicit

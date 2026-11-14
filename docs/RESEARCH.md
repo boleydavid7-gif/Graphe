@@ -169,6 +169,25 @@ results, and remaining untested platform/IME/accessibility/durability scopes.
 Clean browser restart is verified separately from crash or power-loss recovery;
 injected quota failures are not a test of real storage exhaustion.
 
+## Hosted build toolchain correction
+
+The supplied Cloudflare build log reaches `npm run build` then fails with
+`spawnSync wasm-bindgen ENOENT`; dependency installation succeeds on Node 24.
+Official build-image documentation does not promise Rust tooling. An explicit
+build-only bootstrap installs stable Rust, its WASM target, and the exact
+wasm-bindgen CLI using an official prebuilt asset and pinned SHA-256, then invokes
+the existing build in the same environment. This avoids repeatedly compiling
+the binding CLI's large dependency graph and avoids ineffective npm prebuild
+PATH exports. Existing local builds and the independent core are unchanged.
+
+The cold environment test passed without any Rust/WASM tools on PATH or installed
+in the test Cargo/Rustup homes. Two orchestration regressions cover checksum
+rejection before executable installation and correct environment propagation.
+[CLOUDFLARE_BUILD.md](CLOUDFLARE_BUILD.md) records sources, exact setup, and limits.
+Live Worker/build reads are denied by the current connection, and Access reports
+it is not enabled; no production/preview endpoint is assumed private from an
+inert configuration example or an outbound-proxy 403. No deployment is claimed.
+
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event
 [editcontext]: https://developer.mozilla.org/en-US/docs/Web/API/EditContext
