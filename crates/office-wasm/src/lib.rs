@@ -5,6 +5,7 @@
 //! Browser UTF-16 endpoints are deliberately snapped outward to Rust extended
 //! grapheme boundaries; scalar-invalid surrogate positions are rejected.
 
+mod layout;
 mod operations;
 mod view;
 mod wire;
@@ -86,6 +87,7 @@ pub struct BrowserEngine {
     redo_cursor: Vec<CursorHistory>,
     original_source: Option<OriginalSource>,
     source_overhead: usize,
+    layout_state: layout::LayoutState,
 }
 
 impl BrowserEngine {
@@ -110,6 +112,7 @@ impl BrowserEngine {
             redo_cursor: Vec::new(),
             original_source: None,
             source_overhead: 0,
+            layout_state: layout::LayoutState::default(),
         };
         engine.new_document()?;
         Ok(engine)
@@ -302,6 +305,7 @@ impl BrowserEngine {
                 text, selection, ..
             } => self.replace_text(&text, selection),
             Command::InsertParagraph { selection, .. } => self.replace_text("\n", selection),
+            Command::InsertLineBreak { selection, .. } => self.insert_line_break(selection),
             Command::Delete {
                 direction,
                 selection,
@@ -326,6 +330,7 @@ impl BrowserEngine {
             } => self.format_paragraph(alignment, selection),
             Command::Undo { .. } => {
                 self.session.undo()?;
+                self.layout_state.invalidate();
                 let cursor = self
                     .undo_cursor
                     .pop()
@@ -338,6 +343,7 @@ impl BrowserEngine {
             }
             Command::Redo { .. } => {
                 self.session.redo()?;
+                self.layout_state.invalidate();
                 let cursor = self
                     .redo_cursor
                     .pop()
@@ -381,6 +387,7 @@ impl BrowserEngine {
         self.typing = None;
         self.undo_cursor.clear();
         self.redo_cursor.clear();
+        self.layout_state.invalidate();
         Ok(())
     }
 
@@ -427,6 +434,7 @@ impl BrowserEngine {
         self.check_candidate(&candidate)?;
         let outcome = self.session.commit(transaction)?;
         if outcome.changed() {
+            self.layout_state.invalidate();
             self.undo_cursor.push(CursorHistory {
                 before,
                 after: after.clone(),
@@ -698,6 +706,16 @@ mod wasm {
         /// Returns immutable presentation JSON.
         pub fn snapshot(&self) -> String {
             self.inner.snapshot()
+        }
+        /// Computes revision-bound Rust page/glyph geometry without editing content.
+        pub fn layout_snapshot(
+            &mut self,
+            options: &str,
+            expected_revision: Option<String>,
+        ) -> Result<String, JsValue> {
+            self.inner
+                .layout_snapshot(options, expected_revision.as_deref())
+                .map_err(js_error)
         }
         /// Copies exact selected plain text using the Rust paragraph policy.
         pub fn selected_text(&self) -> Result<String, JsValue> {

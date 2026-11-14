@@ -1,0 +1,8 @@
+# Pinned source bytes and their checksums must survive checkout unchanged.
+*.ttf -text
+*.OFL.txt -text
+NOTICE.txt -text
+manifest.json -text
+SHA256SUMS -text
+README.md text eol=lf
+verify.py text eol=lf

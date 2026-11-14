@@ -1,9 +1,11 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import { EditorSurface, type EditorSurfaceHandle } from './EditorSurface';
+import { PagePreview, type LayoutOrigin, type PreviewZoom } from './PagePreview';
 import { StorageError, WriterStorage, type StoredDocument } from './storage';
 import type { Alignment, CompatibilityReport, WriterCommand, WriterView } from './types';
 import './styles.css';
+import fontLicensesUrl from '../../../crates/office-layout/fonts/NOTICE.txt?url';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
@@ -86,6 +88,39 @@ export default function App() {
   const [saveConflict, setSaveConflict] = useState(false);
   const [exportDisclosure, setExportDisclosure] = useState(false);
   const [preservedImport, setPreservedImport] = useState<PreservedImport | null>(null);
+  const [pagePreview, setPagePreview] = useState(false);
+  const [previewZoom, setPreviewZoom] = useState<PreviewZoom>('fit');
+  const previousPreview = useRef(false);
+
+  useLayoutEffect(() => {
+    const enteringPreview = !previousPreview.current && pagePreview;
+    const returningToEditing = previousPreview.current && !pagePreview;
+    previousPreview.current = pagePreview;
+    if (!documentOpen || !documentOpenRef.current) return;
+    if (enteringPreview) {
+      // This is a fixed interface root, independent of native document IDs.
+      document.getElementById('writer-page-preview')?.focus({ preventScroll: true });
+    } else if (returningToEditing) {
+      // Restore the Rust selection in the same commit that reveals the editor.
+      // Deferring focus would let the first keyboard event target a removed
+      // preview control, or steal focus from a control reached afterward.
+      surface.current?.focus();
+    }
+  }, [documentOpen, pagePreview]);
+
+  const loadPageLayout = useCallback((origin: LayoutOrigin) => {
+    const client = engine.current;
+    if (!client || !documentOpenRef.current || client.view.sessionId !== origin.sessionId
+      || client.view.revision !== origin.revision || client.view.documentId !== origin.documentId) {
+      throw new Error('The document changed while preparing page preview. Return to editing and try again.');
+    }
+    return client.layout();
+  }, []);
+
+  function togglePagePreview() {
+    if (!viewRef.current || !documentOpenRef.current || busy || composing) return;
+    setPagePreview((active) => !active);
+  }
 
   function setDirty(value: boolean) {
     dirtyRef.current = value;
@@ -340,6 +375,7 @@ export default function App() {
 
   function closeDocument() {
     guardReplacement(() => {
+      setPagePreview(false);
       documentOpenRef.current = false;
       setDocumentOpen(false);
       setDirty(false);
@@ -393,6 +429,8 @@ export default function App() {
           onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'redo' })}>↷</button>
         <button className="secondary-file-action" disabled={unavailable} onClick={exportFile}>Export</button>
         <button className="secondary-file-action" disabled={unavailable} onClick={exportWordFile}>Export Word</button>
+        <button className="secondary-file-action" disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
+          onClick={togglePagePreview} aria-pressed={pagePreview} aria-controls="writer-page-preview">Page preview</button>
         {view?.originalSource && <button className="secondary-file-action" disabled={unavailable} onClick={downloadOriginal}>Download original</button>}
         <button className="secondary-file-action" disabled={unavailable} onClick={closeDocument}>Close</button>
       </nav>
@@ -437,17 +475,21 @@ export default function App() {
     <main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
-        : documentOpen ? <div className="document-page"><EditorSurface ref={surface} view={view} onCommand={command}
-          onError={setError} onCompositionChange={setComposing} disabled={opening}
+        : documentOpen ? <><div className="document-page" hidden={pagePreview}><EditorSurface ref={surface} view={view} onCommand={command}
+          onError={setError} onCompositionChange={setComposing} disabled={opening || pagePreview}
           onCopy={() => {
             if (!engine.current) throw new Error('Writer is not ready to copy text.');
             return engine.current.selectedText();
-          }} /></div>
+          }} /></div>{pagePreview && <PagePreview key={JSON.stringify([view.sessionId, view.revision])}
+            sessionId={view.sessionId} revision={view.revision} documentId={view.documentId}
+            loadLayout={loadPageLayout} zoom={previewZoom} onZoomChange={setPreviewZoom}
+            onClose={togglePagePreview} />}</>
           : <div className="closed-document"><span className="writer-mark">W</span><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
     <footer className="status-bar"><span>{documentOpen && view ? `${view.wordCount.toLocaleString()} ${view.wordCount === 1 ? 'word' : 'words'}` : 'Writer'}</span>
       <span role="status" className="status-message">{notice || 'Your work stays in this browser. Export a file for a backup.'}</span>
-      <span className="privacy-badge">Local document</span></footer>
+      <span className="privacy-badge">Local document</span>
+      <a className="font-licenses" href={fontLicensesUrl} target="_blank" rel="noreferrer">Font licenses</a></footer>
     <input ref={fileInput} type="file" accept={`.writer,.docx,application/json,${DOCX_MEDIA_TYPE}`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
     {library !== null && <Dialog title="Open document" onClose={() => setLibrary(null)} busy={busy}>

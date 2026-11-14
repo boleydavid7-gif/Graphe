@@ -251,11 +251,31 @@ impl BrowserEngine {
         text: &str,
         supplied: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
+        self.replace_text_with_break_policy(text, supplied, true)
+    }
+
+    pub(super) fn insert_line_break(
+        &mut self,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        self.replace_text_with_break_policy("\n", supplied, false)
+    }
+
+    fn replace_text_with_break_policy(
+        &mut self,
+        text: &str,
+        supplied: Option<BrowserSelection>,
+        paragraph_breaks: bool,
+    ) -> Result<(), EngineError> {
         if text.len() > crate::MAX_DOCUMENT_BYTES {
             return Err(crate::limit_error());
         }
         let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
-        let segments: Vec<&str> = normalized.split('\n').collect();
+        let segments: Vec<&str> = if paragraph_breaks {
+            normalized.split('\n').collect()
+        } else {
+            vec![text]
+        };
         if segments.len() > crate::MAX_PARAGRAPHS
             || segments
                 .iter()
@@ -289,8 +309,9 @@ impl BrowserEngine {
             .text_coordinates(&Id::new(&start_id)?)?
             .utf16_to_utf8(Utf16Offset::new(start.utf16))?
             .get();
-        // Clipboard/newline policy belongs to this browser adapter. Core's exact
-        // literal CR/LF operations remain unchanged.
+        // Clipboard/paragraph newline policy belongs to this browser adapter.
+        // The explicit soft-break command uses one literal LF through the same
+        // validated text replacement instead of creating another paragraph.
         let after_point = if segments.len() == 1 {
             let range = edit_selection(&transaction, &selection)?;
             transaction.replace_text(&range, text, format)?;

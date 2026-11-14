@@ -4,73 +4,18 @@ use office_core::{
     TextColor, Underline,
 };
 
-// Browser display policy only. Native properties remain exact and unresolved.
+// Shared Rust inheritance policy. Browser defaults below remain presentation
+// values; page geometry and font measurement come from office-layout.
 pub(crate) fn overlay_character(base: &mut CharacterFormat, direct: &CharacterFormat) {
-    macro_rules! field {
-        ($name:ident) => {
-            if direct.$name.is_some() {
-                base.$name = direct.$name.clone();
-            }
-        };
-    }
-    field!(bold);
-    field!(italic);
-    field!(underline);
-    field!(font_family);
-    field!(font_size);
-    field!(color);
-}
-
-fn overlay_paragraph(base: &mut ParagraphFormat, direct: &ParagraphFormat) {
-    macro_rules! field {
-        ($name:ident) => {
-            if direct.$name.is_some() {
-                base.$name = direct.$name.clone();
-            }
-        };
-    }
-    field!(alignment);
-    field!(spacing_before);
-    field!(spacing_after);
-    field!(line_spacing);
-    field!(page_break_before);
-    if let Some(direct_indent) = &direct.indentation {
-        let indent = base.indentation.get_or_insert_default();
-        if direct_indent.left.is_some() {
-            indent.left = direct_indent.left;
-        }
-        if direct_indent.right.is_some() {
-            indent.right = direct_indent.right;
-        }
-        if direct_indent.first_line.is_some() {
-            indent.first_line = direct_indent.first_line;
-        }
-    }
+    office_layout::overlay_character(base, direct);
 }
 
 pub(crate) fn inherited(
     document: &Document,
     paragraph: &Paragraph,
 ) -> (CharacterFormat, ParagraphFormat) {
-    let mut chain = Vec::new();
-    let mut parent = paragraph.style();
-    while let Some(id) = parent {
-        let style = document
-            .styles()
-            .iter()
-            .find(|style| style.id == *id)
-            .expect("validated style reference");
-        chain.push(style);
-        parent = style.based_on.as_ref();
-    }
-    let mut character = CharacterFormat::default();
-    let mut paragraph_format = ParagraphFormat::default();
-    for style in chain.into_iter().rev() {
-        overlay_character(&mut character, &style.character_format);
-        overlay_paragraph(&mut paragraph_format, &style.paragraph_format);
-    }
-    overlay_paragraph(&mut paragraph_format, paragraph.format());
-    (character, paragraph_format)
+    let resolved = office_layout::resolve_paragraph_style(document, paragraph);
+    (resolved.character, resolved.paragraph)
 }
 
 pub(crate) fn character_view(format: &CharacterFormat) -> CharacterView {

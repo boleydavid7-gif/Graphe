@@ -60,10 +60,67 @@ run. OSV access returned HTTP 403; no claim of an OSV scan is made. Recheck
 advisories when updating versions or preparing a public release.
 
 Conversion reuses these maintained ZIP/XML libraries for writing and parsing;
-no complete Office engine is embedded. No typography dependency or font asset is
-introduced by the retained Step 6 research. Parley/HarfRust/Skrifa remain evaluated
-candidates, not committed dependencies. See RESEARCH for probe limits and
+no complete Office engine is embedded. The earlier Step 6 probes did not add
+runtime dependencies; the resumed milestone's stack is recorded below. See
+RESEARCH for probe limits and
 [base64 upstream](https://github.com/marshallpierce/rust-base64) for codec sources.
+
+## Typography and layout dependencies (Step 6)
+
+| Dependency | Selected version | License | Responsibility |
+| --- | --- | --- | --- |
+| Parley / Fontique / Parley Engine / Parley Data | 0.13.0 | MIT OR Apache-2.0 | Text analysis, font matching, shaping integration and line fitting |
+| HarfRust | 0.15.0 | MIT | OpenType shaping; maintained HarfBuzz port |
+| Skrifa | 0.49.0 | MIT OR Apache-2.0 | Font metrics, variations and glyph outlines |
+| read-fonts / font-types | 0.46.0 / 0.12.7 | MIT OR Apache-2.0 | Low-level font tables and types |
+| ICU4X segmenter/properties/normalizer and data | 2.3.0 | Unicode-3.0 | Unicode analysis/data used by the layout stack |
+| ICU provider / locale core | 2.4.0 | Unicode-3.0 | Shared Unicode data infrastructure |
+| Parley Emoji | 0.13.0 | MIT | Emoji property/sequence data; separate attribution |
+| libm / core_maths | 0.2.16 / 0.1.1 | MIT | Shared math implementation without host math selection |
+
+Direct layout dependencies are pinned and `Cargo.lock` records the resolved
+graph. Parley's default `system` feature is disabled; explicit font registration
+and `libm` are deliberate native/WASM choices. The stack's highest declared
+minimum Rust version is 1.88, below the checked stable workspace toolchain.
+ICU4X's grapheme data is Unicode 17; its default line-break constructors used by
+Parley implement Unicode 15.1. The optional `complex-scripts` dictionary feature
+is not enabled in this initial graph; dictionary-assisted language breaking is
+not a general guarantee. This is not a claim of Unicode 18 conformance.
+See [research](RESEARCH.md) for alternatives and selected upstream revisions.
+
+The isolated 56-package probe graph's registry manifests/licenses and official
+RustSec entries were reviewed at database commit
+`4ef2df8e806a65e2f1ecc14f56f51249062b23d6`. Applicable historical records for
+hashbrown, once_cell, smallvec, spin and zerovec/derive are patched by the selected
+versions; the old spin maintenance advisory is withdrawn. No crate-specific
+entry was present for Parley, Fontique, HarfRust, Skrifa or read-fonts at that
+commit. All 56 reviewed versions were also found in the current workspace lockfile;
+the layout feature tree contains neither host `system` discovery nor optional
+`complex-scripts` dictionaries. This was a targeted manual review, not
+`cargo audit` or a guarantee of font/parser security. Recheck on updates.
+
+### Bundled font assets
+
+The catalog's unmodified Arimo 1.341, Tinos 1.340, Noto Sans Arabic 2.012,
+Noto Sans Devanagari 2.007, Noto Sans Hebrew 3.001 and Noto Emoji 3.002 use
+**SIL Open Font License 1.1**. Arimo includes real upright/italic variable faces;
+Tinos includes four real static styles. Noto Emoji supplies monochrome outlines,
+not a color-emoji renderer. CJK coverage is not bundled. Each exact file's source
+revision, byte count and SHA-256 is in
+[`fonts/manifest.json`](../crates/office-layout/fonts/manifest.json), alongside
+the full family-specific notices.
+
+Licensing was checked independently against official pinned
+[Arimo](https://github.com/googlefonts/Arimo/blob/4a6255f269916ae7ad3fc2706b0935e7621396b8/OFL.txt),
+[Tinos](https://github.com/googlefonts/tinos/blob/3b4482a99b80ea5fc75f187b1be3120a3f5905b3/OFL.txt)
+and [Noto](https://github.com/google/fonts/tree/29b4ec6df2522a8aee279414b78a07910b065874/ofl)
+notices. Bundling/embedding requires retaining the copyright and complete font
+license texts, including in production browser assets when fonts are embedded in
+WASM. Fonts remain OFL-licensed; that requirement does not relicense the engine
+or documents produced with them. No separate Reserved Font Name declaration was
+found after the copyright in these selected notices. Future modification,
+subsetting or conversion needs its own review. The project's license stays
+undecided.
 
 ## Frontend development dependencies
 

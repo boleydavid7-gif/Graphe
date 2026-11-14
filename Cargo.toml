@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/office-core", "crates/office-wasm", "crates/office-docx"]
+members = ["crates/office-core", "crates/office-wasm", "crates/office-docx", "crates/office-layout"]
 resolver = "3"
 
 [workspace.package]
@@ -16,6 +16,9 @@ unicode-segmentation = "1.13.3"
 zip = { version = "=9.5.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 quick-xml = { version = "=0.42.0", default-features = false }
 roxmltree = { version = "=0.21.2", default-features = false, features = ["std"] }
+parley = { version = "=0.13.0", default-features = false, features = ["libm"] }
+skrifa = { version = "=0.49.0", default-features = false, features = ["libm"] }
+libm = "=0.2.16"
 
 [workspace.lints.rust]
 warnings = "deny"

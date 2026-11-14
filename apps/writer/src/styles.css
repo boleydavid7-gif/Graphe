@@ -59,6 +59,29 @@ button.primary-button:hover:not(:disabled) { background: #67431b; }
 .status-bar { display: flex; align-items: center; gap: 20px; justify-content: space-between; min-height: 31px; padding: 7px 24px; border-top: 1px solid #d4cec2; background: #f6f3ed; color: #6a6357; font-size: 10px; }
 .status-message { flex: 1; text-align: center; }
 .privacy-badge { letter-spacing: .2px; white-space: nowrap; }
+.font-licenses { color: inherit; white-space: nowrap; text-underline-offset: 2px; }
+.layout-preview { max-width: 100%; min-width: 0; outline: none; }
+.layout-preview:focus-visible { outline: 2px solid #906229; outline-offset: 5px; }
+.layout-preview-controls { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; max-width: 1000px; margin: 0 auto 18px; color: #595043; }
+.layout-preview-controls > div { flex: 1; min-width: 180px; }
+.layout-preview-controls h1 { margin: 0 0 5px; font-size: 16px; font-weight: 600; }
+.layout-preview-controls p { margin: 0; font-size: 12px; line-height: 1.5; }
+.layout-preview-controls label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.layout-preview-controls select { border: 1px solid #d6d0c5; border-radius: 3px; background: #fffefa; padding: 5px; font-size: 12px; }
+.layout-preview-controls button, .layout-preview-error button { border-color: #c8bcaa; background: #faf8f3; }
+.layout-preview-message, .layout-page-count { text-align: center; color: #6a6357; font-size: 12px; }
+.layout-preview-error { max-width: 700px; margin: 24px auto; padding: 12px 16px; border-left: 3px solid #a54b31; background: #fff0e9; color: #7b3021; font-size: 13px; }
+.layout-notices { max-width: 1000px; margin: 0 auto 20px; color: #665a47; font-size: 12px; }
+.layout-notices summary { cursor: pointer; padding: 5px 0; }
+.layout-notices ul { padding-left: 22px; line-height: 1.6; }
+.layout-glyph-definitions { position: absolute; overflow: hidden; }
+.layout-preview-scroll { max-width: 100%; overflow-x: auto; }
+.layout-preview-pages { display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 4px 0 12px; }
+.layout-preview-pages.actual-size { width: max-content; min-width: 100%; }
+.layout-page-figure { flex: none; margin: 0; }
+.layout-page-paper { background: #fff; outline: 1px solid #d9d3c9; box-shadow: 0 2px 5px #352a1712, 0 10px 25px #352a1709; }
+.layout-page-paper > svg { display: block; overflow: hidden; }
+.layout-page-figure figcaption { text-align: center; margin-top: 10px; font-size: 11px; color: #776c5d; }
 .startup-message, .closed-document { margin: 70px auto; max-width: 440px; line-height: 1.7; text-align: center; }
 .closed-document h1, .startup-message h1 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; color: #54442f; }
 .closed-document p, .startup-message p { font-size: 14px; color: #6a6357; }

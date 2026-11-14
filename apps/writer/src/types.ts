@@ -80,6 +80,7 @@ export type WriterCommand =
       readonly affinity?: 'leading' | 'trailing'; readonly expectedRevision?: string }
   | ({ readonly type: 'replace_text'; readonly text: string } & EditOrigin)
   | ({ readonly type: 'insert_paragraph' } & EditOrigin)
+  | ({ readonly type: 'insert_line_break' } & EditOrigin)
   | ({ readonly type: 'delete'; readonly direction: 'backward' | 'forward' } & EditOrigin)
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
@@ -106,3 +107,129 @@ export interface CompatibilityReport {
 export type EngineResponse =
   | { readonly ok: true; readonly view: WriterView }
   | { readonly ok: false; readonly error: EngineFailure };
+
+/** Physical dimensions and margins use native integer twips (1/20 point). */
+export interface LayoutOptions {
+  readonly pageSize?: {
+    readonly width: number;
+    readonly height: number;
+    readonly orientation?: 'portrait' | 'landscape' | null;
+  };
+  readonly pageMargins?: {
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+    readonly left: number;
+    readonly header: number;
+    readonly footer: number;
+    readonly gutter: number;
+  };
+  readonly fontFamily?: string;
+  /** Font size uses native half-points: 24 means 12 points. */
+  readonly fontSize?: number;
+  readonly lineSpacing?:
+    | { readonly kind: 'multiple'; readonly value: number }
+    | { readonly kind: 'exact' | 'at_least'; readonly height: number };
+  readonly spacingAfter?: number;
+}
+
+/** Every geometry number is a signed fixed unit of 1/64 point, not CSS pixels. */
+export interface LayoutRect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface LayoutTextRange {
+  readonly startUtf8: number;
+  readonly endUtf8: number;
+  readonly startUtf16: number;
+  readonly endUtf16: number;
+  readonly startGrapheme: number;
+  readonly endGrapheme: number;
+}
+
+export interface LayoutGlyph {
+  readonly outlineId: number;
+  readonly x: number;
+  readonly y: number;
+  readonly fontSize: number;
+  /** Rust-computed SVG transform; the browser must not reshape the glyph. */
+  readonly transform: string;
+  readonly color: string;
+}
+
+export interface LayoutGlyphOutline {
+  readonly id: number;
+  readonly fontId: string;
+  readonly glyphId: number;
+  readonly unitsPerEm: number;
+  /** Trusted typed font outlines serialized by Rust, never raw embedded SVG. */
+  readonly path: string;
+}
+
+export interface LayoutCaret {
+  readonly utf8: number;
+  readonly utf16: number;
+  readonly grapheme: number;
+  readonly x: number;
+  readonly y: number;
+  readonly height: number;
+  readonly affinity: 'leading' | 'trailing';
+}
+
+export interface LayoutDecoration {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly thickness: number;
+  readonly color: string;
+}
+
+export interface LayoutLine {
+  readonly paragraphId: string;
+  readonly lineIndex: number;
+  readonly text: string;
+  readonly textRange: LayoutTextRange;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly baseline: number;
+  readonly glyphs: readonly LayoutGlyph[];
+  readonly carets: readonly LayoutCaret[];
+  readonly decorations: readonly LayoutDecoration[];
+}
+
+export interface LayoutPage {
+  readonly number: number;
+  readonly sectionId: string;
+  readonly width: number;
+  readonly height: number;
+  readonly contentRect: LayoutRect;
+  readonly lines: readonly LayoutLine[];
+}
+
+export interface LayoutDiagnostic {
+  readonly kind: string;
+  readonly message: string;
+  readonly paragraphId?: string | null;
+}
+
+export interface DocumentLayout {
+  readonly documentId: string;
+  readonly fontCatalogId: string;
+  readonly unitsPerPoint: 64;
+  readonly pages: readonly LayoutPage[];
+  readonly outlines: readonly LayoutGlyphOutline[];
+  readonly diagnostics: readonly LayoutDiagnostic[];
+}
+
+/** Geometry is tied to a live Rust session and opaque document revision. */
+export interface LayoutView {
+  readonly sessionId: string;
+  readonly revision: string;
+  readonly documentId: string;
+  readonly layout: DocumentLayout;
+}

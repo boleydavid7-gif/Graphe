@@ -1,0 +1,6 @@
+{
+  "input": "layout-v1.writer",
+  "options": {},
+  "sha256": "7741b146df0ad6128c653190af74ccad0daa8efad249200a82d7c0b9c03b0236",
+  "producer": "cargo run --offline --locked --quiet -p office-layout --example layout_snapshot -- tests/fixtures/layout/layout-v1.writer"
+}

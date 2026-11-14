@@ -8,8 +8,9 @@ transactions, Unicode-safe text and formatting operations, and bounded undo/redo
 Native Writer persistence now separates byte serialization from filesystem
 storage. Step 4.5 adds a Rust/WebAssembly session boundary and a semantic browser
 prototype. The Step 5 conversion branch adds declared DOCX semantic conversion
-and original-preserving native files. Professional layout and platform-independent
-rendering remain future subsystems; Step 6 is paused pending DOCX completion.
+and original-preserving native files. The Step 6 review branch adds independent
+Rust typography and page layout plus an outline-based browser page preview. Both
+changes remain unmerged; advanced page-based editing is subsequent work.
 
 ## Independent engine
 
@@ -29,10 +30,11 @@ change that model. Layout determines the placement of content, and rendering
 draws the resulting layout. These responsibilities should have clear boundaries
 so that display or editing choices do not define the document's meaning.
 
-Document layout must eventually be platform-independent. Typography, font
-handling, measurement, and pagination will require explicit policies and
-verification so that host-specific behavior does not silently determine results.
-The detailed interfaces and algorithms remain future decisions.
+Document layout uses explicit policies so host-specific behavior does not silently
+determine results. `office-layout` owns font selection, shaping, measurement,
+paragraph flow and pagination. It uses a pinned catalog rather than discovering
+system fonts. Its transient output is independent of the native document format,
+DOCX adapter and React. Detailed policies and limits are in [LAYOUT.md](LAYOUT.md).
 
 ## Compatibility as a primary requirement
 
@@ -825,7 +827,53 @@ No ODT, RTF, TXT, Markdown, HTML or other-format implementation is part of Step 
 See [DOCX.md](DOCX.md) and [DOCX_CONVERSION.md](DOCX_CONVERSION.md) for precise
 profile limits and [DOCX_CONVERSION_VERIFICATION.md](DOCX_CONVERSION_VERIFICATION.md)
 for executed checks. Preliminary Step 6 library/probe research is recorded in
-RESEARCH; no typography engine or font asset is part of this conversion branch.
+RESEARCH; no typography engine or font asset is part of the conversion branch.
+
+## Typography and page geometry (Step 6 review branch)
+
+`office-layout` is now a separate responsibility: a deterministic derivation of
+the existing generic document, not a new document model or file-format adapter.
+Its Parley/HarfRust/Skrifa stack uses explicitly registered, pinned fonts without
+host discovery. The same crate builds for native Rust and WebAssembly. Font
+notices and provenance are committed and redistributed in the browser build.
+
+`LayoutEngine::layout_document` validates the layout profile, resolves the
+existing named-style/direct-format cascade, shapes and wraps mixed runs, and
+places lines on section pages. The shared Rust cascade also serves the old
+browser view, avoiding a second inheritance implementation. Letter, A4 and
+custom geometry retain physical width/height independent of orientation. Lines
+can continue across pages. Sections begin new pages because the model has no
+supported continuous/odd/even section-break property.
+
+Transient `DocumentLayout` contains fixed 1/64-point page/line/caret geometry,
+stable source IDs, core grapheme plus UTF-8/UTF-16 mappings, shared unhinted glyph
+outline definitions, Rust-computed glyph transforms, underline rectangles and
+bounded diagnostics. Font sizes, variable locations, kerning and glyph IDs
+remain shaping concerns; source character counts are never used as glyph widths.
+See [LAYOUT.md](LAYOUT.md) for rounding, default spacing, control handling,
+resource limits and compatibility restrictions.
+
+The WASM `layout_snapshot` request is separate from ordinary editor snapshots.
+It accepts strict options and an expected revision, then returns session ID,
+document ID, revision and layout. Fonts initialize lazily; one normalized
+options/revision result is cached outside document/history. New/Open/Import
+invalidate the cached geometry. Errors retain document, selection and history.
+
+React's read-only Page preview renders the supplied SVG paths and transforms;
+it performs unit/display scaling but does not choose fonts, measure text, wrap
+or paginate. The semantic input surface remains mounted when hidden, preserving
+Rust selection and the existing editing path. Shift+Enter now inserts a logical
+LF through an atomic Rust edit rather than creating another paragraph. A
+terminal presentation break is DOM-only and contributes no source text/offsets.
+
+The current input surface still uses browser CSS for editing presentation.
+Replacing it with a fully positioned, accessible editing surface is Step 7;
+the preview does not establish that capability or Microsoft Word pagination.
+Tab stops, CJK coverage, color emoji, hyphenation, widow/orphan control, floating
+objects and advanced pagination remain explicit limitations. In particular,
+unspecified imported DOCX spacing still receives independent Writer defaults;
+future source-aware default materialization belongs to the DOCX adapter, never
+a DOCX special case in `office-layout`. Exact original preservation is unchanged.
 
 Correctness, performance, compatibility, maintainability, and architectural
 stability guide development. Changes should keep responsibilities explicit and
