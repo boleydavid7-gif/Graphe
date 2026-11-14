@@ -59,16 +59,23 @@ See [the DOCX profile](docs/DOCX.md), [conversion contract](docs/DOCX_CONVERSION
 and [conversion verification](docs/DOCX_CONVERSION_VERIFICATION.md). This branch
 has not been merged or deployed.
 
-Step 6 is paused while the missing DOCX conversion is completed. Preliminary
-typography research is retained, but no layout engine, font assets or typography
-dependencies have been added. Browser CSS presentation does not provide Word
-pagination or platform-independent layout.
+Step 6 continues on `dev/typography-layout-engine`, based on the DOCX prerequisite
+in [PR #10](https://github.com/boleydavid7-gif/stuff/pull/10). The independent
+`office-layout` crate computes typography and page layout in Rust using a pinned
+font catalog. A read-only browser page preview draws Rust-generated glyph paths
+and geometry. The existing semantic editor remains available; its CSS wrapping
+does not define engine pagination. See [the layout contract](docs/LAYOUT.md),
+[verification](docs/LAYOUT_VERIFICATION.md) and
+[actual page preview](docs/images/writer-layout-desktop.png).
+Neither review branch is merged or deployed by this work.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
 unicode-segmentation library supplies Unicode grapheme boundaries. Native storage
 uses the low-level tempfile library for unique temporary files, cleanup, and
 portable replacement. Additional libraries may be introduced when needed.
+Typography uses the low-level Parley/HarfRust/Skrifa stack. Bundled fonts have
+their own OFL notices and provenance; they do not decide the project's license.
 
 ## Technology
 
@@ -154,6 +161,12 @@ inspect production output manually, run:
 npm run preview -- --port 4173 --strictPort
 ```
 
+After a release build, `node scripts/measure-layout.mjs` measures actual WASM
+layout/serialization and cache-copy costs on bounded generated documents. It is
+a development measurement, not a hardware-dependent CI speed threshold or a
+typing/paint latency test. Layout output limits are documented in
+[LAYOUT.md](docs/LAYOUT.md).
+
 The build output is `apps/writer/dist`. Producing or previewing it does not publish
 a site or establish private-hosting access controls. CI defines engine checks on
 Linux, Windows, and macOS plus frontend checks and production-browser integration.
@@ -167,6 +180,11 @@ underline, font family, font size, paragraph alignment, and Rust undo/redo. The
 formatting controls reflect mixed selections. Collapsed character formatting
 sets Rust-owned typing properties rather than inserting an empty formatting run.
 Browser font availability and CSS presentation do not provide Word pagination.
+Use **Page preview** to inspect the Rust layout. Preview text is rendered from
+engine-provided outlines, including fallback fonts, without browser shaping or
+measurement. Choose **Return to editing** to change content. The preview is read-only;
+page-based editing and advanced visual navigation are later work. Layout failures
+or missing-glyph diagnostics do not alter or discard the document.
 
 New, Open, Save, Close, and native import/export are explicit actions. Save writes
 the exact `.writer` bytes produced by Rust to IndexedDB on this browser/device.
@@ -223,7 +241,7 @@ During IME composition, browser DOM is a transient buffer; Rust commits the fina
 replacement once. Synthetic browser tests do not certify every operating-system
 IME, candidate window, dictation system, or assistive technology. Keyboard and
 semantic checks do not constitute accessibility certification. There is no
-autosave, cloud service, synchronization, or custom page layout. DOCX conversion
+autosave, cloud service, synchronization, or page-based editing. DOCX conversion
 supports the bounded profile documented below; it does not render every Word feature.
 
 The engineering rules in [AGENTS.md](AGENTS.md), primary-source research and

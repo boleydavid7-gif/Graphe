@@ -51,12 +51,16 @@ each milestone is implemented.
    See [DOCX.md](DOCX.md), [the conversion contract](DOCX_CONVERSION.md) and
    [actual verification](DOCX_CONVERSION_VERIFICATION.md). This conversion work
    has not been merged or deployed.
-6. **Typography and layout — paused by the owner pending DOCX completion.**
-   Develop text measurement, line layout and pagination toward platform-independent
-   layout after the prerequisite is verified. Preparatory library research and
-   isolated probes are recorded in RESEARCH; no engine, fonts or typography
-   dependencies have been added. This conversion branch contains no shaping or
-   layout implementation; Step 6 follows this prerequisite.
+6. **Typography and layout — implementation on the Step 6 review branch.**
+   After the DOCX prerequisite passed its checks, `dev/typography-layout-engine`
+   adds a separate Rust layout crate with pinned fonts, shaping, Unicode line
+   breaking/bidi, paragraph geometry and pagination. A revision-bound WASM API
+   supplies glyph outlines and geometry to a read-only page preview. The existing
+   semantic editor remains available. Neither branch is merged or deployed;
+   [LAYOUT.md](LAYOUT.md) documents the independent layout profile and remaining
+   Word-compatibility limits. [Actual verification](LAYOUT_VERIFICATION.md)
+   records 399 Rust, 25 compiled-WASM and 41 real-browser tests passing locally,
+   plus builds and linting; final remote CI results belong to the PR checks.
 7. **Rendering and browser integration beyond the prototype.** Extend the
    Step 4.5 WebAssembly/React baseline with rendering of laid-out documents and
    the acceptance criteria needed for professional browser integration.

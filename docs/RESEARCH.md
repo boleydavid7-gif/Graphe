@@ -304,6 +304,125 @@ Primary sources: [Parley 0.13](https://github.com/linebender/parley/tree/v0.13.0
 [Rustybuzz advisory](https://rustsec.org/advisories/RUSTSEC-2026-0206.html),
 [ttf-parser advisory](https://rustsec.org/advisories/RUSTSEC-2026-0192.html).
 
+## Step 6 — authoritative typography and page geometry
+
+After the DOCX prerequisite in PR #10, Step 6 resumed on
+`dev/typography-layout-engine` from `db975fb`. The following review precedes the
+new layout subsystem. It supersedes the earlier candidate-only status; actual
+execution results belong in the milestone verification record.
+
+| Question and primary evidence | Accepted strategy and limits |
+| --- | --- |
+| Shaping, metrics and glyphs: [Parley 0.13](https://github.com/linebender/parley/tree/32a137efbb228ad0b1c6a46b979dfb55d4584eae), [HarfRust 0.15](https://github.com/harfbuzz/harfrust/tree/71d965130ea93905f81b8f03a03d7ecc794fbc47), [Skrifa 0.49](https://github.com/googlefonts/fontations/tree/47a301615fd95acf0da9fb7dbcd0ea7c7df36943/skrifa), [OpenType processing](https://learn.microsoft.com/en-us/typography/opentype/spec/ttochap1) | Reuse maintained low-level shaping/layout and font-reading libraries in `office-layout`. Resolve styles before shaping; retain actual glyph advances, offsets, selected faces and variations. Characters, glyphs, runs and cursor graphemes are distinct. Font synthesis requires an explicit implementation or diagnostic. |
+| Established alternatives: [COSMIC Text 0.19 manifest](https://github.com/pop-os/cosmic-text/blob/main/Cargo.toml), [LibreOffice frames](https://docs.libreoffice.org/sw/html/classSwTextFrame.html), [Knuth–Plass, 1981](https://doi.org/10.1002/spe.4380111102) | COSMIC Text is a credible maintained alternative and now uses HarfRust; its buffer/editor, discovery and raster stack adds overlap with our existing boundaries. Direct HarfRust would leave substantially more layout/fallback work. Parley fits positioned glyphs and custom page geometry. Begin with incremental line fitting and page flow; paragraph-wide optimization, hyphenation and mature Office pagination are later work. No complete editor/Office engine is embedded. |
+| Unicode boundaries: [UAX #9](https://www.unicode.org/reports/tr9/tr9-52.html), [UAX #14](https://www.unicode.org/reports/tr14/tr14-57.html), [UAX #29](https://www.unicode.org/reports/tr29/tr29-49.html), [ICU4X 2.3 segmenter](https://github.com/unicode-org/icu4x/blob/a14f2dad852be26bad277ae704abf27a15cbfed1/components/segmenter/README.md) | The current standards are Unicode 18; core positions deliberately retain Unicode 17. ICU4X 2.3 graphemes also use 17, while default line-break constructors used by Parley use 15.1. Record these versions instead of claiming latest-Unicode conformance. Map geometry to core paragraph IDs and explicit byte/grapheme/UTF-16 boundaries. Bidi visual order never rewrites logical text. Dictionary-based breaking needs a deliberate feature choice. |
+| Paragraph/line spacing: [OOXML spacing](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.spacingbetweenlines?view=openxml-3.0.1), [line measurements](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.spacingbetweenlines.line?view=openxml-3.0.1) | Adjacent before/after space uses a maximum, not their sum. Exact height stays fixed; minimum height expands for natural metrics. Keep ink bounds separate from advance/line boxes. Auto spacing uses the stored 1/240-line multiplier. The initial baseline/default policy is explicit; these rules do not establish Word pagination parity. Contextual spacing and compatibility settings remain outside the imported profile. |
+| Cross-target geometry: [WebAssembly numerics](https://webassembly.github.io/spec/core/exec/numerics.html), pinned library feature manifests | Disable host-font discovery and platform math features; use the same font bytes and `libm` path on native/WASM. Preserve model twips/half-points and convert only at the layout boundary. Publish checked integer 1/64-point geometry, rounding nearest with ties away from zero; outline coordinates use 0.001 font units and transform scales nine decimals. Reject nonfinite/excessive values and compare actual native/WASM results. Arithmetic choices alone do not prove universal determinism. |
+| Browser display: [SVG paths](https://www.w3.org/TR/SVG2/paths.html), [CSS Text](https://www.w3.org/TR/2026/CRD-css-text-3-20260814/) | Rust supplies positioned glyph outlines; React paints paths rather than asking browser text APIs to reshape, wrap or paginate. Geometry can agree while raster antialiasing differs. A read-only page preview verifies this boundary; replacing the editable surface requires later selection, IME and accessibility work. |
+
+### Retrospective findings and correctness gates
+
+Reviewed Steps 1–5: model/schema migration, IDs and paragraph-wide coordinates,
+atomic transactions/history, source-preserving native/DOCX conversion, Rust view
+inheritance, and current browser rendering/input. No new critical defect in
+those foundations was confirmed by this review. The following risks must be
+handled in the new layout implementation, with regression coverage:
+
+- **Critical gates:** layout cannot mutate documents, normalize Unicode, discard
+  source bytes, reuse stale geometry for edits, or publish partial results after
+  a resource/measurement failure. Layout state stays outside files and history.
+  Ligatures, combining sequences across runs, emoji and bidi need explicit
+  mappings to existing cursor boundaries rather than glyph-count offsets.
+- **Important:** resolve inherited character/paragraph fields, including
+  individual indentation components and page-break-before. The browser's
+  `AtLeast` projection as fixed CSS height and `overflow-wrap:anywhere` do not
+  define engine layout. Extreme values can be valid model data but exceed this
+  layout profile; return structured errors without clamping the model.
+- **Important:** a literal LF inside a run remains a soft break in the same
+  paragraph and retains its offset. Tabs, CR and other controls need explicit
+  layout policies; do not reuse the browser paste normalization as a layout
+  transformation. Physical left/right alignment is distinct from bidi direction.
+- **Important compatibility limit:** Writer's unspecified layout defaults are
+  1.5 lines and 8 pt after a paragraph. OOXML's documented fallback when spacing
+  is absent throughout the style hierarchy adds no before/after spacing. No
+  explicit property is discarded and the original remains retained, but these
+  defaults are not Word-equivalent. Before claiming that parity, the DOCX adapter
+  should deliberately materialize its known source defaults, with regression
+  tests and a review of empty/style semantics. Layout must not acquire a DOCX
+  special case, and this milestone does not retroactively change PR #10.
+- **Important:** pinned fallback and missing-glyph diagnostics must remain
+  observable without replacing stored font names. The catalog is finite; CJK,
+  color emoji and all script/style combinations are not implied by Unicode text
+  storage or successful shaping of a few sample strings.
+- **Important for Step 7:** caret candidates describe logical-neighbor edges.
+  After a mandatory soft break, leading/downstream affinity belongs on the next
+  line; a preceding-neighbor edge may also appear on the prior line. These are
+  valid core offsets, not a completed keyboard-navigation or hit-test policy.
+  Resolve mandatory-break affinity before using candidates as edit destinations.
+- **Optional later work:** broader Unicode/Office corpora, optimal line breaking,
+  hyphenation, widow/orphan/keep rules, advanced sections and incremental
+  invalidation beyond measured needs. No speculative model rewrite or new
+  format adapter is needed for this milestone.
+
+The accepted font catalog uses unmodified Arimo, Tinos, Noto Sans Arabic,
+Devanagari, Hebrew and monochrome Noto Emoji. Official notices at pinned
+revisions permit embedding/bundling under OFL 1.1 with their copyright/license
+texts retained. No separate Reserved Font Name declaration appears in the
+selected notices; modifications/subsetting still need a fresh license review.
+Production assets must expose notices for fonts embedded in WASM. Provenance,
+versions and SHA-256 values are recorded in the catalog manifest; proprietary
+fonts and host discovery are excluded. See [DEPENDENCIES.md](DEPENDENCIES.md).
+
+Research evidence includes the earlier four isolated native probes and WASM
+compile, installed exact-version sources/manifests, official standards and
+upstream implementation/conformance notes. Direct docs.rs requests were
+unavailable through the web tool; pinned upstream sources and installed registry
+sources were inspected instead. HarfRust documents remaining Arabic fallback
+shaping failures with fonts lacking required OpenType substitutions. We have
+not run its complete upstream conformance suite. Native/browser parity,
+accessibility and performance claims must cite executed project tests rather
+than these research probes. No Microsoft Word pagination comparison is implied.
+
+### Step 6 implementation review corrections
+
+Independent integration review confirmed and corrected two new correctness
+defects: a valid hanging indent made the first line wider than Parley's declared
+overall maximum and caused a panic; the maximum now covers every per-line width
+without clamping the indent. Font underline offsets also needed their upward
+font coordinates converted to downward page coordinates; underlines now appear
+below the baseline for both bundled Latin families. Both have regression tests.
+
+The bounded profile explicitly rejects tabs until tab stops are implemented,
+unsupported control characters, excessive model measurements and positive line
+heights below output resolution. CR/LF/CRLF remain source-preserving soft breaks.
+Exact-height boxes keep their requested advance and report ink overflow rather
+than implementing Word's undersized-line clipping. Minimum height can expand.
+Suppressed spacing at page boundaries is diagnosed. Synthetic italic is explicit;
+unavailable genuine weight and missing glyphs remain diagnosed limitations.
+Outline keys include the actual pinned face and normalized variation coordinates;
+font-unit outlines can be shared across sizes without confusing regular/bold
+variants. Underline thickness has an explicit minimum of one output unit.
+Diagnostics retain at most 127 unique findings plus a truncation marker so a
+bounded warning list cannot silently appear complete.
+
+`cargo test --offline -p office-layout --test layout_audit -- --nocapture` passed
+all ten independent regressions after those fixes. They exercise variation/face
+outline caching, different font sizes, cross-run graphemes, bidi affinities,
+trailing soft breaks, mandatory-break downstream affinity, negative indents,
+paragraph spacing, page continuation,
+section geometry, resource/control failures and native original-source reopen.
+This targeted result does not stand in for the final native/WASM/browser checks.
+
+Real-browser review then found two preview focus races: deferred editor focus
+could lose immediate typing on return, and revision-keyed preview focus could
+steal title input during typing. Focus now changes only on explicit preview mode
+transitions through a React layout effect. Regressions use immediate keyboard
+input and delayed per-character title typing; they do not mask the races by
+waiting for the old deferred callback. Shift+Enter now uses the existing Rust
+transaction model to store a soft LF; DOM-only terminal break markers preserve
+its exact text and offsets. See [the final verification](LAYOUT_VERIFICATION.md)
+for executed full-suite results, native/WASM parity and measured costs.
+
 [input]: https://www.w3.org/TR/input-events-2/
 [beforeinput]: https://developer.mozilla.org/en-US/docs/Web/API/Element/beforeinput_event
 [editcontext]: https://developer.mozilla.org/en-US/docs/Web/API/EditContext

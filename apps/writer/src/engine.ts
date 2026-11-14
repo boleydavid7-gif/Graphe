@@ -1,6 +1,9 @@
 import initialize, { WriterEngine } from './wasm/office_wasm.js';
 import wasmUrl from './wasm/office_wasm_bg.wasm?url';
-import type { CompatibilityReport, EngineFailure, EngineResponse, WriterCommand, WriterView } from './types';
+import type {
+  CompatibilityReport, EngineFailure, EngineResponse, LayoutOptions, LayoutView,
+  WriterCommand, WriterView,
+} from './types';
 
 let initialization: Promise<unknown> | undefined;
 
@@ -53,6 +56,25 @@ export class EngineClient {
   }
 
   get view(): WriterView { return this.current; }
+
+  /** Read-only Rust typography/page geometry for this exact document revision. */
+  layout(options: LayoutOptions = {}): LayoutView {
+    try {
+      const result = JSON.parse(this.handle.layout_snapshot(
+        JSON.stringify(options), this.current.revision,
+      )) as LayoutView;
+      if (result.sessionId !== this.current.sessionId
+          || result.revision !== this.current.revision
+          || result.documentId !== this.current.documentId
+          || result.layout.documentId !== this.current.documentId) {
+        throw new EngineError({
+          code: 'stale_layout',
+          message: 'The computed layout no longer identifies the active document.',
+        });
+      }
+      return result;
+    } catch (error) { throw failure(error); }
+  }
 
   command(command: WriterCommand): WriterView {
     const guarded = command.type === 'new_document' || command.type === 'fork_document'

@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 office-core = { path = "../office-core" }
 office-docx = { path = "../office-docx" }
+office-layout = { path = "../office-layout" }
 serde.workspace = true
 serde_json.workspace = true
 unicode-segmentation.workspace = true

@@ -37,6 +37,14 @@ jobs:
       - name: Build workspace
         run: cargo build --workspace
 
+      - name: Install Node.js for native layout fingerprint verification
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+
+      - name: Verify native layout matches the shared geometry and outline golden
+        run: node apps/writer/tests/layout-check-native.mjs
+
   writer:
     name: Writer browser integration
     runs-on: ubuntu-latest
@@ -57,9 +65,9 @@ jobs:
       - name: Install stable Rust and WebAssembly target
         run: rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
 
-      - name: Check DOCX byte adapter on WebAssembly
+      - name: Check engine, adapters and layout on WebAssembly
         working-directory: .
-        run: cargo check --locked -p office-docx --target wasm32-unknown-unknown
+        run: cargo check --locked --workspace --target wasm32-unknown-unknown
 
       - name: Install matching WebAssembly bindings CLI
         run: cargo install wasm-bindgen-cli --version 0.2.130 --locked

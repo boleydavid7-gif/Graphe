@@ -46,9 +46,10 @@ and explicit approvals govern the task's scope.
 - Use Rust's pinned grapheme rules and explicit UTF-8/UTF-16 conversions. Do not
   substitute JavaScript string length or a different segmenter for engine offsets.
 - Keep unsaved Rust state intact on input, import, or storage failure.
-- Complete the missing Step 5 DOCX conversion on `dev/docx-conversion` before
-  resuming Step 6, as explicitly directed by the owner. Typography research is
-  retained; no layout engine or font dependency belongs to this conversion work.
+- The missing Step 5 DOCX conversion is isolated in PR #10 on
+  `dev/docx-conversion`. Step 6 continues on `dev/typography-layout-engine`, based
+  on that prerequisite. Keep both changes reviewable; do not merge either branch
+  or deploy without approval.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -63,6 +64,15 @@ and explicit approvals govern the task's scope.
 - Other formats, merges and deployments require separate authorization. Step 6
   remains requested, with DOCX completion as its prerequisite. Do not infer Word
   fidelity from self-roundtrips or library probes.
+- Rust owns font resolution, shaping, line breaking and pagination. Browser
+  layout previews render Rust-provided glyph paths and geometry; do not use
+  browser text measurement or CSS wrapping as a second layout engine.
+- Deterministic layout requires the documented font catalog and versioned
+  layout profile. Do not discover host fonts implicitly. Preserve font licenses
+  in source distributions and production browser assets.
+- Layout limits must return structured errors without mutating the document.
+  Keep layout snapshots and caches outside persisted documents and undo history;
+  reject stale revision snapshots at the browser boundary.
 
 ## Required engine checks
 

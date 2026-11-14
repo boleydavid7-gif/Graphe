@@ -1,0 +1,66 @@
+{
+  "format": "office-writer",
+  "format_version": 2,
+  "document": {
+    "schema_version": 2,
+    "id": "layout-reference-document",
+    "metadata": { "title": "Typography reference" },
+    "styles": [
+      {
+        "id": "layout-body-style", "name": "Body", "based_on": null,
+        "paragraph_format": { "spacing_after": 120, "line_spacing": { "kind": "multiple", "value": 276 } },
+        "character_format": { "font_family": "Arimo", "font_size": 24, "color": { "kind": "rgb", "red": 36, "green": 33, "blue": 29 } }
+      },
+      {
+        "id": "layout-heading-style", "name": "Heading", "based_on": "layout-body-style",
+        "paragraph_format": { "spacing_after": 160 },
+        "character_format": { "bold": true, "font_size": 32 }
+      }
+    ],
+    "sections": [
+      {
+        "id": "layout-custom-section",
+        "properties": {
+          "page_size": { "width": 6000, "height": 4500, "orientation": "landscape" },
+          "page_margins": { "top": 400, "right": 400, "bottom": 400, "left": 400, "header": 0, "footer": 0, "gutter": 0 }
+        },
+        "blocks": [
+          { "kind": "paragraph", "content": {
+            "id": "layout-reference-heading", "style": "layout-heading-style", "format": {},
+            "runs": [{ "text": "AV office — typography", "format": {} }]
+          } },
+          { "kind": "paragraph", "content": {
+            "id": "layout-reference-unicode", "style": "layout-body-style", "format": {},
+            "runs": [
+              { "text": "Café ", "format": {} },
+              { "text": "mixed", "format": { "bold": true, "italic": true, "underline": "double", "font_size": 28, "color": { "kind": "rgb", "red": 17, "green": 34, "blue": 51 } } },
+              { "text": " 👩🏽‍💻 العربية नमस्ते שלום", "format": {} }
+            ]
+          } },
+          { "kind": "paragraph", "content": {
+            "id": "layout-reference-wrapping", "style": "layout-body-style",
+            "format": { "alignment": "justify", "indentation": { "left": 240, "right": 240, "first_line": 180 } },
+            "runs": [{ "text": "Document layout uses shaped advances and explicit font data. The same paragraph continues across pages while retaining stable document positions. This fixture checks wrapping, justified alignment, indentation, mixed formatting, Unicode scripts, and page geometry. Reopening a saved document must retain identical measurements. Document layout uses shaped advances and explicit font data. The same paragraph continues across pages while retaining stable document positions. This fixture checks wrapping, justified alignment, indentation, mixed formatting, Unicode scripts, and page geometry. Reopening a saved document must retain identical measurements.", "format": {} }]
+          } },
+          { "kind": "paragraph", "content": {
+            "id": "layout-reference-break", "style": "layout-body-style",
+            "format": { "page_break_before": true, "alignment": "center", "line_spacing": { "kind": "exact", "height": 360 } },
+            "runs": [{ "text": "Explicit page\nSoft line break", "format": {} }]
+          } }
+        ]
+      },
+      {
+        "id": "layout-a4-section",
+        "properties": {
+          "page_size": { "width": 11906, "height": 16838, "orientation": "portrait" },
+          "page_margins": { "top": 1080, "right": 1080, "bottom": 1080, "left": 1080, "header": 360, "footer": 360, "gutter": 0 }
+        },
+        "blocks": [{ "kind": "paragraph", "content": {
+          "id": "layout-reference-a4", "style": "layout-body-style",
+          "format": { "alignment": "right", "spacing_before": 240, "indentation": { "left": 360, "first_line": -180 } },
+          "runs": [{ "text": "A4 section — preserved geometry", "format": {} }]
+        } }]
+      }
+    ]
+  }
+}

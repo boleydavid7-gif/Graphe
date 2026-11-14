@@ -1,0 +1,19 @@
+[package]
+name = "office-layout"
+description = "Deterministic pinned-font typography and paginated Writer layout"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+office-core = { path = "../office-core" }
+serde.workspace = true
+parley.workspace = true
+skrifa.workspace = true
+libm.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

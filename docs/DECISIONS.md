@@ -6,7 +6,7 @@ and consequences here.
 
 Entries retain their original milestone context. Decisions 031–033 supersede
 the earlier schema-1/native-format-1-only and conversion-pending statements;
-their historical reasons remain recorded.
+034–036 resume Step 6 after that prerequisite. Historical reasons remain recorded.
 
 ## 001: Use Rust and Cargo for the engine
 
@@ -689,3 +689,54 @@ intent are not universal round-trip guarantees; Microsoft Word interoperability
 and pagination remain unverified. No other format or typography implementation
 is added. The [profile](DOCX.md), [contract](DOCX_CONVERSION.md) and
 [verification](DOCX_CONVERSION_VERIFICATION.md) define the practical limits.
+
+## 034: Add a separate Rust typography and layout subsystem
+
+**Decision:** `office-layout` consumes validated format-neutral documents and
+produces immutable page, line, glyph and cursor geometry. Use pinned Parley,
+HarfRust and Skrifa rather than implementing specialized shaping algorithms.
+Core positions, editing transactions and validation remain authoritative.
+
+**Reason:** Typography now has a necessary, distinct responsibility. It must run
+on native and WebAssembly targets without depending on browser text metrics,
+React or DOCX structures. Existing editor/layout APIs do not justify a rewrite.
+
+**Consequences:** Derived geometry and caches stay outside documents, originals,
+native serialization and undo history. Unicode/glyph/position units stay explicit.
+The layout profile defines checked measurement limits, integer output rounding,
+line/paragraph spacing and page-flow policy. Unsupported sizes fail without
+clamping or changing valid model data. This is independent layout, not a claim
+of Microsoft Word pagination compatibility.
+
+## 035: Pin font bytes and make fallback observable
+
+**Decision:** Register a versioned, licensed font catalog explicitly; disable
+system/host font discovery. Use the same font files, variations and low-level
+math features on native/WASM. Keep substitutions and missing coverage visible in
+layout diagnostics while preserving requested model font families.
+
+**Reason:** Device-installed fonts and silent fallback make document geometry
+depend on the environment. A finite reviewed catalog provides reproducible
+inputs without bundling proprietary fonts or claiming universal coverage.
+
+**Consequences:** Catalog changes require provenance/hash, licensing and geometry
+regression review. Ship complete OFL notices with browser assets embedding font
+bytes; upstream font licenses do not choose this project's license. CJK, color
+emoji and unsupported synthetic styles retain explicit limitations. Cross-target
+agreement is tested with actual outputs, not inferred from successful compilation.
+
+## 036: Verify Rust layout through a read-only outline preview first
+
+**Decision:** Expose layout through a separate revision-bound WASM API. React
+draws Rust-provided glyph outlines and page geometry without reshaping or
+paginating text. Preserve the functioning semantic editor during Step 6.
+
+**Reason:** Rendering fixed outlines exercises the native/browser architecture
+without quietly introducing a second layout engine. A complete page-based
+editing surface has distinct caret, bidi navigation, IME and accessibility work.
+
+**Consequences:** Preview results are transient and stale revisions are rejected.
+The current contenteditable/CSS view remains a prototype editing projection.
+SVG raster edges can differ across browsers even when geometry matches. Step 7
+may build editing on tested layout mappings; no such redesign, merge, deployment
+or live access change is implied by this decision.

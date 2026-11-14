@@ -43,6 +43,10 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    InsertLineBreak {
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     Delete {
         direction: Direction,
         selection: Option<BrowserSelection>,
@@ -98,6 +102,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::InsertParagraph {
+                expected_revision, ..
+            }
+            | Self::InsertLineBreak {
                 expected_revision, ..
             }
             | Self::Delete {

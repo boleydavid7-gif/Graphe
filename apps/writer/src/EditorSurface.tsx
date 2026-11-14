@@ -116,13 +116,22 @@ class SurfaceController {
     range.collapse(true);
     let rect = range.getBoundingClientRect();
     if (!rect.height) {
-      // Empty paragraphs do not reliably expose collapsed-range rectangles.
-      // Use their first line, rather than scrolling the entire paragraph box.
       const paragraph = this.paragraphs.get(focus.paragraphId);
       if (!paragraph) return;
-      const bounds = paragraph.getBoundingClientRect();
-      const lineHeight = Number.parseFloat(getComputedStyle(paragraph).lineHeight) || 20;
-      rect = new DOMRect(bounds.left, bounds.top, 0, Math.min(bounds.height, lineHeight));
+      const terminal = paragraph.lastElementChild;
+      if (terminal instanceof HTMLBRElement && terminal.dataset.trailingSoftBreak === 'true'
+        && focus.utf16 === (paragraph.textContent?.length ?? 0)) {
+        // A collapsed range after terminal LF has no rect in Chromium. The
+        // presentation-only BR occupies that exact final input line.
+        rect = terminal.getBoundingClientRect();
+      }
+      if (!rect.height) {
+        // Empty paragraphs do not reliably expose collapsed-range rectangles.
+        // Use their first line, rather than scrolling the entire paragraph box.
+        const bounds = paragraph.getBoundingClientRect();
+        const lineHeight = Number.parseFloat(getComputedStyle(paragraph).lineHeight) || 20;
+        rect = new DOMRect(bounds.left, bounds.top, 0, Math.min(bounds.height, lineHeight));
+      }
     }
     const margin = 24;
     const top = rect.top < margin ? rect.top - margin
@@ -176,7 +185,14 @@ class SurfaceController {
       index += 1;
     }
     while (element.childNodes.length > index) element.lastChild?.remove();
-    if (!element.textContent) element.append(document.createElement('br'));
+    const text = element.textContent ?? '';
+    if (!text || text.endsWith('\n')) {
+      // Chromium needs a trailing presentation break to display an empty final
+      // line. BR contributes no text to DOM-to-engine UTF-16 range mapping.
+      const placeholder = document.createElement('br');
+      if (text) placeholder.dataset.trailingSoftBreak = 'true';
+      element.append(placeholder);
+    }
   }
 
   private reconcile(force = false): void {
@@ -334,8 +350,9 @@ class SurfaceController {
       case 'insertReplacementText':
         return event.data !== null ? { type: 'replace_text', text: event.data, ...origin } : null;
       case 'insertParagraph':
-      case 'insertLineBreak':
         return { type: 'insert_paragraph', ...origin };
+      case 'insertLineBreak':
+        return { type: 'insert_line_break', ...origin };
       case 'deleteContentBackward':
         return { type: 'delete', direction: 'backward', ...origin };
       case 'deleteContentForward':
@@ -420,7 +437,7 @@ class SurfaceController {
       else if (key === 'i') command = { type: 'format_character', italic: this.view.format.italic !== true, ...origin };
       else if (key === 'u') command = { type: 'format_character', underline: this.view.format.underline !== true, ...origin };
     } else if (!event.altKey) {
-      if (event.key === 'Enter') command = { type: 'insert_paragraph', ...origin };
+      if (event.key === 'Enter') command = { type: event.shiftKey ? 'insert_line_break' : 'insert_paragraph', ...origin };
       else if (event.key === 'Backspace') command = { type: 'delete', direction: 'backward', ...origin };
       else if (event.key === 'Delete') command = { type: 'delete', direction: 'forward', ...origin };
     }
