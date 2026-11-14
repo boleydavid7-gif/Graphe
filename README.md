@@ -11,7 +11,7 @@ compatibility come first; spreadsheets and presentations will follow later.
 ## Current status
 
 Steps 1 and 2 establish the Cargo workspace and a structured document model in
-the sole `office-core` crate. Documents contain sections, paragraph blocks, UTF-8
+`office-core`. Documents contain sections, paragraph blocks, UTF-8
 text runs, formatting, metadata, and named paragraph styles. Construction and
 versioned JSON loading validate identifiers, references, and formatting.
 
@@ -31,11 +31,24 @@ is one undo step.
 
 Step 4 adds the provisional `.writer` native file format, filesystem-independent
 byte serialization, and safe native filesystem saving and loading. It preserves
-the complete supported document model across sessions. Step 4 is developed on a
-dedicated branch and awaits approval before merging; Step 4.5 has not started.
+the complete supported document model across sessions. Step 4 was merged into
+`main` at `52ac4e9` through [PR #6](https://github.com/boleydavid7-gif/stuff/pull/6).
 
-DOCX parsing, layout, rendering, and a user interface remain future work.
-Style inheritance is stored and validated; effective formatting is not resolved.
+Step 4.5 implements a browser Writer prototype on `dev/writer-browser-prototype`:
+React and TypeScript present a Rust/WebAssembly session, with explicit local
+save/open and native `.writer` import/export. All local verification checks pass; this
+milestone has not been merged or deployed. Rust remains the document, editing,
+validation, and undo authority. The interface holds presentation and browser
+interaction state rather than a second document engine.
+
+See the [verification report](docs/VERIFICATION.md) for exact results, limitations,
+and [desktop](docs/images/writer-desktop.png) / [mobile](docs/images/writer-mobile.png)
+screenshots of the running application.
+
+DOCX parsing, professional document layout, and platform-independent rendering
+remain future work. The browser adapter computes a limited effective display
+policy for existing styles and direct properties; full Word style semantics are
+not implemented.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
@@ -48,9 +61,9 @@ portable replacement. Additional libraries may be introduced when needed.
 - **Rust stable, edition 2024** provides the independent core engine.
 - **Cargo** manages the workspace and shared dependency versions through
   `[workspace.dependencies]`.
-- **WebAssembly** is a future compilation target for browser integration.
-- **React and TypeScript** are planned for the future interface; neither is
-  included in this milestone.
+- **WebAssembly** hosts the browser session through a separate `office-wasm`
+  crate; browser bindings remain outside `office-core`.
+- **React, TypeScript, and Vite** provide the prototype in `apps/writer`.
 - **GitHub Actions** runs formatting, lint, test, and build checks on pushes and
   pull requests.
 
@@ -81,6 +94,113 @@ are treated as errors. `Cargo.lock` is committed to preserve dependency
 resolution; pass `--locked` to Cargo build, test, and Clippy commands when a
 lockfile update must be rejected. The stable toolchain tracks stable releases,
 so the lockfile does not pin the compiler version.
+
+## Browser prototype development
+
+Use Node.js 24.x, npm, stable Rust, the WebAssembly target, and a `wasm-bindgen`
+CLI matching the locked binding dependency:
+
+```sh
+rustup target add wasm32-unknown-unknown --toolchain stable
+cargo install wasm-bindgen-cli --version 0.2.130 --locked
+cd apps/writer
+npm ci
+npm run build:wasm
+npm run dev
+```
+
+`build:wasm` builds `office-wasm` for `wasm32-unknown-unknown` in release mode and
+generates its web bindings. It rejects a mismatched CLI version. The Vite client
+loads the generated WASM asset explicitly; `dev` assumes the bindings have
+already been built. Use a secure browser context, such as localhost or HTTPS,
+for the UUID namespaces used by new documents and safe local saves.
+
+Run the frontend checks from `apps/writer`:
+
+```sh
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npx playwright install --with-deps chromium
+npm run test:browser
+```
+
+The production `build` includes the WASM build, TypeScript checking, and Vite
+bundling. `test:browser` starts the built application through Vite preview and
+tests it in Chromium. It can use `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` or an
+installed `/usr/bin/chromium`; otherwise install Playwright's Chromium. To
+inspect production output manually, run:
+
+```sh
+npm run preview -- --port 4173 --strictPort
+```
+
+The build output is `apps/writer/dist`. Producing or previewing it does not publish
+a site or establish private-hosting access controls. CI defines engine checks on
+Linux, Windows, and macOS plus frontend checks and production-browser integration.
+The milestone report must distinguish configured checks from actual results.
+
+## Using the Writer prototype
+
+The prototype supports typing and deletion at Rust grapheme boundaries, directed
+selections, Enter, plain-text multiline paste, title changes, bold, italic,
+underline, font family, font size, paragraph alignment, and Rust undo/redo. The
+formatting controls reflect mixed selections. Collapsed character formatting
+sets Rust-owned typing properties rather than inserting an empty formatting run.
+Browser font availability and CSS presentation do not provide Word pagination.
+
+New, Open, Save, Close, and native import/export are explicit actions. Save writes
+the exact `.writer` bytes produced by Rust to IndexedDB on this browser/device.
+Each record has an etag: comparison with the expected token and replacement share
+one read/write transaction, preventing a stale tab from silently overwriting a
+newer local save. Completion means the transaction completed, not just that a put
+request succeeded. An asynchronous save clears dirty state only if its captured
+document revision is still current.
+
+Opening or importing is guarded against unsaved replacement and against edits
+made while the asynchronous read is pending. Rust validates the native bytes
+before replacing the active session; local records also require matching document
+identity. Failures retain the live document and unsaved state. An imported document
+is not automatically associated with an existing saved record. Save conflicts
+offer a separate copy with a new document identity. Export downloads native bytes
+without replacing the local save or clearing the need to save.
+
+The browser adapter applies these prototype resource limits:
+
+| Resource | Limit |
+| --- | --- |
+| Native input/output bytes | 5 MiB |
+| Paragraph text | 200,000 UTF-16 code units in total |
+| Paragraphs and sections | 2,000 each |
+| Text runs | 20,000 |
+| Named styles and inheritance depth | 128 styles; depth 32 |
+| Retained undo snapshots | 20 |
+
+These limits do not change the native format or core defaults. Documents,
+presentation snapshots, validation, and history involve complete-document work;
+the history limit counts snapshots rather than bytes. Storage quota, eviction,
+private-mode restrictions, unavailable storage, damaged records, stale saves,
+and invalid input produce actionable errors. Export important documents for
+backup; browser-local storage is not a durability guarantee.
+
+The semantic editing surface uses controlled `contenteditable` presentation.
+During IME composition, browser DOM is a transient buffer; Rust commits the final
+replacement once. Synthetic browser tests do not certify every operating-system
+IME, candidate window, dictation system, or assistive technology. Keyboard and
+semantic checks do not constitute accessibility certification. There is no
+autosave, cloud service, synchronization, DOCX support, or custom page layout.
+
+The engineering rules in [AGENTS.md](AGENTS.md), primary-source research and
+retrospective findings in [RESEARCH.md](docs/RESEARCH.md), and accepted
+[decisions](docs/DECISIONS.md) govern this milestone and future work. Step 5 needs
+separate approval and a researched, explicitly bounded DOCX scope.
+
+`apps/writer/cloudflare.config.ts.example` is inert preparation for a separate
+assets-only Worker. It attaches no routes or domains, disables workers.dev and
+preview URLs, and changes no live access restrictions. `writer.proairetos.com`
+is the permanent intended public address; the service remains undeployed. No deployment is authorized
+by generating the frontend build or committing this example.
 
 ## Model API
 
@@ -335,15 +455,21 @@ opening the returned document in a new session starts a fresh lineage and histor
 See [architecture](docs/ARCHITECTURE.md#native-writer-persistence-step-4) for the
 format specification, safe-save limits, and migration policy, and the
 [native sample](tests/fixtures/native/writer-v1.writer) for a realistic document.
-Future browser storage can use the byte API; no browser storage, WebAssembly
-bindings, autosave, or DOCX conversion is implemented.
+The browser prototype uses the same byte API with IndexedDB. Native filesystem
+replacement guarantees do not transfer to browser storage. Autosave and DOCX
+conversion are not implemented.
 
 ## Repository
 
-- `crates/office-core/` contains the sole engine library crate.
+- `crates/office-core/` contains the interface-independent engine and persistence.
+- `crates/office-wasm/` owns the browser session, command transport, Unicode
+  selection affinity, and effective presentation values.
+- `apps/writer/` contains the React/TypeScript prototype, build tooling, and
+  frontend/browser tests.
 - `docs/ARCHITECTURE.md` describes long-term boundaries and principles.
 - `docs/ROADMAP.md` records the preliminary development sequence.
 - `docs/DECISIONS.md` explains the initial technology and scope decisions.
+- `AGENTS.md` and `docs/RESEARCH.md` record engineering rules and research.
 - `tests/fixtures/` contains model and native Writer samples plus official Unicode
   grapheme-break conformance data.
 - `.github/workflows/ci.yml` defines the required validation workflow.

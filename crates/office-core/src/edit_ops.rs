@@ -1,7 +1,7 @@
 use crate::{
     Block, CharacterFormat, CharacterFormatPatch, Document, EditError, Id, Paragraph,
     ParagraphFormat, ParagraphFormatPatch, PositionError, Section, Selection, TextCoordinates,
-    TextRun,
+    TextRun, ValidationError,
 };
 
 struct Bounds {
@@ -76,6 +76,62 @@ pub(crate) fn replace_text(
     blocks.splice(
         bounds.start.1..=bounds.end.1,
         [Block::Paragraph(replacement)],
+    );
+    let mut sections = document.sections().to_vec();
+    sections[bounds.start.0] = copy_section(section, blocks);
+    rebuild_document(document, sections)
+}
+
+pub(crate) fn insert_paragraph_break(
+    document: &Document,
+    selection: &Selection,
+    new_id: &Id,
+) -> Result<Document, EditError> {
+    let bounds = Bounds::for_selection(document, selection)?;
+    if bounds.start.0 != bounds.end.0 {
+        return Err(EditError::CrossSectionRange);
+    }
+
+    // Check the original document, including paragraphs removed by the range.
+    // Reusing their IDs would make a newly created paragraph impersonate an old
+    // element even though the rebuilt document's IDs would remain unique.
+    if document.id() == new_id
+        || document.styles().iter().any(|style| &style.id == new_id)
+        || document.sections().iter().any(|section| {
+            section.id() == new_id
+                || section.blocks().iter().any(|block| {
+                    let Block::Paragraph(paragraph) = block;
+                    paragraph.id() == new_id
+                })
+        })
+    {
+        return Err(ValidationError::DuplicateId {
+            id: new_id.as_str().into(),
+        }
+        .into());
+    }
+
+    let section = &document.sections()[bounds.start.0];
+    let Block::Paragraph(start) = &section.blocks()[bounds.start.1];
+    let Block::Paragraph(end) = &section.blocks()[bounds.end.1];
+    let prefix = copy_paragraph(
+        start,
+        prefix_runs(start, bounds.start_byte),
+        start.format().clone(),
+        start.style(),
+    );
+    let mut suffix = Paragraph::new(new_id.clone(), suffix_runs(end, bounds.end_byte))
+        .with_format(start.format().clone());
+    if let Some(style) = start.style() {
+        suffix = suffix.with_style(style.clone());
+    }
+
+    // Cut the original paragraphs independently. Joining first could merge
+    // neighboring graphemes and change the meaning of the requested boundary.
+    let mut blocks = section.blocks().to_vec();
+    blocks.splice(
+        bounds.start.1..=bounds.end.1,
+        [Block::Paragraph(prefix), Block::Paragraph(suffix)],
     );
     let mut sections = document.sections().to_vec();
     sections[bounds.start.0] = copy_section(section, blocks);

@@ -196,6 +196,30 @@ impl Transaction {
         Ok(self.finish_operation(before, after))
     }
 
+    /// Replaces a half-open selection with a structural paragraph boundary.
+    ///
+    /// A collapsed selection splits its paragraph. Within one section, the
+    /// start paragraph retains its ID and prefix; the new paragraph receives
+    /// the end paragraph's suffix and inherits the start's style and properties.
+    /// Retained runs preserve their exact text and character formatting. The
+    /// supplied ID must be valid and absent from every original document entity,
+    /// including paragraphs removed by the selection. Cross-section ranges are
+    /// rejected. Reverse selections behave like their ordered range.
+    ///
+    /// Success always changes the draft and invalidates its endpoints; reacquire
+    /// positions before staging another operation. Failure preserves the draft
+    /// and endpoints. This does not change literal CR/LF text insertion behavior.
+    pub fn insert_paragraph_break(
+        &mut self,
+        selection: &EditSelection,
+        new_id: Id,
+    ) -> Result<bool, EditError> {
+        self.check_context(&selection.context)?;
+        let before = self.candidate()?;
+        let after = edit_ops::insert_paragraph_break(&before, &selection.selection, &new_id)?;
+        Ok(self.finish_operation(before, after))
+    }
+
     /// Applies a character property patch to selected text, across sections if needed.
     ///
     /// Collapsed selections do not change text properties or typing state. Runs

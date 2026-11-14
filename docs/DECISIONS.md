@@ -403,3 +403,139 @@ and concurrent saves are last-writer-wins without locking or conflict detection.
 Tests use temporary directories and deterministic private I/O failure injection
 to verify preservation, cleanup, and post-replacement error behavior without
 depending on privilege-sensitive permission failures.
+
+## 021: Add an application binding boundary without moving engine authority
+
+**Decision:** Step 4.5 adds `apps/writer` with React, TypeScript, Vite, and CSS,
+plus a small Rust `wasm-bindgen` binding crate. `office-core` remains independent
+of JavaScript, React, browser APIs, and filesystem storage adapters on WASM.
+Commands reuse Rust sessions, operations, validation, history, and native bytes;
+JSON snapshots initially transport the supported model and presentation data.
+
+**Reason:** The user has authorized the first browser application. A concrete
+binding crate isolates runtime concerns without duplicating the engine or
+introducing a complete external editor. See `RESEARCH.md` for alternatives and
+primary sources evaluated before implementation.
+
+**Consequences:** TypeScript owns UI/input/storage state, not a competing
+document model or undo stack. Boundaries return structured errors. Revisions
+cross the JavaScript boundary as decimal strings because a Rust `u64` may exceed
+JavaScript's exact numeric range. Imported IDs are opaque map keys, never CSS
+selector fragments. The browser supplies a cryptographic UUID namespace; Rust
+uses a checked counter and document validation for newly allocated IDs. Match
+the `wasm-bindgen` CLI to the locked crate version. No WASM wrapper/storage
+library is necessary merely to pass JSON snapshots or access IndexedDB.
+
+## 022: Use semantic browser input with Rust-owned committed edits
+
+**Decision:** Render the document into a labeled semantic `contenteditable`
+surface. Intercept supported cancellable `beforeinput` commands and send Rust
+transactions. Handle `input` as a recovery path for uncancellable or unexpected
+browser changes. Let native pointer/keyboard navigation inform directed Rust
+selections. Browser history commands call Rust undo/redo.
+
+**Reason:** Native DOM editing offers established selection, bidi navigation,
+IME, and accessibility behavior. Canvas with a hidden textarea would require
+substantially more infrastructure. EditContext's limited availability is not a
+suitable initial cross-browser foundation; `execCommand` is deprecated and
+would introduce a competing browser history.
+
+**Consequences:** DOM content is presentation, with a deliberate temporary
+exception for an active composition buffer. Suspend reconciliation of that
+buffer, retain its Rust origin, and commit the completed replacement once.
+Composition cancellation and final event ordering require regression tests.
+Plain-text paste is one Rust transaction; line breaks use explicit paragraph
+splitting rather than teaching JavaScript to edit the document. Add targeted
+transaction operations instead of rewriting the model. Existing raw text
+operations still preserve literal CR/LF. Valid empty documents acquire initial
+paragraph structure only through a deliberate edit. Unsupported cross-section
+replacement produces an explicit error. Keyboard toolbar focus and native
+navigation must not be overwritten by unconditional selection restoration.
+
+## 023: Keep Unicode and effective presentation policy in Rust
+
+**Decision:** Keep the engine's pinned Unicode 17 grapheme boundaries and strict
+UTF-8/UTF-16 conversions authoritative. Map DOM UTF-16 text offsets and element
+child offsets through stable paragraph IDs. Define post-edit caret affinity and
+the prototype's inherited/direct effective formatting in Rust.
+
+**Reason:** Formatting-run boundaries are not character boundaries. Inserting or
+deleting text can merge adjacent graphemes, so adding JavaScript string length
+to an old position is incorrect. Rendering inherited styles in JavaScript would
+duplicate policy and could diverge from the engine.
+
+**Consequences:** Keep exact UTF-8 and source formatting values unchanged. A
+browser endpoint inside an extended grapheme requires an explicit adapter
+affinity policy, not weaker core validation. Preserve anchor/focus direction;
+restore selection only when necessary. Display inheritance is a documented
+prototype policy, not full OOXML toggle/theme/default evaluation or layout.
+Unicode 18, mapped positions, custom visual bidi movement, and advanced Word
+style semantics require separate decisions. Add tests for combining marks and
+emoji spanning run boundaries, edits, and DOM offset conversions.
+
+## 024: Persist native bytes locally with explicit save conflict checks
+
+**Decision:** Use IndexedDB to save the same validated `.writer` bytes as native
+persistence. Keep opening, saving, importing, and exporting explicit. Compare a
+record's expected save token and write its replacement within one read/write
+transaction; success means transaction completion, not merely request success.
+
+**Reason:** IndexedDB stores complete documents asynchronously without
+localStorage's synchronous complete-document storage costs. Transactional
+comparison prevents a stale tab from silently overwriting a newer local save.
+Reusing native bytes preserves one format and validation path.
+
+**Consequences:** Storage or import failures leave the live Rust document and
+unsaved work intact. A completed asynchronous save clears dirty state only if
+the in-memory revision still matches the saved snapshot. Opening/replacing work
+must handle unsaved changes deliberately. Browser quota, eviction, private-mode,
+and transaction failures are user-visible limitations; local save is not a
+universal crash-durability or backup guarantee. History remains session-local
+and is not serialized. No autosave, cloud storage, or synchronization is added.
+
+## 025: Record research and prepare deployment without changing live services
+
+**Decision:** Apply `AGENTS.md` engineering rules to Step 4.5 and future work.
+Record primary-source research, alternatives, classifications, and regression
+requirements in `RESEARCH.md` before adding subsystems. Prepare an inert
+`cloudflare.config.ts.example` for a separate assets-only Writer Worker using
+the current `cf/config` shape; disable workers.dev and preview URLs and attach no
+domain. `writer.proairetos.com` remains the intended future address.
+
+**Reason:** Research and retrospective review reduce compatibility and
+maintenance risks without requiring speculative refactors. Deployment readiness
+does not authorize changes to DNS, Cloudflare, access restrictions, or other
+applications.
+
+**Consequences:** No deployment or CLI installation is performed merely to add
+the example. Real deployment configuration and release require approval. No
+existing critical architectural defect was identified in the pre-implementation
+review. New integration risks need regression tests. Snapshot/history redesign,
+incremental validation, full Word style semantics, and unknown OOXML preservation
+remain important future decisions requiring approval before major changes.
+Dependency licenses are reviewed separately from the pending project license.
+Synthetic IME and automated accessibility tests have documented limits.
+
+## 026: Make browser navigation affinity and prototype limits explicit
+
+**Decision:** Keep strict core conversions unchanged. For browser selection
+updates, an explicit leading/trailing affinity snaps the moving focus in its
+logical direction; collapsed endpoints follow the same affinity. Without an
+explicit navigation affinity, ranges expand outward and collapsed endpoints use
+trailing affinity. Invalid surrogate boundaries remain errors. Post-edit cursor
+placement uses trailing affinity in Rust.
+
+**Reason:** Real Chromium tests found that native movement can stop inside a
+grapheme spanning formatting nodes. Always-forward snapping traps ArrowLeft;
+always-outward range snapping traps reverse selection contraction. Directional
+browser requests solve these cases without a second Unicode implementation.
+
+**Consequences:** Browser limits are 5 MiB native bytes, 200,000 UTF-16 units,
+2,000 paragraphs/sections, 20,000 runs, 128 styles, style depth 32, and 20 undo
+snapshots. Check cheap projected text/paragraph counts before staging multiline
+paste; validate complete candidates before publication and export. These are
+prototype resource policies, not schema changes. Reject edits without a usable
+selection when content exists; never replace existing content to create a cursor.
+Forced DOM recovery reconstructs canonical presentation even for empty native
+documents. Regressions cover the critical integration defects listed in
+`RESEARCH.md`; substantial history/layout/style redesign remains deferred.
