@@ -34,10 +34,12 @@ byte serialization, and safe native filesystem saving and loading. It preserves
 the complete supported document model across sessions. Step 4 was merged into
 `main` at `52ac4e9` through [PR #6](https://github.com/boleydavid7-gif/stuff/pull/6).
 
-Step 4.5 implements a browser Writer prototype on `dev/writer-browser-prototype`:
+Step 4.5 implements a browser Writer prototype:
 React and TypeScript present a Rust/WebAssembly session, with explicit local
-save/open and native `.writer` import/export. All local verification checks pass; this
-milestone has not been merged or deployed. Rust remains the document, editing,
+save/open and native `.writer` import/export. It was merged through
+[PR #7](https://github.com/boleydavid7-gif/stuff/pull/7) at `0a5d806`; local and
+post-merge GitHub Actions checks passed. Cloudflare deployment is not verified.
+Rust remains the document, editing,
 validation, and undo authority. The interface holds presentation and browser
 interaction state rather than a second document engine.
 
@@ -124,6 +126,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run test:wasm
+npm run test:build
 npm run build
 npx playwright install --with-deps chromium
 npm run test:browser
@@ -209,6 +212,13 @@ assets-only Worker. It attaches no routes or domains, disables workers.dev and
 preview URLs, and changes no live access restrictions. `writer.proairetos.com`
 is the permanent intended public address; the service remains undeployed. No deployment is authorized
 by generating the frontend build or committing this example.
+
+Cloudflare Workers Builds does not guarantee the Rust/WASM tools required by the
+ordinary build; the supplied environment lacked wasm-bindgen. Use the researched,
+build-only `npm run build:cloudflare`
+bootstrap from `apps/writer` after the correction is available in the selected
+branch. See [Cloudflare build setup](docs/CLOUDFLARE_BUILD.md) for verified tools,
+cold-build testing, and the unresolved remote private-access/permission boundary.
 
 ## Model API
 

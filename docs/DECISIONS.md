@@ -559,3 +559,25 @@ Library listing reports damaged records individually without repairing/deleting
 them; healthy records remain openable. Modal save errors appear inside the
 active dialog. These are targeted pre-merge corrections, not a major refactor.
 The exhaustive gate and manual testing limits are in `PRE_MERGE_REVIEW.md`.
+
+## 028: Provision hosted build tools explicitly without changing local builds
+
+**Decision:** Add `npm run build:cloudflare` as a build-only entry point. On the
+Cloudflare Linux x86_64 image it installs stable Rust and the WASM target when
+needed, obtains the pinned wasm-bindgen 0.2.130 prebuilt CLI with SHA-256
+verification, then runs the existing build with the prepared environment.
+Preserve caller Cargo/Rustup homes, isolate defaults in ignored cache paths,
+and leave HOME and shell startup files unchanged.
+
+**Reason:** The hosted build supplied by the user fails because the binding
+generator is absent. Tool installation cannot be assumed from Node availability
+or undocumented cache persistence, and an npm prebuild child cannot export PATH
+to a subsequent command.
+
+**Consequences:** No new runtime dependency, engine change, active Worker config,
+or deployment command is introduced. Tests verify corrupt downloads are rejected
+before execution and that the build inherits the toolchain environment; an
+actual clean-toolchain production build verifies the complete path. Private
+access must be established before publishing through the connected Git pipeline.
+Remote permission failures and Access state are documented in
+`CLOUDFLARE_BUILD.md`; they are not treated as successful deployment verification.

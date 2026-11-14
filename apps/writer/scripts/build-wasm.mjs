@@ -23,6 +23,7 @@ try {
   });
 } catch (error) {
   console.error('Writer WebAssembly build failed. Install stable Rust, wasm32-unknown-unknown, and wasm-bindgen-cli 0.2.130.');
+  if (process.env.WORKERS_CI === '1') console.error('For Cloudflare Workers Builds, use npm run build:cloudflare as the build command.');
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 }
