@@ -42,8 +42,11 @@ mod document;
 mod edit_ops;
 mod editing;
 mod error;
+#[cfg(not(target_arch = "wasm32"))]
+mod filesystem;
 mod format_patch;
 mod formatting;
+mod persistence;
 mod position;
 mod transaction;
 
@@ -56,10 +59,19 @@ pub use document::{
 };
 pub use editing::{EditError, EditPosition, EditSelection};
 pub use error::{DocumentError, ValidationError};
+#[cfg(not(target_arch = "wasm32"))]
+pub use filesystem::{
+    ReplacementState, StorageError, StorageOperation, TemporaryCleanupError, load_document,
+    save_document,
+};
 pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, PropertyChange};
 pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, ParagraphFormat, TextColor,
     Twips, Underline,
+};
+pub use persistence::{
+    PersistenceError, WRITER_EXTENSION, WRITER_FORMAT_NAME, WRITER_FORMAT_VERSION,
+    deserialize_document, serialize_document,
 };
 pub use position::{DocumentPosition, OffsetUnit, PositionError, Selection};
 pub use transaction::{

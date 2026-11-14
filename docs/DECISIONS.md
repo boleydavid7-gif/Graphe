@@ -323,3 +323,83 @@ return structured errors; clearing history leaves document and revision intact.
 History is session-local, is not serialized, and performs no typing coalescing or
 grouping beyond a transaction. Structural sharing or more compact history should
 follow measured requirements rather than precede them.
+
+## 018: Wrap the existing document schema in a provisional native file format
+
+**Decision:** Use `.writer` as the provisional internal extension for a UTF-8
+JSON envelope containing `format: "office-writer"`, native `format_version: 1`,
+and the existing schema-1 document. Keep native format version, model schema,
+and engine application version separate. The specification may evolve before
+public release.
+
+**Reason:** A native file needs an explicit identity and compatibility boundary
+without replacing the already validated document representation. A separate
+envelope version permits future packaging decisions without conflating them with
+the model or requiring ZIP, compression, or a custom binary format now.
+
+**Consequences:** Serialization validates first and emits deterministic pretty
+JSON with a trailing LF. Deserialization checks the envelope version, retains the
+document as borrowed Serde JSON `RawValue`, and delegates to `Document::from_json`.
+Enabling `raw_value` on the existing dependency preserves duplicate-key detection
+and structured model errors without a competing decoder. Unknown fields, corrupt
+data, and unsupported native/model versions are rejected. Bare model JSON is not
+an implicit native file. Future migrations must be explicit, fixture-backed
+source/target transformations validated under the resulting schema; no migration
+or silent reinterpretation is introduced before a second version is needed.
+
+## 019: Separate byte serialization from native filesystem storage
+
+**Decision:** Expose `serialize_document` and `deserialize_document` independently
+of storage. Add `save_document` and `load_document` only on targets other than
+`wasm32`, using native paths. Keep the existing single core crate and unchanged
+document model.
+
+**Reason:** Browser storage and native files should share document bytes and
+validation while retaining distinct I/O mechanisms. The core model must not gain
+browser dependencies or require an application shell to save supported values.
+
+**Consequences:** Saving borrows a document without changing its contents,
+revision, pending drafts, or history. Loading returns a validated document;
+reopening it in a session starts a new lineage with empty history. Revisions,
+undo/redo, and editing endpoints are runtime state and are not persisted. File
+processing currently holds the complete document and bytes in memory. Native
+paths support Unicode without converting `Path` values to strings. No parent
+creation or extension enforcement is implicit. Future browser storage and DOCX
+adapters remain separate work; Step 4 implements neither and does not begin 4.5.
+
+## 020: Prepare a synchronized temporary file before native replacement
+
+**Decision:** Validate and serialize completely, then create a unique temporary
+file in the destination directory, write all bytes, flush, apply retained ordinary
+permissions, synchronize, and persist it over the destination without deleting
+the old file first. Use the low-level native-only `tempfile` dependency for
+exclusive unique creation,
+portable persistence, and RAII cleanup. Explicitly close failed temporary files
+and retain cleanup errors with the original failure. On Unix, pre-open and later
+synchronize the parent directory.
+
+**Reason:** Directly truncating an existing document risks losing valid data
+when writing fails. Established low-level temporary-file handling avoids a
+home-grown name-allocation and replacement protocol. Preparation before
+replacement isolates ordinary pre-replacement failures from committed data.
+
+**Consequences:** Storage errors retain operation, native path, original I/O
+source, and replacement state. `NotAttempted` leaves the old destination intact;
+`Uncertain` records a failed replacement call whose outcome may be ambiguous on
+some filesystems; `Completed` reports that replacement succeeded before a later
+directory-sync error. A failed explicit cleanup retains its error and path; the
+temporary file may remain without an automatic retry. RAII cleanup applies to
+ordinary drop and unwinding paths and remains best-effort. Cleanup cannot be
+guaranteed after a process kill or filesystem/permission changes. Windows has no
+equivalent parent-directory synchronization step here. Atomic replacement and crash durability
+depend on operating system, filesystem, and hardware, so no universal guarantee
+is made.
+
+Saving rejects symlink, non-regular, and read-only destinations. Ordinary file
+permissions are copied after writing and flushing, before synchronization;
+ownership, ACLs, extended attributes, timestamps, and hard-link identity are not
+preserved. Stable trusted parent paths are assumed,
+and concurrent saves are last-writer-wins without locking or conflict detection.
+Tests use temporary directories and deterministic private I/O failure injection
+to verify preservation, cleanup, and post-replacement error behavior without
+depending on privilege-sensitive permission failures.

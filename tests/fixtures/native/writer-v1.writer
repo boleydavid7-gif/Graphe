@@ -1,0 +1,148 @@
+{
+  "format": "office-writer",
+  "format_version": 1,
+  "document": {
+    "schema_version": 1,
+    "id": "quarterly-research-report",
+    "metadata": {
+      "title": "Quarterly research report"
+    },
+    "sections": [
+      {
+        "id": "executive-summary",
+        "properties": {},
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "report-heading",
+              "style": "heading",
+              "format": {},
+              "runs": [
+                {
+                  "text": "Research progress: Q3",
+                  "format": {}
+                }
+              ]
+            }
+          },
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "intro",
+              "style": "normal",
+              "format": {
+                "spacing_after": 160,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 360
+                }
+              },
+              "runs": [
+                {
+                  "text": "Café research — ",
+                  "format": {
+                    "bold": false
+                  }
+                },
+                {
+                  "text": "👩🏽‍💻 team",
+                  "format": {
+                    "bold": true,
+                    "italic": true,
+                    "underline": "single"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "international-findings",
+        "properties": null,
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "arabic-summary",
+              "style": "normal",
+              "format": {
+                "alignment": "right",
+                "spacing_before": 120,
+                "indentation": {
+                  "left": 720,
+                  "right": 0,
+                  "first_line": -360
+                }
+              },
+              "runs": [
+                {
+                  "text": "ملخص البحث: نتائج واعدة.",
+                  "format": {}
+                },
+                {
+                  "text": " Follow-up review is scheduled for November.",
+                  "format": {
+                    "color": {
+                      "kind": "auto"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "styles": [
+      {
+        "id": "normal",
+        "name": "Normal",
+        "based_on": null,
+        "paragraph_format": {
+          "alignment": "left",
+          "spacing_before": 0,
+          "spacing_after": 120,
+          "line_spacing": {
+            "kind": "multiple",
+            "value": 240
+          }
+        },
+        "character_format": {
+          "font_family": "Noto Sans",
+          "font_size": 22,
+          "color": {
+            "kind": "rgb",
+            "red": 32,
+            "green": 40,
+            "blue": 48
+          }
+        }
+      },
+      {
+        "id": "heading",
+        "name": "Heading 1",
+        "based_on": "normal",
+        "paragraph_format": {
+          "spacing_before": 240,
+          "spacing_after": 180,
+          "line_spacing": {
+            "kind": "at_least",
+            "height": 360
+          }
+        },
+        "character_format": {
+          "bold": true,
+          "font_size": 32,
+          "color": {
+            "kind": "rgb",
+            "red": 20,
+            "green": 75,
+            "blue": 120
+          }
+        }
+      }
+    ]
+  }
+}

@@ -5,7 +5,8 @@ workspace currently implements the repository foundation, structured Writer
 content, validation, schema-versioned JSON serialization, and Unicode-aware
 positions and selections. A runtime session now provides atomic validated
 transactions, Unicode-safe text and formatting operations, and bounded undo/redo.
-Layout, rendering, and format conversion remain future subsystems.
+Native Writer persistence now separates byte serialization from filesystem
+storage. Layout, rendering, and Office format conversion remain future subsystems.
 
 ## Independent engine
 
@@ -107,8 +108,9 @@ returns the first structured `ValidationError`; paths identify local failures.
 Individually assembled property records can contain invalid values until they
 are accepted into a document.
 
-The persistent model format is UTF-8 JSON, currently schema version **1**. Its
-version is independent of the engine crate version. A minimal valid document is:
+The document payload representation is UTF-8 JSON, currently schema version
+**1**. Its version is independent of the engine crate version and the native
+file envelope version. A minimal valid model payload is:
 
 ```json
 {
@@ -137,13 +139,149 @@ if their payload shape differs; no migration or downgrade is implicit. The
 Serde `Document` implementation also validates decoded content, but generic
 Serde errors do not retain the typed `DocumentError` distinction, and an
 incompatible future shape can fail before its version is inspected. Prefer
-`from_json` at the persisted-document boundary.
+`from_json` at the raw-model boundary; native `.writer` files use the persistence
+API below, which delegates payload decoding to that same loader.
 
 Unknown fields, enum variants, and block kinds are rejected to prevent silent
 loss of unsupported information. No opaque imported-extension container exists
 yet. Schema changes must be explicit and require a new version or a documented
 compatibility decision with tests. Serialization preserves supported model
 information, not source JSON spelling or an original Office file.
+
+### Native Writer persistence (Step 4)
+
+The `.writer` extension provisionally identifies the engine's internal native
+format. Its specification may evolve before public release. It is an uncompressed
+UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
+
+```json
+{
+  "format": "office-writer",
+  "format_version": 1,
+  "document": {
+    "schema_version": 1,
+    "id": "document-1",
+    "metadata": { "title": "" },
+    "sections": [],
+    "styles": []
+  }
+}
+```
+
+`WRITER_FORMAT_NAME`, `WRITER_FORMAT_VERSION`, and `WRITER_EXTENSION` expose
+these native format values. `format_version` describes the file envelope;
+`document.schema_version` describes the enclosed model. The engine's application
+version is separate and is not written into the file. Only native format 1 and
+model schema 1 are currently supported. Bare model JSON remains useful through
+`Document::from_json` but is not accepted as an implicit `.writer` file.
+
+`serialize_document(&Document)` validates the complete model and returns
+`Vec<u8>`. The writer uses two-space pretty indentation, fixed envelope field
+order (`format`, `format_version`, `document`), and a single trailing LF. Array
+order and exact supported model values are preserved, including text runs,
+explicit false versus unspecified properties, section properties, IDs, styles,
+metadata, and Unicode strings. Serialization adds no timestamp or random value.
+Repeated output for the same model is deterministic; it is not a cryptographic
+JSON canonicalization scheme. JSON spelling, indentation on input, and object key
+order are not preserved as document information.
+
+`deserialize_document(&[u8])` first checks UTF-8, then the format identifier and
+numeric native version before decoding document fields. A strict Serde envelope
+keeps the original document object as borrowed `RawValue`, then calls the existing
+`Document::from_json` loader. This avoids a competing model decoder and prevents
+a `Value` intermediate from silently overwriting duplicate keys. Model validation
+therefore remains identical to construction, editing commits, and raw-model
+loading. Unknown envelope fields, unsupported kinds or properties, malformed
+structures, duplicate keys, and unsupported versions are rejected without repair
+or content loss. UTF-8 BOM input is rejected as invalid JSON; ordinary JSON
+whitespace and equivalent escaped string spellings are accepted.
+
+`PersistenceError` distinguishes invalid UTF-8, JSON/envelope failures, an unknown
+format marker, unsupported native versions, and existing structured `DocumentError`
+failures. Native format and model-schema version errors remain distinct. Future
+interfaces can translate these error categories without parsing display strings.
+See [the native fixture](../tests/fixtures/native/writer-v1.writer) for a realistic
+multi-section document; the model-only fixture continues to test schema 1.
+
+#### Serialization and native storage boundaries
+
+Byte serialization has no filesystem or browser dependency. On targets other
+than `wasm32`, `save_document(&Document, path)` and `load_document(path)` supply a
+native filesystem adapter using `AsRef<Path>`. Native paths are retained as
+`Path`/`PathBuf`, supporting Unicode filenames without a UTF-8 conversion step.
+The adapter neither appends `.writer` nor creates missing parent directories.
+The full document and file bytes are held in memory; streaming and resource
+limits are not introduced in this milestone.
+
+Saving follows this order:
+
+1. Validate and serialize the complete document before filesystem changes.
+2. Resolve and inspect the destination. Reject symlinks, non-regular files, and
+   read-only existing files, even if the process could otherwise replace them.
+3. On Unix, open the parent directory before replacement.
+4. Exclusively create a uniquely named temporary file in the destination
+   directory. Its short `.writer-` prefix does not depend on the target filename.
+5. Write all bytes and flush the writer, then copy existing ordinary permissions
+   when replacing a regular file. Synchronize the completed temporary data and
+   metadata only after those permissions have been applied.
+6. Persist the prepared file using the platform's replacement operation, without
+   deleting the original destination first.
+7. On Unix, synchronize the already-open parent directory after replacement.
+
+The native-only `tempfile` dependency supplies exclusive unique-file creation,
+RAII cleanup, and portable `persist` behavior. It avoids a home-grown naming or
+replacement implementation. On failure before persistence, the adapter explicitly
+attempts to close and remove the temporary file. A persistence failure similarly
+attempts to clean up the returned temporary file. Cleanup failure is retained
+alongside the primary I/O error and temporary path. The file may remain; an
+explicit close failure does not guarantee an automatic retry. RAII cleanup covers
+ordinary drop or unwinding paths, and is also best-effort. Cleanup cannot be
+guaranteed after a process kill, changed permissions, or filesystem failure.
+
+`StorageError` wraps format failures with the requested path, or an I/O failure
+with a `StorageOperation`, path, original `io::Error`, `ReplacementState`, and
+optional secondary cleanup error. `NotAttempted` means the replacement operation
+was not invoked and the existing destination was untouched. `Uncertain` means
+replacement returned an error: remote or unusual filesystems may not establish
+whether it happened. `Completed` means replacement succeeded before a subsequent
+directory synchronization failed; the new file is already installed. Callers
+must not treat every save error as proof that the old file remains, or attempt an
+automatic rollback after replacement.
+
+Local replacement and synchronization semantics depend on the operating system,
+filesystem, mount, and storage hardware. Windows has no equivalent parent-directory
+synchronization step in this adapter. No universal atomic-replacement or power-loss
+durability guarantee is made. Ordinary permissions do not include ownership, ACLs,
+extended attributes, timestamps, or hard-link identity; these are not preserved.
+There is no writer locking or conflict detection: concurrent saves are
+last-writer-wins, and parent paths must remain stable and trusted during the
+operation. Loading follows normal operating-system symlink behavior, checks for a
+regular file before opening, and checks the opened handle again before reading.
+It then reads the complete bytes and uses the same strict decoder. These checks
+do not claim protection against adversarial concurrent pathname changes.
+
+#### Compatibility and future adapters
+
+Loading never changes the source file. Unsupported native or model versions fail
+explicitly; no migration, downgrade, or fallback is implemented. When a second
+version is needed, add an explicit supported source/target transformation with
+fixtures and losslessness expectations, validate its result, and retain tests for
+every supported version. An old version's data must not silently acquire new
+meaning under a newer decoder. The provisional format may change before public
+release only through an explicit versioning decision.
+
+Saving borrows the immutable document and does not alter committed content,
+revision tokens, pending drafts, editing endpoints, or undo/redo. Files contain
+only document values; session identity, history, revisions, and endpoints are not
+persisted. Loading returns a validated `Document`; creating a new session from it
+starts a fresh revision lineage and empty history.
+
+Future browser storage adapters can transport the same bytes through their own
+storage APIs. DOCX import/export will be a separate adapter to and from the typed
+document model, with its own compatibility policy. Neither integration, nor
+autosave, cloud synchronization, storage bindings, or DOCX support is implemented
+in Step 4. Step 4.5 remains unstarted and requires a defined scope and acceptance
+criteria before development.
 
 ### Unicode positions and selections (3A)
 
@@ -390,8 +528,10 @@ covered by compatibility tests.
 `office-core` is the only crate in the Cargo workspace. It exposes the engine
 version, document model, position/selection APIs, editing operations, and transaction
 sessions with history. Serde, serde_json, and unicode-segmentation are declared in
-`[workspace.dependencies]`
-and inherited by the crate for serialization and Unicode segmentation.
+`[workspace.dependencies]` and inherited by the crate for serialization and Unicode
+segmentation. Serde JSON's `raw_value` feature reuses the model loader inside the
+native envelope. `tempfile` is a native-only workspace dependency for safe saving;
+it is excluded from `wasm32` builds along with the filesystem API.
 New crates should also inherit the workspace package settings and
 lints. Additional crates will be introduced only when concrete responsibilities
 require them; conceptual boundaries do not require empty crates or modules in

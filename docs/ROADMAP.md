@@ -28,13 +28,17 @@ each milestone is implemented.
    replacement within a section; character and paragraph patches; named-style
    assignment; and bounded exact-snapshot history. Cross-section text replacement
    remains explicitly unsupported. Formatting, Clippy, tests, and build checks passed.
+   Merged into `main`.
 
    The 3A formatting, Clippy, test, and build gate passed before 3B began; the 3B
    gate passed before 3C began. Each remains a distinct validated milestone.
-4. **Serialization.** Extend the schema-1 JSON baseline introduced in Step 2 with
-   persistence requirements, explicit migration policy, and additional error and
-   compatibility coverage as the model grows. Basic lossless model round trips
-   were brought forward because the document-model milestone requires them.
+4. **Native document persistence — implemented on a development branch.** Add the
+   provisional `.writer` UTF-8 JSON envelope around schema 1, deterministic byte
+   serialization, strict version checking, native safe-save/load, structured errors,
+   fixtures, and preservation/failure tests. Reuse the model validator and loader.
+   Delivery requires the milestone checks and approval before merging to `main`.
+   Basic model round trips were introduced in Step 2; Step 4 adds the file and
+   storage contract. No migration exists until another version needs one.
 5. **Basic DOCX import/export.** Support an explicitly bounded subset of DOCX,
    using compatibility fixtures and clear handling of unsupported features.
 6. **Typography and layout.** Develop text measurement, line layout, and pagination
@@ -47,3 +51,6 @@ each milestone is implemented.
 
 Writer comes first. Spreadsheet and presentation applications are later work;
 their detailed milestones will be defined when their development begins.
+
+Step 4.5 has not started. Its scope and acceptance criteria must be defined before
+development; Step 4 does not imply browser storage, autosave, or DOCX integration.

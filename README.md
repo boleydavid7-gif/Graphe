@@ -29,13 +29,19 @@ character and paragraph formatting, style assignment, and bounded undo/redo.
 Operations stage validated candidates inside transactions; each changed commit
 is one undo step.
 
+Step 4 adds the provisional `.writer` native file format, filesystem-independent
+byte serialization, and safe native filesystem saving and loading. It preserves
+the complete supported document model across sessions. Step 4 is developed on a
+dedicated branch and awaits approval before merging; Step 4.5 has not started.
+
 DOCX parsing, layout, rendering, and a user interface remain future work.
 Style inheritance is stored and validated; effective formatting is not resolved.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
-unicode-segmentation library supplies Unicode grapheme boundaries. Additional
-libraries may be introduced when their responsibilities become necessary.
+unicode-segmentation library supplies Unicode grapheme boundaries. Native storage
+uses the low-level tempfile library for unique temporary files, cleanup, and
+portable replacement. Additional libraries may be introduced when needed.
 
 ## Technology
 
@@ -266,13 +272,79 @@ old revision tokens remain stale. `clear_history` preserves document and revisio
 History is bounded by snapshot count rather than bytes and is not serialized;
 there is no automatic typing coalescing or grouping beyond a transaction.
 
+## Native document persistence
+
+`.writer` is a provisional internal UTF-8 JSON format whose specification may
+evolve before public release. A versioned envelope identifies `office-writer`,
+sets `format_version` to `1`, and contains the existing schema-1 document.
+Native format version, model schema version, and engine version are independent.
+
+The byte API has no filesystem dependency:
+
+```rust
+use office_core::{Document, Id, deserialize_document, serialize_document};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let document = Document::new(Id::new("document-1")?)?;
+    let bytes = serialize_document(&document)?;
+    let restored = deserialize_document(&bytes)?;
+    assert_eq!(restored, document);
+    assert_eq!(serialize_document(&restored)?, bytes);
+    Ok(())
+}
+```
+
+Native filesystem targets also expose `save_document` and `load_document`:
+
+```rust
+#[cfg(not(target_arch = "wasm32"))]
+fn save_and_reopen(
+    document: &office_core::Document,
+    path: &std::path::Path,
+) -> Result<office_core::Document, office_core::StorageError> {
+    office_core::save_document(document, path)?;
+    office_core::load_document(path)
+}
+```
+
+Saving validates and serializes completely before creating a unique temporary
+file in the destination directory. It writes, flushes, and synchronizes that file,
+then replaces the destination without deleting the old document first. On Unix,
+it also synchronizes the parent directory after replacement. Windows has no
+equivalent directory-sync step here. Operating-system and filesystem behavior
+limit atomicity and crash durability; no universal guarantee is made.
+
+`PersistenceError` describes encoding, version, JSON, and model failures.
+`StorageError` adds native paths, I/O stages, replacement state, and any secondary
+temporary-cleanup error. In particular, `ReplacementState::Completed` means the
+new file was installed before a later synchronization failed; `Uncertain` means
+replacement returned an error with potentially ambiguous filesystem results.
+
+The APIs preserve native paths, including Unicode filenames. They do not append
+an extension or create parent directories. Saving rejects symlink, non-regular,
+and read-only destinations. Ordinary permissions are copied after writing and
+flushing, before synchronization. Ownership, ACLs, extended attributes, timestamps,
+and hard-link identity are not preserved.
+Loading checks file type before opening and checks the opened handle again.
+If explicit temporary cleanup fails, its error and path are retained; the file
+may remain without an automatic retry.
+There is no concurrent-writer conflict detection, and files are processed fully
+in memory. Undo history, revisions, and editing endpoints are not persisted;
+opening the returned document in a new session starts a fresh lineage and history.
+
+See [architecture](docs/ARCHITECTURE.md#native-writer-persistence-step-4) for the
+format specification, safe-save limits, and migration policy, and the
+[native sample](tests/fixtures/native/writer-v1.writer) for a realistic document.
+Future browser storage can use the byte API; no browser storage, WebAssembly
+bindings, autosave, or DOCX conversion is implemented.
+
 ## Repository
 
 - `crates/office-core/` contains the sole engine library crate.
 - `docs/ARCHITECTURE.md` describes long-term boundaries and principles.
 - `docs/ROADMAP.md` records the preliminary development sequence.
 - `docs/DECISIONS.md` explains the initial technology and scope decisions.
-- `tests/fixtures/` contains the versioned sample document and official Unicode
+- `tests/fixtures/` contains model and native Writer samples plus official Unicode
   grapheme-break conformance data.
 - `.github/workflows/ci.yml` defines the required validation workflow.
 
