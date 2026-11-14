@@ -46,7 +46,11 @@ and explicit approvals govern the task's scope.
 - Use Rust's pinned grapheme rules and explicit UTF-8/UTF-16 conversions. Do not
   substitute JavaScript string length or a different segmenter for engine offsets.
 - Keep unsaved Rust state intact on input, import, or storage failure.
-- Step 5 is not authorized by completing Step 4.5.
+- Step 5 is authorized for DOCX work only. Keep file-format structures and
+  dependencies in their adapters, outside the shared semantic model. Preserve
+  unsupported originals before enabling editing; retained bytes alone do not
+  establish fidelity after edits. Other formats, merges and deployments require
+  separate authorization.
 
 ## Required engine checks
 

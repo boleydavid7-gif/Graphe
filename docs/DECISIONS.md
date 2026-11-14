@@ -581,3 +581,47 @@ actual clean-toolchain production build verifies the complete path. Private
 access must be established before publishing through the connected Git pipeline.
 Remote permission failures and Access state are documented in
 `CLOUDFLARE_BUILD.md`; they are not treated as successful deployment verification.
+
+## 029: Keep file formats outside the shared semantic model
+
+**Decision:** Step 5 introduces a format-specific `office-docx` adapter around
+the existing Rust model. OPC/ZIP, WordprocessingML, DOCX relationships and
+compatibility/source-preservation state belong to that adapter. `office-core`
+must not gain DOCX-specific records, assumptions, parser dependencies or
+format-specific import/export methods.
+
+**Reason:** Writer must support additional formats over time, including ODT,
+RTF, TXT, Markdown and HTML. They should use the shared document semantics
+directly rather than conform to a DOCX-shaped model or DOCX intermediate.
+
+**Consequences:** Core/native schema and format versions remain unchanged.
+Step 5A provides bounded read-only package inspection and immutable `DocxSource`
+retention. The user selected **preserve unsupported originals before editing**;
+editable projection and export must wait for a reviewed preservation/edit
+mapping that prevents silent loss. Original-byte retention alone is not a
+post-edit fidelity guarantee. Each future adapter applies this policy where
+appropriate using its own representation, not necessarily ZIP/XML. Add shared
+semantic structures only for understood format-independent behavior. No other
+format, generic registry, speculative plugin hierarchy, or core extension bag
+is implemented in Step 5.
+
+## 030: Gate semantic DOCX conversion behind bounded source inspection
+
+**Decision:** Begin with a byte-oriented, read-only OPC/ZIP and UTF-8 XML 1.0
+profile. Use maintained low-level ZIP/XML libraries, bounded structural
+preflights and exact owned source bytes. Separate structured errors from
+third-party parser types. Reject unsupported encodings/container forms and
+resource excess explicitly rather than repairing or truncating input.
+
+**Reason:** Package safety and preservation must be established before editable
+import. The core cannot yet represent many ordinary Word constructs. ZIP index
+allocation and XML attributes/namespaces need bounds before library processing;
+parser defaults alone do not enforce the required profile.
+
+**Consequences:** The initial profile is intentionally narrower than all valid
+DOCX packages. Inspection is neither schema certification nor semantic import.
+No editable projection, DOCX reconstruction, native migration or UI integration
+is included in 5A. `DocxSource` preserves the exact original, but does not promise
+post-edit round trips. Limits, dependency rationale and regression corrections
+are specified in [DOCX.md](DOCX.md); extend the profile only with compatibility
+evidence and tests.

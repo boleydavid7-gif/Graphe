@@ -729,6 +729,44 @@ Writer is the first application. Word processing and DOCX compatibility establis
 the initial requirements. Spreadsheets and presentations follow later without
 forcing their models or application code into this foundation.
 
+## Format adapters and original-source preservation (Step 5)
+
+The Rust document model is the shared semantic model, independent of every
+external file format. DOCX is the first compatibility adapter, not the model's
+definition. Future ODT, RTF, TXT, Markdown, HTML and other adapters should map
+their representable semantics into this same model without requiring a DOCX
+intermediate or importing OPC/XML/Word-specific types into `office-core`.
+
+`office-docx` owns DOCX/OPC archive handling, WordprocessingML namespaces and
+properties, relationships, compatibility diagnostics, import/export mappings,
+and its original-source preservation state. All ZIP/XML dependencies are at
+this format boundary. It accepts bytes and returns bounded inspection results
+or structured errors in Step 5A. `DocxSource` owns immutable original bytes and
+their validated inventory; its exact-byte accessor does not reconstruct the
+package. It is a format-specific source record, not an editable document model.
+Native `.writer` storage remains a separate adapter around the shared model.
+
+The user selected preserving unsupported originals before editing. A future
+editable DOCX projection must retain unsupported information and define how
+each edit affects source content before such editing is enabled. Keeping a
+source blob alone does not prove faithful export after edits. Step 5A therefore
+supports read-only inspection/retention and does not publish partial editable
+imports or silently drop tables, fields, styles, layout, or extension content.
+No native schema migration or DOCX field is added to the core for this stage.
+
+Apply the same principle where appropriate to future formats: retain the
+original representation, report unsupported semantics, and define explicit
+editing/export guarantees. The preservation mechanism belongs to the relevant
+adapter/application boundary. It need not resemble DOCX ZIP parts, XML trees,
+or Word identifiers. Shared semantic types should be added only when their
+format-independent behavior is understood and tested.
+
+Do not add a generic format registry, plugin hierarchy, shared OOXML extension
+bag, or hypothetical adapters before concrete responsibilities justify them.
+No ODT, RTF, TXT, Markdown, HTML or other-format implementation is part of Step 5.
+See [DOCX.md](DOCX.md) for current scope, resource limits, research, and the
+distinction between package validity and semantic import/export compatibility.
+
 Correctness, performance, compatibility, maintainability, and architectural
 stability guide development. Changes should keep responsibilities explicit and
 be validated at the scope they introduce.
