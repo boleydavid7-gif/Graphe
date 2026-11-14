@@ -4,15 +4,19 @@ These are preliminary milestones, not fixed delivery dates. They may overlap
 when technically necessary. Scope and acceptance criteria will be refined before
 each milestone is implemented.
 
-1. **Repository foundation.** Establish the Rust workspace, minimal `office-core`
+1. **Repository foundation — implemented.** Rust workspace, minimal `office-core`
    library, formatting and lint rules, tests, continuous integration, and initial
-   documentation. This is the current milestone.
-2. **Document model.** Define Writer's initial document semantics, ownership,
-   invariants, and public API boundaries, with focused tests.
+   documentation. Delivered on a development branch; merging requires approval.
+2. **Document model — implemented.** Structured documents, sections, paragraphs,
+   text runs, formatting, named paragraph styles, validation, versioned JSON, and
+   focused tests with a realistic fixture. No editing, layout, or DOCX conversion.
+   Delivered on a development branch; merging requires approval.
 3. **Editing operations.** Introduce validated operations that change the document
    model and preserve its invariants.
-4. **Serialization.** Define and test persistence of the document model, including
-   round-trip behavior and error handling.
+4. **Serialization.** Extend the schema-1 JSON baseline introduced in Step 2 with
+   persistence requirements, explicit migration policy, and additional error and
+   compatibility coverage as the model grows. Basic lossless model round trips
+   were brought forward because the document-model milestone requires them.
 5. **Basic DOCX import/export.** Support an explicitly bounded subset of DOCX,
    using compatibility fixtures and clear handling of unsupported features.
 6. **Typography and layout.** Develop text measurement, line layout, and pagination

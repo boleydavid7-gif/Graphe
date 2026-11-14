@@ -60,6 +60,9 @@ Established low-level libraries remain an option as requirements arise.
 management and require evaluation for correctness, performance, portability,
 maintenance, and licensing.
 
+Step 2 adds Serde and serde_json for versioned model serialization, inherited
+through workspace dependencies. The workspace still contains only `office-core`.
+
 ## 005: Leave licensing pending
 
 **Status:** Pending project-owner decision.
@@ -67,3 +70,71 @@ maintenance, and licensing.
 No software license has been selected. The project owner will decide whether
 the engine is open-source, source-available, or proprietary. The `LICENSE` file
 and package license declarations remain absent until that decision is made.
+
+## 006: Use a typed, ordered Writer model with stable caller-assigned IDs
+
+**Decision:** Represent documents, sections, paragraphs, and runs explicitly.
+Use a typed `Block` enum, starting with paragraphs. Assign opaque IDs to the
+document, sections, paragraphs, and named styles; enforce uniqueness across
+these entity kinds within each document.
+
+**Reason:** Types and order make content inspectable and invariants testable.
+Stable identity supports future editing transactions without tying identity to
+array positions, rendered pages, or an imported format's identifier scheme.
+Caller assignment avoids a random-number or platform dependency at this stage.
+
+**Consequences:** Applications must allocate and retain IDs. Runs have no stable
+ID yet; future editing anchors need a separate design. Empty documents,
+sections, paragraphs, and runs are valid. No default content is synthesized.
+Construction validates complete documents and exposes immutable inspection;
+future transactions should validate candidates before committing atomically.
+
+## 007: Preserve unspecified properties and use explicit integer units
+
+**Decision:** Store optional character and paragraph property values rather
+than resolving them immediately. Use integer twips, half-points, and
+1/240-line spacing units. Named paragraph styles can reference a parent, with
+missing references and cycles rejected.
+
+**Reason:** Unspecified properties differ from explicit overrides such as
+`bold: false`. This distinction is necessary for inheritance and future OOXML
+mapping. Integer units avoid nonfinite values and floating-point round-trip
+ambiguity. Separate paragraph/run properties resemble relevant OOXML concerns
+without adopting its full representation.
+
+**Consequences:** Validation rejects nonpositive font sizes and line heights,
+negative paragraph spacing, and blank font-family names. Signed indentation
+supports hanging and outdented content. Style resolution, theme behavior,
+character styles, Word toggle semantics, and layout defaults remain future work.
+
+## 008: Version JSON and reject unsupported information explicitly
+
+**Decision:** Use Serde and serde_json for schema-versioned JSON persistence.
+Schema 1 is independent of the engine version. `Document::from_json` preflights
+the version and returns structured schema, JSON, or validation errors. Unknown
+fields and enum kinds are rejected rather than silently ignored.
+
+**Reason:** A stable model needs a round-trip contract and an explicit boundary
+against future or unsupported structures. Serde provides established low-level
+serialization support without introducing an Office engine.
+
+**Consequences:** Step 2 includes basic serialization ahead of the original
+milestone sequence. There is no migration, automatic repair, or opaque imported
+data preservation. Unknown OOXML elements will require a deliberate policy
+before faithful DOCX import/export is possible. JSON syntax details are not
+preserved; supported model values and array order are preserved.
+
+## 009: Keep Unicode storage and position coordinates separate
+
+**Decision:** Store exact UTF-8 strings without normalization. Defer cursor,
+selection, and offset-conversion APIs until editing requirements are defined.
+
+**Reason:** UTF-8 bytes, Unicode scalars, extended grapheme clusters, and UTF-16
+code units are not interchangeable. Combining marks and multi-code-point emoji
+make scalar or byte counts unsuitable for user-visible cursor movement.
+
+**Consequences:** Future editing must account for grapheme boundaries, including
+clusters across run boundaries, and explicit conversion to external UTF-16
+offsets. No grapheme segmentation library or mapping implementation is introduced
+until needed. Unicode fixture tests check exact preservation rather than
+claiming editing correctness.

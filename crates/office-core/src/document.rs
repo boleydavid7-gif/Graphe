@@ -1,0 +1,455 @@
+use std::collections::{HashMap, HashSet};
+
+use serde::{Deserialize, Deserializer, Serialize};
+
+use crate::{CharacterFormat, DocumentError, ParagraphFormat, ValidationError};
+
+/// The only document JSON schema currently supported (independent of crate version).
+pub const SCHEMA_VERSION: u32 = 1;
+
+/// An opaque, caller-assigned identifier preserved across copies and serialization.
+///
+/// IDs are case-sensitive, nonempty, and must not have surrounding whitespace.
+/// Constructors do not generate IDs; the application must allocate stable unique
+/// values. Document validation checks uniqueness across all entity kinds.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Id(String);
+
+impl Id {
+    /// Creates an identifier, rejecting empty or whitespace-padded values.
+    pub fn new(value: impl Into<String>) -> Result<Self, ValidationError> {
+        let id = Self(value.into());
+        id.validate("id")?;
+        Ok(id)
+    }
+
+    /// Returns the identifier's exact string representation.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    fn validate(&self, path: &str) -> Result<(), ValidationError> {
+        if self.0.is_empty() || self.0.trim() != self.0 {
+            return Err(ValidationError::InvalidId { path: path.into() });
+        }
+        Ok(())
+    }
+}
+
+/// Descriptive metadata. Text is preserved exactly without Unicode normalization.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DocumentMetadata {
+    /// The document title; an empty title represents an untitled document.
+    pub title: String,
+}
+
+/// Reserved section properties; schema 1 defines no layout fields.
+///
+/// `None` and `Some(SectionProperties {})` are both valid and remain distinct on
+/// round trips. Unknown layout fields are rejected rather than discarded.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SectionProperties {}
+
+/// A UTF-8 text fragment with direct character formatting.
+///
+/// Runs may be empty and are never merged or normalized by model validation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TextRun {
+    /// UTF-8 text; byte indices are not cursor positions.
+    pub text: String,
+    /// Direct properties, with unspecified values eligible for inheritance.
+    pub format: CharacterFormat,
+}
+
+impl TextRun {
+    /// Constructs an unformatted run, preserving the supplied string exactly.
+    #[must_use]
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            format: CharacterFormat::default(),
+        }
+    }
+}
+
+/// A paragraph containing an ordered sequence of text runs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Paragraph {
+    id: Id,
+    runs: Vec<TextRun>,
+    style: Option<Id>,
+    format: ParagraphFormat,
+}
+
+impl Paragraph {
+    /// Assembles a paragraph. An empty run sequence is a valid empty paragraph.
+    #[must_use]
+    pub fn new(id: Id, runs: Vec<TextRun>) -> Self {
+        Self {
+            id,
+            runs,
+            style: None,
+            format: ParagraphFormat::default(),
+        }
+    }
+
+    /// Sets a named paragraph-style reference during construction.
+    #[must_use]
+    pub fn with_style(mut self, style: Id) -> Self {
+        self.style = Some(style);
+        self
+    }
+
+    /// Sets direct paragraph properties during construction.
+    #[must_use]
+    pub fn with_format(mut self, format: ParagraphFormat) -> Self {
+        self.format = format;
+        self
+    }
+
+    /// Returns the stable paragraph identifier.
+    #[must_use]
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    /// Returns text runs in document order.
+    #[must_use]
+    pub fn runs(&self) -> &[TextRun] {
+        &self.runs
+    }
+
+    /// Returns the optional named style reference.
+    #[must_use]
+    pub fn style(&self) -> Option<&Id> {
+        self.style.as_ref()
+    }
+
+    /// Returns the paragraph's direct formatting properties.
+    #[must_use]
+    pub fn format(&self) -> &ParagraphFormat {
+        &self.format
+    }
+}
+
+/// Typed block content. Additional kinds require an explicit schema evolution.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    content = "content",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum Block {
+    /// A text paragraph.
+    Paragraph(Paragraph),
+}
+
+/// An ordered section of document content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Section {
+    id: Id,
+    blocks: Vec<Block>,
+    properties: Option<SectionProperties>,
+}
+
+impl Section {
+    /// Assembles a section. An empty block sequence is valid.
+    #[must_use]
+    pub fn new(id: Id, blocks: Vec<Block>) -> Self {
+        Self {
+            id,
+            blocks,
+            properties: None,
+        }
+    }
+
+    /// Supplies the reserved properties record during construction.
+    #[must_use]
+    pub fn with_properties(mut self, properties: SectionProperties) -> Self {
+        self.properties = Some(properties);
+        self
+    }
+
+    /// Returns the stable section identifier.
+    #[must_use]
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    /// Returns blocks in document order.
+    #[must_use]
+    pub fn blocks(&self) -> &[Block] {
+        &self.blocks
+    }
+
+    /// Returns the optional section properties record.
+    #[must_use]
+    pub fn properties(&self) -> Option<&SectionProperties> {
+        self.properties.as_ref()
+    }
+}
+
+/// A named paragraph style with optional inheritance and run defaults.
+///
+/// The model stores and validates inheritance but does not yet compute effective
+/// properties. Direct formatting will override the nearest specified style value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NamedStyle {
+    /// Stable identifier used in style references (not the display name).
+    pub id: Id,
+    /// Nonblank, unique, case-sensitive display name.
+    pub name: String,
+    /// Optional parent paragraph style; cycles are invalid.
+    pub based_on: Option<Id>,
+    /// Paragraph properties specified by this style.
+    pub paragraph_format: ParagraphFormat,
+    /// Default character properties specified by this style.
+    pub character_format: CharacterFormat,
+}
+
+impl NamedStyle {
+    /// Constructs a style with unspecified formatting and no parent.
+    #[must_use]
+    pub fn new(id: Id, name: impl Into<String>) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            based_on: None,
+            paragraph_format: ParagraphFormat::default(),
+            character_format: CharacterFormat::default(),
+        }
+    }
+}
+
+/// A validated structured document, independent of editing, layout, and rendering.
+///
+/// An empty document has no sections. Empty sections, paragraphs, and text runs
+/// are valid; no layout content is synthesized. Construction and JSON loading
+/// validate all references and properties. Inspection exposes no mutable access.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Document {
+    schema_version: u32,
+    id: Id,
+    metadata: DocumentMetadata,
+    sections: Vec<Section>,
+    styles: Vec<NamedStyle>,
+}
+
+// Separate input record keeps schema version and model invariants out of the
+// public construction API. Every path producing Document validates this record.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DocumentInput {
+    schema_version: u64,
+    id: Id,
+    metadata: DocumentMetadata,
+    sections: Vec<Section>,
+    styles: Vec<NamedStyle>,
+}
+
+impl DocumentInput {
+    fn into_document(self) -> Result<Document, DocumentError> {
+        check_schema(self.schema_version)?;
+        Document::from_parts(self.id, self.metadata, self.sections, self.styles)
+            .map_err(DocumentError::from)
+    }
+}
+
+impl<'de> Deserialize<'de> for Document {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        DocumentInput::deserialize(deserializer)?
+            .into_document()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+fn check_schema(found: u64) -> Result<(), DocumentError> {
+    if found != u64::from(SCHEMA_VERSION) {
+        return Err(DocumentError::UnsupportedSchemaVersion {
+            found,
+            supported: SCHEMA_VERSION,
+        });
+    }
+    Ok(())
+}
+
+fn register_id<'a>(
+    ids: &mut HashSet<&'a str>,
+    id: &'a Id,
+    path: &str,
+) -> Result<(), ValidationError> {
+    id.validate(path)?;
+    if !ids.insert(id.as_str()) {
+        return Err(ValidationError::DuplicateId {
+            id: id.as_str().into(),
+        });
+    }
+    Ok(())
+}
+
+impl Document {
+    /// Creates an empty document with the current schema and default metadata.
+    ///
+    /// Validation is fallible because IDs deserialized independently can be invalid.
+    pub fn new(id: Id) -> Result<Self, ValidationError> {
+        Self::from_parts(id, DocumentMetadata::default(), Vec::new(), Vec::new())
+    }
+
+    /// Assembles and validates a document from complete structural parts.
+    pub fn from_parts(
+        id: Id,
+        metadata: DocumentMetadata,
+        sections: Vec<Section>,
+        styles: Vec<NamedStyle>,
+    ) -> Result<Self, ValidationError> {
+        let document = Self {
+            schema_version: SCHEMA_VERSION,
+            id,
+            metadata,
+            sections,
+            styles,
+        };
+        document.validate()?;
+        Ok(document)
+    }
+
+    /// Returns the stable document identifier.
+    #[must_use]
+    pub fn id(&self) -> &Id {
+        &self.id
+    }
+
+    /// Returns the document model schema version, independent of engine version.
+    #[must_use]
+    pub fn schema_version(&self) -> u32 {
+        self.schema_version
+    }
+
+    /// Returns document metadata.
+    #[must_use]
+    pub fn metadata(&self) -> &DocumentMetadata {
+        &self.metadata
+    }
+
+    /// Returns sections in document order.
+    #[must_use]
+    pub fn sections(&self) -> &[Section] {
+        &self.sections
+    }
+
+    /// Returns style definitions in their preserved input order.
+    #[must_use]
+    pub fn styles(&self) -> &[NamedStyle] {
+        &self.styles
+    }
+
+    /// Validates IDs, style references and inheritance, and all formatting values.
+    ///
+    /// Validation never repairs or normalizes content. It returns the first
+    /// error encountered in structural traversal order, then style-graph order.
+    pub fn validate(&self) -> Result<(), ValidationError> {
+        let mut ids = HashSet::new();
+        register_id(&mut ids, &self.id, "id")?;
+        let mut names = HashSet::new();
+        let mut styles = HashMap::new();
+        for (index, style) in self.styles.iter().enumerate() {
+            let path = format!("styles[{index}]");
+            register_id(&mut ids, &style.id, &format!("{path}.id"))?;
+            if style.name.trim().is_empty() || !names.insert(style.name.as_str()) {
+                return Err(ValidationError::InvalidStyleName {
+                    path: format!("{path}.name"),
+                });
+            }
+            style
+                .character_format
+                .validate(&format!("{path}.character_format"))?;
+            style
+                .paragraph_format
+                .validate(&format!("{path}.paragraph_format"))?;
+            styles.insert(style.id.as_str(), style);
+        }
+        let resolve = |id: &Id, path: &str| -> Result<(), ValidationError> {
+            id.validate(path)?;
+            if !styles.contains_key(id.as_str()) {
+                return Err(ValidationError::MissingStyle {
+                    path: path.into(),
+                    id: id.as_str().into(),
+                });
+            }
+            Ok(())
+        };
+        for (section_index, section) in self.sections.iter().enumerate() {
+            let path = format!("sections[{section_index}]");
+            register_id(&mut ids, &section.id, &format!("{path}.id"))?;
+            for (block_index, block) in section.blocks.iter().enumerate() {
+                let Block::Paragraph(paragraph) = block;
+                let path = format!("{path}.blocks[{block_index}].content");
+                register_id(&mut ids, &paragraph.id, &format!("{path}.id"))?;
+                if let Some(style) = &paragraph.style {
+                    resolve(style, &format!("{path}.style"))?;
+                }
+                paragraph.format.validate(&format!("{path}.format"))?;
+                for (run_index, run) in paragraph.runs.iter().enumerate() {
+                    run.format
+                        .validate(&format!("{path}.runs[{run_index}].format"))?;
+                }
+            }
+        }
+        for (index, style) in self.styles.iter().enumerate() {
+            if let Some(parent) = &style.based_on {
+                resolve(parent, &format!("styles[{index}].based_on"))?;
+            }
+        }
+        // Iterative graph walk avoids recursion and visits each style once.
+        let mut complete = HashSet::new();
+        for style in &self.styles {
+            let mut path = HashSet::new();
+            let mut current = Some(style);
+            while let Some(style) = current {
+                let id = style.id.as_str();
+                if complete.contains(id) {
+                    break;
+                }
+                if !path.insert(id) {
+                    return Err(ValidationError::StyleCycle { id: id.into() });
+                }
+                current = style
+                    .based_on
+                    .as_ref()
+                    .map(|parent| styles[parent.as_str()]);
+            }
+            complete.extend(path);
+        }
+        Ok(())
+    }
+
+    /// Serializes a validated document to pretty-printed schema-versioned JSON.
+    pub fn to_json(&self) -> Result<String, DocumentError> {
+        self.validate()?;
+        Ok(serde_json::to_string_pretty(self)?)
+    }
+
+    /// Parses JSON and validates it without silently dropping unknown fields.
+    ///
+    /// The version is checked before decoding model fields, so a future schema
+    /// with a different payload still returns an explicit unsupported-version
+    /// error. Missing fields and duplicate JSON object keys are rejected.
+    pub fn from_json(json: &str) -> Result<Self, DocumentError> {
+        #[derive(Deserialize)]
+        struct Header {
+            schema_version: u64,
+        }
+        let header: Header = serde_json::from_str(json)?;
+        check_schema(header.schema_version)?;
+        serde_json::from_str::<DocumentInput>(json)?.into_document()
+    }
+}
