@@ -2,10 +2,16 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
+use crate::formatting::{PageMargins, PageSize};
 use crate::{CharacterFormat, DocumentError, ParagraphFormat, ValidationError};
 
-/// The only document JSON schema currently supported (independent of crate version).
-pub const SCHEMA_VERSION: u32 = 1;
+#[path = "legacy.rs"]
+mod legacy;
+
+/// Current document JSON schema, independent of crate and native-file versions.
+///
+/// Schema 1 is accepted through an explicit strict migration to schema 2.
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// An opaque, caller-assigned identifier preserved across copies and serialization.
 ///
@@ -46,13 +52,43 @@ pub struct DocumentMetadata {
     pub title: String,
 }
 
-/// Reserved section properties; schema 1 defines no layout fields.
+/// Optional format-neutral physical page properties.
 ///
-/// `None` and `Some(SectionProperties {})` are both valid and remain distinct on
-/// round trips. Unknown layout fields are rejected rather than discarded.
+/// An absent record and a present record with both fields unspecified remain
+/// distinct. Geometry is never inferred, rotated, clamped, or normalized.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SectionProperties {}
+#[serde(default, deny_unknown_fields)]
+pub struct SectionProperties {
+    /// Explicit physical page dimensions and optional printing orientation.
+    pub page_size: Option<PageSize>,
+    /// Explicit body margins, header/footer offsets and binding margin.
+    pub page_margins: Option<PageMargins>,
+}
+
+impl SectionProperties {
+    fn validate(&self, path: &str) -> Result<(), ValidationError> {
+        if let Some(size) = self.page_size {
+            size.validate(&format!("{path}.page_size"))?;
+        }
+        if let Some(margins) = self.page_margins {
+            margins.validate(&format!("{path}.page_margins"))?;
+        }
+        if let (Some(size), Some(margins)) = (self.page_size, self.page_margins) {
+            // i64 arithmetic covers the sum of every valid i32 twip field.
+            let horizontal = i64::from(margins.left.0)
+                + i64::from(margins.right.0)
+                + i64::from(margins.gutter.0);
+            let vertical = i64::from(margins.top.0) + i64::from(margins.bottom.0);
+            if horizontal >= i64::from(size.width.0) || vertical >= i64::from(size.height.0) {
+                return Err(ValidationError::InvalidFormatting {
+                    path: path.to_owned(),
+                    reason: "page dimensions and margins must leave a positive body area".into(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
 
 /// A UTF-8 text fragment with direct character formatting.
 ///
@@ -266,14 +302,15 @@ impl DocumentInput {
 
 impl<'de> Deserialize<'de> for Document {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        DocumentInput::deserialize(deserializer)?
-            .into_document()
-            .map_err(serde::de::Error::custom)
+        // Preserve the JSON object text: a Value intermediate would erase
+        // duplicate fields before the strict schema-specific decoder sees them.
+        let raw = Box::<serde_json::value::RawValue>::deserialize(deserializer)?;
+        Self::from_json(raw.get()).map_err(serde::de::Error::custom)
     }
 }
 
 fn check_schema(found: u64) -> Result<(), DocumentError> {
-    if found != u64::from(SCHEMA_VERSION) {
+    if found != 1 && found != u64::from(SCHEMA_VERSION) {
         return Err(DocumentError::UnsupportedSchemaVersion {
             found,
             supported: SCHEMA_VERSION,
@@ -390,6 +427,9 @@ impl Document {
         for (section_index, section) in self.sections.iter().enumerate() {
             let path = format!("sections[{section_index}]");
             register_id(&mut ids, &section.id, &format!("{path}.id"))?;
+            if let Some(properties) = &section.properties {
+                properties.validate(&format!("{path}.properties"))?;
+            }
             for (block_index, block) in section.blocks.iter().enumerate() {
                 let Block::Paragraph(paragraph) = block;
                 let path = format!("{path}.blocks[{block_index}].content");
@@ -442,7 +482,9 @@ impl Document {
     ///
     /// The version is checked before decoding model fields, so a future schema
     /// with a different payload still returns an explicit unsupported-version
-    /// error. Missing fields and duplicate JSON object keys are rejected.
+    /// error. Schema 1 is decoded using its exact former field definitions and
+    /// migrated to schema 2 with new properties unspecified. Missing fields,
+    /// fields introduced only in newer schemas, and duplicate keys are rejected.
     pub fn from_json(json: &str) -> Result<Self, DocumentError> {
         #[derive(Deserialize)]
         struct Header {
@@ -450,6 +492,10 @@ impl Document {
         }
         let header: Header = serde_json::from_str(json)?;
         check_schema(header.schema_version)?;
-        serde_json::from_str::<DocumentInput>(json)?.into_document()
+        if header.schema_version == 1 {
+            legacy::from_json(json)
+        } else {
+            serde_json::from_str::<DocumentInput>(json)?.into_document()
+        }
     }
 }

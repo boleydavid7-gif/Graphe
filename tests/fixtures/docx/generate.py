@@ -67,7 +67,7 @@ archive('writer-source-preservation.docx', {
             <w:p><w:fldSimple w:instr="DATE"><w:r><w:t>2026-11-14</w:t></w:r></w:fldSimple></w:p>
             <w:p><w:hyperlink r:id="rIdLink"><w:r><w:t>External source</w:t></w:r></w:hyperlink></w:p>
             <mc:AlternateContent><mc:Choice Requires="x"><x:futureFeature>Do not discard this extension.</x:futureFeature></mc:Choice><mc:Fallback><w:p><w:r><w:t>Fallback text</w:t></w:r></w:p></mc:Fallback></mc:AlternateContent>
-            <w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+            <w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>
           </w:body>
         </w:document>'''),
     'word/_rels/document.xml.rels': xml(f'''

@@ -7,8 +7,9 @@ positions and selections. A runtime session now provides atomic validated
 transactions, Unicode-safe text and formatting operations, and bounded undo/redo.
 Native Writer persistence now separates byte serialization from filesystem
 storage. Step 4.5 adds a Rust/WebAssembly session boundary and a semantic browser
-prototype. Professional layout, platform-independent rendering, and Office
-format conversion remain future subsystems.
+prototype. The Step 5 conversion branch adds declared DOCX semantic conversion
+and original-preserving native files. Professional layout and platform-independent
+rendering remain future subsystems; Step 6 is paused pending DOCX completion.
 
 ## Independent engine
 
@@ -49,7 +50,7 @@ portability, maintenance, and licensing against project needs.
 
 `Document` owns a stable ID, schema version, metadata including a title, ordered
 sections, and named paragraph-style definitions. Each `Section` owns a stable ID,
-ordered blocks, and optional reserved section properties. `Block` is a typed enum
+ordered blocks, and optional format-neutral page properties. `Block` is a typed enum
 with a `Paragraph` variant. Each paragraph owns a stable ID, ordered text runs,
 an optional named style reference, and direct paragraph properties. A `TextRun`
 stores a UTF-8 `String` and direct character properties.
@@ -70,7 +71,7 @@ IDs are opaque, caller-assigned, case-sensitive strings. They must be nonempty
 and have no leading or trailing whitespace. IDs of the document, sections,
 paragraphs, and style definitions share one document-wide uniqueness domain.
 Applications choose an allocation scheme and preserve IDs through persistence
-and future transactions. Text runs have no identity in schema 1. Positions use
+and transactions. Text runs have no identity in schema 2. Positions use
 document and paragraph IDs with a logical grapheme offset; rebasable editing
 anchors remain a later design decision.
 
@@ -78,7 +79,7 @@ anchors remain a later design decision.
 
 Character properties include bold, italic, underline, font family, font size,
 and automatic or explicit RGB text color. Paragraph properties include alignment,
-spacing before and after, line spacing, and indentation. Properties default to
+spacing before and after, line spacing, indentation and page-break-before. Properties default to
 unspecified (`None`). Explicit `false` and underline `none` remain distinct from
 unspecified values so future style resolution can honor overrides. The model
 does not choose a default platform font or compute layout defaults.
@@ -99,7 +100,19 @@ Validation rejects missing references and inheritance cycles. The core model
 stores the style graph without resolving effective formatting. The browser
 adapter adds a limited Rust display policy for inheritance and direct properties;
 it does not alter the optional source values. Character styles, numbering styles,
-theme fonts, and OOXML toggle semantics are not implemented.
+theme fonts and full Word style-editing semantics are not implemented. The DOCX
+adapter translates supported style toggles separately from direct run values.
+
+Schema 2 adds optional `SectionProperties.page_size` and `page_margins`.
+`PageSize` retains positive twip width/height and an optional `PageOrientation`;
+orientation never implicitly rotates dimensions. `PageMargins` retains top,
+right, bottom, left, header, footer and gutter twips. These values are nonnegative
+in the declared profile. If size and margins are both explicit, checked wide
+arithmetic requires positive body width after left/right/gutter and positive
+height after top/bottom. Negative Word top/bottom margin overlap semantics remain
+unsupported, while existing negative paragraph indentation remains valid.
+Unspecified section properties remain unspecified; validation does not invent
+page defaults or provide a layout engine.
 
 ### Validation and serialization
 
@@ -111,12 +124,12 @@ Individually assembled property records can contain invalid values until they
 are accepted into a document.
 
 The document payload representation is UTF-8 JSON, currently schema version
-**1**. Its version is independent of the engine crate version and the native
+**2**. Its version is independent of the engine crate version and the native
 file envelope version. A minimal valid model payload is:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "document-1",
   "metadata": { "title": "" },
   "sections": [],
@@ -131,18 +144,20 @@ missing optional formatting properties also mean unspecified. Structural
 collections and required records are explicit. JSON object key order and
 whitespace are not part of the semantic contract; array ordering is preserved.
 See [the realistic sample](../tests/fixtures/writer-sample-v1.json) for supported
-formatted content and style references.
+formatted legacy content and style references. It remains a schema-1 migration
+fixture rather than being relabeled with a newer schema.
 
 `Document::to_json` validates before writing pretty-printed JSON.
 `Document::from_json` checks the version before decoding model fields, then
 checks shape and invariants. It returns `DocumentError` variants for unsupported
 versions, JSON errors, or validation errors. Future versions are rejected even
-if their payload shape differs; no migration or downgrade is implicit. The
-Serde `Document` implementation also validates decoded content, but generic
-Serde errors do not retain the typed `DocumentError` distinction, and an
-incompatible future shape can fail before its version is inspected. Prefer
-`from_json` at the raw-model boundary; native `.writer` files use the persistence
-API below, which delegates payload decoding to that same loader.
+if their payload shape differs. Schema 1 is decoded with its strict historical
+section/paragraph-property records, then migrated to schema 2 with new properties
+unspecified. New fields inside a schema-1 payload are errors, even when null.
+Stable IDs, optional-value distinctions, text and ordered collections survive.
+Direct Serde JSON loading preserves raw object text and delegates to the same
+versioned decoder, retaining duplicate-key rejection; generic Serde errors lose
+the typed `DocumentError` distinction. Prefer `from_json` at the raw-model boundary.
 
 Unknown fields, enum variants, and block kinds are rejected to prevent silent
 loss of unsupported information. No opaque imported-extension container exists
@@ -159,9 +174,9 @@ UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
 ```json
 {
   "format": "office-writer",
-  "format_version": 1,
+  "format_version": 2,
   "document": {
-    "schema_version": 1,
+    "schema_version": 2,
     "id": "document-1",
     "metadata": { "title": "" },
     "sections": [],
@@ -173,13 +188,14 @@ UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
 `WRITER_FORMAT_NAME`, `WRITER_FORMAT_VERSION`, and `WRITER_EXTENSION` expose
 these native format values. `format_version` describes the file envelope;
 `document.schema_version` describes the enclosed model. The engine's application
-version is separate and is not written into the file. Only native format 1 and
-model schema 1 are currently supported. Bare model JSON remains useful through
+version is separate and is not written into the file. The current writer emits
+native format 2/model schema 2. Native format 1/model schema 1 is supported through
+the strict migration; mixing these envelope/model versions is rejected. Bare model JSON remains useful through
 `Document::from_json` but is not accepted as an implicit `.writer` file.
 
 `serialize_document(&Document)` validates the complete model and returns
 `Vec<u8>`. The writer uses two-space pretty indentation, fixed envelope field
-order (`format`, `format_version`, `document`), and a single trailing LF. Array
+order (`format`, `format_version`, `document`, optional `source`), and a single trailing LF. Array
 order and exact supported model values are preserved, including text runs,
 explicit false versus unspecified properties, section properties, IDs, styles,
 metadata, and Unicode strings. Serialization adds no timestamp or random value.
@@ -196,24 +212,45 @@ therefore remains identical to construction, editing commits, and raw-model
 loading. Unknown envelope fields, unsupported kinds or properties, malformed
 structures, duplicate keys, and unsupported versions are rejected without repair
 or content loss. UTF-8 BOM input is rejected as invalid JSON; ordinary JSON
-whitespace and equivalent escaped string spellings are accepted.
+whitespace and equivalent escaped string spellings are accepted. Document-only
+loaders return `PersistenceError::SourcePresent` when a retained original exists.
+They never return a document after silently dropping its source.
+
+`WriterFile` pairs a validated `Document` with an optional `OriginalSource`.
+`serialize_writer_file(&WriterFile)` and `deserialize_writer_file(&[u8])` preserve
+both. The optional `source` object contains `format`, `media_type`, `filename`
+and `bytes_base64`, using strict standard padded base64. A source is immutable
+`Arc<[u8]>` data outside `DocumentSession` and undo snapshots. Metadata validation
+does not establish foreign-format validity or semantic correspondence; the
+relevant adapter performs that validation before editable import.
+
+Core budgets are 32 MiB for the complete native file, 16 MiB for a nonempty
+original, 64 ASCII bytes for its format identifier, 255 ASCII bytes for an
+unparameterized media type, and 1,024 UTF-8 bytes for a leaf filename. No filename
+path is opened. Decoding bounds base64 before allocation and rejects invalid
+padding/alphabet/trailing bits. Serialization bounds escaped output. The source
+constructor checks byte length before and after ownership conversion. Original
+metadata and bytes are retained without normalization or repair.
 
 `PersistenceError` distinguishes invalid UTF-8, JSON/envelope failures, an unknown
-format marker, unsupported native versions, and existing structured `DocumentError`
+format marker, unsupported native versions, incompatible envelope/model pairs,
+source metadata/encoding/limits, `SourcePresent`, and structured `DocumentError`
 failures. Native format and model-schema version errors remain distinct. Future
 interfaces can translate these error categories without parsing display strings.
 See [the native fixture](../tests/fixtures/native/writer-v1.writer) for a realistic
-multi-section document; the model-only fixture continues to test schema 1.
+multi-section legacy document; both legacy fixtures exercise migration.
 
 #### Serialization and native storage boundaries
 
 Byte serialization has no filesystem or browser dependency. On targets other
 than `wasm32`, `save_document(&Document, path)` and `load_document(path)` supply a
-native filesystem adapter using `AsRef<Path>`. Native paths are retained as
+native filesystem adapter using `AsRef<Path>`. Full-file `save_writer_file` and
+`load_writer_file` preserve retained originals through the same safe-save path.
+Native paths are retained as
 `Path`/`PathBuf`, supporting Unicode filenames without a UTF-8 conversion step.
 The adapter neither appends `.writer` nor creates missing parent directories.
-The full document and file bytes are held in memory; streaming and resource
-limits are not introduced in this milestone.
+The document and bounded file bytes are held in memory; loading enforces the
+core file budget before accepting the complete file.
 
 Saving follows this order:
 
@@ -265,24 +302,23 @@ do not claim protection against adversarial concurrent pathname changes.
 #### Compatibility and future adapters
 
 Loading never changes the source file. Unsupported native or model versions fail
-explicitly; no migration, downgrade, or fallback is implemented. When a second
-version is needed, add an explicit supported source/target transformation with
-fixtures and losslessness expectations, validate its result, and retain tests for
-every supported version. An old version's data must not silently acquire new
-meaning under a newer decoder. The provisional format may change before public
-release only through an explicit versioning decision.
+explicitly. The only migration is native format 1/schema 1 into format 2/schema 2
+state, with no retained source synthesized. Reading does not rewrite the original;
+later serialization emits the current version. Further migrations require an
+explicit source/target transformation, validated results and retained fixtures.
+Old payloads must not silently acquire newer fields or meanings.
 
 Saving borrows the immutable document and does not alter committed content,
 revision tokens, pending drafts, editing endpoints, or undo/redo. Files contain
-only document values; session identity, history, revisions, and endpoints are not
-persisted. Loading returns a validated `Document`; creating a new session from it
+document values and optional retained source; session identity, history, revisions,
+and endpoints are not persisted. Full-file loading returns a `WriterFile`; creating a new session from its document
 starts a fresh revision lineage and empty history.
 
 Step 4.5 transports these same bytes through IndexedDB and native file
 import/export. Browser storage has its own completion, quota, eviction, and
 conflict semantics; it does not inherit the native filesystem guarantees above.
-DOCX import/export remains a separate future adapter to and from the typed model,
-requiring its own researched compatibility policy and approval. Autosave and
+DOCX import/export is a separate adapter to and from the typed model under its
+declared compatibility profile and preservation policy. Autosave and
 cloud synchronization are not implemented.
 
 ### Unicode positions and selections (3A)
@@ -329,8 +365,8 @@ also differs from visual bidirectional cursor movement; visual movement and
 layout affinity are outside 3A.
 
 Positions, selections, and coordinate snapshots are runtime values without Serde
-implementations. The document model and schema version 1 are unchanged. They
-operate independently of a frontend or future DOCX mapping. Positions are not
+implementations. Those types did not change the then-current schema 1. They
+operate independently of a frontend or DOCX mapping. Positions are not
 revision-aware or automatically rebased: revalidation detects missing elements
 and out-of-range offsets but cannot detect changed text meaning under the same
 IDs. Session revision tokens in 3B provide a conservative origin check before
@@ -352,7 +388,7 @@ logical boundary behavior rather than visual editing behavior.
 
 `DocumentSession` owns one validated committed `Document` and a session-scoped
 `Revision`. Committed access is immutable. The document model, construction
-invariants, and schema version 1 remain unchanged; sessions and transactions are
+invariants remain separate from runtime state; sessions and transactions are
 runtime values without serialization. Reopening a saved document creates a new
 session lineage at revision zero.
 
@@ -431,7 +467,7 @@ callers can drop the transaction to abort the entire batch. Committed state
 remains untouched until commit succeeds. Endpoints and text coordinate snapshots
 must be reacquired after a changed operation. Final commit
 still checks the originating session revision, so a detached draft cannot
-overwrite a later commit. These runtime types do not change schema version 1.
+overwrite a later commit. These runtime types are not serialized model fields.
 Creating editing endpoints or applying an operation requires the current draft
 to be valid; repair invalid raw staging records before using those helpers.
 
@@ -510,21 +546,21 @@ transaction, and operation milestones retain separate acceptance checks.
 
 ### DOCX compatibility limits and extension points
 
-Section boundaries and separate paragraph/run property sets anticipate OOXML's
-organization. Integer twips, half-points, style IDs, and inheritance references
-provide useful starting points without making the internal model identical to
-OOXML. Section properties currently contain no page-layout fields; an absent
-record and a present empty record remain distinct.
+Section boundaries, paragraph/run properties, integer twips/half-points and
+style IDs map through `office-docx` without defining the model in OOXML terms.
+Schema 2 adds generic page geometry and paragraph page-break-before. Explicit
+soft line breaks and tabs map to the existing text representation under the
+declared profile; arbitrary Word control elements are not interchangeable with
+literal text. An absent section record and a present unspecified record remain
+distinct.
 
-Schema 1 does not implement tables, images, headers or footers, lists or
-numbering, page setup, tabs or explicit break elements, fields, revisions,
-embedded objects, or unknown OOXML preservation. Plain strings have no typed
-semantics for those elements. Underline and font/color properties are a small
-subset of Word's formatting model. Future format work must decide how to map
-units, defaults, themes, inherited toggles, unsupported elements, and source
-identifiers without silently losing fidelity. Additional typed block variants
-and property records should be added when their behavior is implemented and
-covered by compatibility tests.
+Tables, images, headers/footers, numbering, fields, revisions, embedded objects,
+themes and unsupported semantic properties remain outside the editable profile.
+They produce preserved read-only outcomes. Unknown source data is not put in a
+core extension bag. DOCX IDs, exact run partitioning, empty-container distinctions
+and future Word style-editing intent are not universal semantic round-trip
+guarantees. Native files preserve exact supported model values and original bytes.
+Further typed semantics require implementation, versioning and regression tests.
 
 ## Browser Writer prototype (Step 4.5)
 
@@ -700,12 +736,13 @@ not professional page layout, pagination, or Word rendering compatibility.
 
 `cloudflare.config.ts.example` is inert preparation for a separate assets-only
 Writer Worker. It supplies no route or domain, disables workers.dev and preview
-URLs, and changes no live deployment or access setting. The future address
-`writer.proairetos.com` is not an implemented deployment. Turning this example
+URLs, and changes no live deployment or access setting. The intended address
+`writer.proairetos.com` requires independent routing/private-access verification.
+Turning this example
 into active configuration, installing a deployment toolchain, changing DNS or
 development-access restrictions, and releasing a site require explicit approval.
-Step 5 also requires a separate researched DOCX scope and approval; completing
-this prototype does not start it.
+Completing Step 4.5 did not itself authorize Step 5. The owner subsequently
+authorized the DOCX conversion scope below; this branch does not deploy it.
 
 ## Incremental workspace
 
@@ -713,7 +750,8 @@ this prototype does not start it.
 position/selection APIs, editing operations, and transaction
 sessions with history. Serde, serde_json, and unicode-segmentation are declared in
 `[workspace.dependencies]` and inherited by the crate for serialization and Unicode
-segmentation. Serde JSON's `raw_value` feature reuses the model loader inside the
+segmentation. The pinned `base64` codec encodes retained native-file originals.
+Serde JSON's `raw_value` feature reuses the model loader inside the
 native envelope. `tempfile` is a native-only workspace dependency for safe saving;
 it is excluded from `wasm32` builds along with the filesystem API. `office-wasm`
 is the browser binding crate; `apps/writer` is its separate frontend project with
@@ -737,22 +775,42 @@ definition. Future ODT, RTF, TXT, Markdown, HTML and other adapters should map
 their representable semantics into this same model without requiring a DOCX
 intermediate or importing OPC/XML/Word-specific types into `office-core`.
 
-`office-docx` owns DOCX/OPC archive handling, WordprocessingML namespaces and
-properties, relationships, compatibility diagnostics, import/export mappings,
-and its original-source preservation state. All ZIP/XML dependencies are at
-this format boundary. It accepts bytes and returns bounded inspection results
-or structured errors in Step 5A. `DocxSource` owns immutable original bytes and
-their validated inventory; its exact-byte accessor does not reconstruct the
-package. It is a format-specific source record, not an editable document model.
-Native `.writer` storage remains a separate adapter around the shared model.
+`office-docx` owns OPC/ZIP, WordprocessingML namespaces/properties, relationships,
+compatibility diagnostics and semantic import/export. All ZIP/XML dependencies
+stay at this boundary. The merged 5A inspection API and immutable `DocxSource`
+remain available; their exact-byte accessors do not reconstruct a package.
 
-The user selected preserving unsupported originals before editing. A future
-editable DOCX projection must retain unsupported information and define how
-each edit affects source content before such editing is enabled. Keeping a
-source blob alone does not prove faithful export after edits. Step 5A therefore
-supports read-only inspection/retention and does not publish partial editable
-imports or silently drop tables, fields, styles, layout, or extension content.
-No native schema migration or DOCX field is added to the core for this stage.
+The conversion API is `import_docx(&[u8], Id)` and `export_docx(&Document)`.
+Import yields either an `Editable(ImportedDocx)` with a complete supported model
+and original, or `Preserved { original, report }` with no partial editable model.
+Diagnostics have stable categories and bounded part/path/message text; their
+human-readable wording is not a protocol. Invalid package/model input is a
+structured error. Supported defaults, styles and direct properties are mapped
+deliberately, including OOXML style-toggle translation. Unknown semantic
+elements, properties, relationships and parts prevent editable import.
+
+The user selected preserving unsupported originals before editing. Browser DOCX
+import therefore uses a detached engine, then saves its complete source-bearing
+`WriterFile` through the existing IndexedDB transaction before replacing the live
+session. Source overhead counts toward the complete 5 MiB browser file budget.
+Errors or stale origins preserve live content/history/dirty state. Native-file
+imports keep their existing explicit-save behavior. Unsupported DOCX sources
+remain available in a read-only diagnostic dialog and are not silently added to
+the local document library.
+
+Native save/reopen retains the original outside editing history. Native export
+discloses that the backup can contain text/metadata removed by edits. Downloading
+the original returns exact bytes; DOCX export regenerates current supported
+content. It does not splice arbitrary unknown source semantics into edited XML
+or promise full native identity/style-intent round trips. Page geometry and
+page-break-before are generic schema-2 values, not DOCX extension records.
+
+Whitespace and control mappings are conservative. Ambiguous Word text-element
+leading/trailing whitespace or literal CR/LF/TAB is preserved read-only rather
+than silently trimmed or treated as a structural control. Export uses explicit
+break/tab elements and character references where required by XML normalization.
+LibreOffice reference checks test the declared subset; Word pagination and
+Microsoft Word application interoperability remain unverified.
 
 Apply the same principle where appropriate to future formats: retain the
 original representation, report unsupported semantics, and define explicit
@@ -764,8 +822,10 @@ format-independent behavior is understood and tested.
 Do not add a generic format registry, plugin hierarchy, shared OOXML extension
 bag, or hypothetical adapters before concrete responsibilities justify them.
 No ODT, RTF, TXT, Markdown, HTML or other-format implementation is part of Step 5.
-See [DOCX.md](DOCX.md) for current scope, resource limits, research, and the
-distinction between package validity and semantic import/export compatibility.
+See [DOCX.md](DOCX.md) and [DOCX_CONVERSION.md](DOCX_CONVERSION.md) for precise
+profile limits and [DOCX_CONVERSION_VERIFICATION.md](DOCX_CONVERSION_VERIFICATION.md)
+for executed checks. Preliminary Step 6 library/probe research is recorded in
+RESEARCH; no typography engine or font asset is part of this conversion branch.
 
 Correctness, performance, compatibility, maintainability, and architectural
 stability guide development. Changes should keep responsibilities explicit and

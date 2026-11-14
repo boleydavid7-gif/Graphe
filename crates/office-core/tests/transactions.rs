@@ -5,8 +5,8 @@ use std::panic::catch_unwind;
 
 use office_core::{
     Block, CharacterFormat, Document, DocumentDraft, DocumentMetadata, DocumentSession,
-    GraphemeOffset, HalfPoints, Id, NamedStyle, Paragraph, ParagraphFormat, Section, TextRun,
-    TransactionError, Twips, ValidationError,
+    GraphemeOffset, HalfPoints, Id, NamedStyle, Paragraph, ParagraphFormat, SCHEMA_VERSION,
+    Section, TextRun, TransactionError, Twips, ValidationError,
 };
 
 fn id(value: &str) -> Id {
@@ -50,7 +50,7 @@ fn a_session_starts_at_revision_zero_without_changing_the_document() {
     assert_eq!(session.validate_revision(&session.revision()), Ok(()));
     assert_eq!(session.revision(), session.revision().clone());
     assert_eq!(session.document(), &original);
-    assert_eq!(session.document().schema_version(), 1);
+    assert_eq!(session.document().schema_version(), SCHEMA_VERSION);
     assert_eq!(session.document().validate(), Ok(()));
 }
 
@@ -461,7 +461,7 @@ fn drafts_can_be_replaced_as_records_without_replacing_document_identity() {
     assert_eq!(candidate.document_id(), &id("document"));
     session.commit(candidate).unwrap();
     assert_eq!(session.document().id(), &id("document"));
-    assert_eq!(session.document().schema_version(), 1);
+    assert_eq!(session.document().schema_version(), SCHEMA_VERSION);
     assert!(session.document().sections().is_empty());
 }
 
@@ -479,7 +479,7 @@ fn unicode_fixture_identity_runs_and_serialization_survive_a_metadata_commit() {
 
     let saved = session.document().to_json().unwrap();
     let payload: serde_json::Value = serde_json::from_str(&saved).unwrap();
-    assert_eq!(payload["schema_version"], 1);
+    assert_eq!(payload["schema_version"], SCHEMA_VERSION);
     assert!(payload.get("revision").is_none());
     assert!(payload.get("session").is_none());
     assert_eq!(Document::from_json(&saved).unwrap(), *session.document());

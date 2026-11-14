@@ -82,6 +82,8 @@ pub struct ParagraphFormatPatch {
     pub line_spacing: PropertyChange<LineSpacing>,
     /// Replace or remove the complete indentation override record.
     pub indentation: PropertyChange<Indentation>,
+    /// Change the direct page-break-before override.
+    pub page_break_before: PropertyChange<bool>,
 }
 
 impl ParagraphFormatPatch {
@@ -92,6 +94,7 @@ impl ParagraphFormatPatch {
             spacing_after: self.spacing_after.apply(&original.spacing_after),
             line_spacing: self.line_spacing.apply(&original.line_spacing),
             indentation: self.indentation.apply(&original.indentation),
+            page_break_before: self.page_break_before.apply(&original.page_break_before),
         }
     }
 

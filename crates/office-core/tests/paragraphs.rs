@@ -25,7 +25,7 @@ fn document(paragraphs: Vec<Paragraph>) -> Document {
                 id("section"),
                 paragraphs.into_iter().map(Block::Paragraph).collect(),
             )
-            .with_properties(SectionProperties {}),
+            .with_properties(SectionProperties::default()),
         ],
         vec![
             NamedStyle::new(id("normal"), "Normal"),
@@ -347,7 +347,7 @@ fn multi_paragraph_replacement_keeps_start_properties_and_end_run_formatting() {
         }
         assert_eq!(
             transaction.draft().sections[0].properties(),
-            Some(&SectionProperties {})
+            Some(&SectionProperties::default())
         );
         assert_eq!(
             transaction.draft().sections[0].blocks()[0],
@@ -434,7 +434,7 @@ fn cross_section_breaks_fail_without_changing_content_or_endpoints() {
         vec![
             Section::new(id("first"), vec![Block::Paragraph(paragraph("p", "abc"))]),
             Section::new(id("second"), vec![Block::Paragraph(paragraph("q", "def"))])
-                .with_properties(SectionProperties {}),
+                .with_properties(SectionProperties::default()),
         ],
         vec![],
     )

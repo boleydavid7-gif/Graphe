@@ -402,7 +402,8 @@ test('native fixture, styles, sections and opaque identifiers survive import/exp
   await expect(paragraph(page, 0)).toHaveText('Research progress: Q3');
   await expect(paragraph(page, 0).locator('span').first()).toHaveCSS('font-weight', '700');
   const roundTrip = await exported(page);
-  expect(roundTrip).toMatchObject({ ...native });
+  expect(roundTrip).toMatchObject({ ...native, format_version: 2,
+    document: { ...native.document, schema_version: 2 } });
   // Serde makes unspecified optional fields explicit null; normalize via a
   // second round trip rather than comparing source JSON spelling.
   await importNative(page, roundTrip);

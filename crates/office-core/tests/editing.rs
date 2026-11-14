@@ -27,7 +27,7 @@ fn document(paragraphs: Vec<Paragraph>) -> Document {
                 id("section"),
                 paragraphs.into_iter().map(Block::Paragraph).collect(),
             )
-            .with_properties(SectionProperties {}),
+            .with_properties(SectionProperties::default()),
         ],
         vec![
             NamedStyle::new(id("normal"), "Normal"),
@@ -486,7 +486,7 @@ fn two_sections() -> DocumentSession {
             vec![
                 Section::new(id("s1"), vec![Block::Paragraph(paragraph("a", "abc"))]),
                 Section::new(id("s2"), vec![Block::Paragraph(paragraph("b", "xyz"))])
-                    .with_properties(SectionProperties {}),
+                    .with_properties(SectionProperties::default()),
             ],
             vec![
                 NamedStyle::new(id("normal"), "Normal"),
@@ -756,6 +756,7 @@ fn paragraph_patches_cover_every_property_and_clear_inherited_overrides() {
                     right: None,
                     first_line: Some(Twips(-360)),
                 }),
+                ..Default::default()
             },
         )
         .unwrap();
@@ -781,6 +782,7 @@ fn paragraph_patches_cover_every_property_and_clear_inherited_overrides() {
                 spacing_after: PropertyChange::Clear,
                 line_spacing: PropertyChange::Clear,
                 indentation: PropertyChange::Clear,
+                ..Default::default()
             },
         )
         .unwrap();
@@ -1254,7 +1256,7 @@ fn paragraph_formatting_and_styles_can_span_sections_with_half_open_endpoints() 
     assert_eq!(transaction.draft().sections.len(), 2);
     assert_eq!(
         transaction.draft().sections[1].properties(),
-        Some(&SectionProperties {})
+        Some(&SectionProperties::default())
     );
 }
 

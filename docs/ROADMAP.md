@@ -39,17 +39,24 @@ each milestone is implemented.
    Merged into `main` at `52ac4e9` through PR #6 after the milestone checks and
    approval.
    Basic model round trips were introduced in Step 2; Step 4 adds the file and
-   storage contract. No migration exists until another version needs one.
-5. **Basic DOCX import/export — started with explicit approval.** Step 5A adds
-   bounded read-only OPC/ZIP and XML inspection plus exact immutable original
-   retention in the format-specific `office-docx` adapter. The shared model stays
-   format-neutral. The user selected preserving unsupported originals before
-   editing. Editable import (5B), export and independent interoperability (5C)
-   remain later subphases; original-byte retention alone does not establish
-   fidelity after edits. See [DOCX.md](DOCX.md) for scope and compatibility limits.
-   No other file format is implemented in Step 5.
-6. **Typography and layout.** Develop text measurement, line layout, and pagination
-   toward platform-independent document layout.
+   storage contract. The conversion branch now adds native format 2/model schema 2
+   and strict legacy migration, retaining an optional original outside history.
+5. **Basic DOCX import/export — conversion implemented on the review branch.**
+   Step 5A package inspection/original retention was merged through PR #9 at
+   `a504e2f`. Work on `dev/docx-conversion` adds supported semantic import/export,
+   generic page geometry and page-break-before, versioned source-bearing native
+   files and browser save-before-editing. Unsupported semantic content remains
+   preserved read-only; reconstructed export and original download are distinct.
+   The shared model stays format-neutral. No additional formats are implemented.
+   See [DOCX.md](DOCX.md), [the conversion contract](DOCX_CONVERSION.md) and
+   [actual verification](DOCX_CONVERSION_VERIFICATION.md). This conversion work
+   has not been merged or deployed.
+6. **Typography and layout — paused by the owner pending DOCX completion.**
+   Develop text measurement, line layout and pagination toward platform-independent
+   layout after the prerequisite is verified. Preparatory library research and
+   isolated probes are recorded in RESEARCH; no engine, fonts or typography
+   dependencies have been added. This conversion branch contains no shaping or
+   layout implementation; Step 6 follows this prerequisite.
 7. **Rendering and browser integration beyond the prototype.** Extend the
    Step 4.5 WebAssembly/React baseline with rendering of laid-out documents and
    the acceptance criteria needed for professional browser integration.
@@ -88,7 +95,7 @@ milestone report. No Word page layout, DOCX adapter, autosave, cloud storage,
 deployment, DNS, or access-control change is included. The Cloudflare example is
 inert preparation for a separate Worker; build output is not a published site.
 
-Step 5 has since received explicit authorization. Its researched scope, fidelity
-limits, preservation policy and regression fixtures are recorded in
-[DOCX.md](DOCX.md). Significant architectural changes outside that authorization
-still require approval.
+The owner subsequently authorized completion of missing DOCX conversion before
+Step 6. Its profile, preservation policy and regression fixtures are recorded in
+[DOCX.md](DOCX.md) and [DOCX_CONVERSION.md](DOCX_CONVERSION.md). Significant changes
+outside that scope, merging and deployment still require approval.

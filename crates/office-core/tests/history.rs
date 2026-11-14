@@ -2,7 +2,7 @@
 
 use office_core::{
     Block, DEFAULT_HISTORY_LIMIT, Document, DocumentMetadata, DocumentSession, HistoryError, Id,
-    Paragraph, Section, TextRun, TransactionError, ValidationError,
+    Paragraph, SCHEMA_VERSION, Section, TextRun, TransactionError, ValidationError,
 };
 
 fn id(value: &str) -> Id {
@@ -368,7 +368,7 @@ fn history_restores_exact_unicode_runs_styles_ids_and_properties_from_the_fixtur
     );
     session.redo().unwrap();
     assert_eq!(session.document(), &changed);
-    assert_eq!(session.document().schema_version(), 1);
+    assert_eq!(session.document().schema_version(), SCHEMA_VERSION);
 }
 
 #[test]

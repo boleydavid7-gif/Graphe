@@ -128,6 +128,39 @@ pub(crate) struct View {
     pub can_undo: bool,
     pub can_redo: bool,
     pub word_count: usize,
+    pub original_source: Option<OriginalSourceView>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OriginalSourceView {
+    pub format: String,
+    pub filename: String,
+    pub byte_length: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// Bounded compatibility diagnostics returned by a preserved DOCX import.
+pub struct CompatibilityReportView {
+    /// Concrete issues in deterministic traversal order.
+    pub diagnostics: Vec<CompatibilityDiagnosticView>,
+    /// Count of further issues omitted from the bounded transport.
+    pub omitted_diagnostics: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// One interface-independent compatibility issue; text is human-readable.
+pub struct CompatibilityDiagnosticView {
+    /// Stable issue category.
+    pub kind: String,
+    /// Bounded package-part label.
+    pub part: String,
+    /// Bounded element/property path.
+    pub path: String,
+    /// Explanation of the unsupported construct.
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

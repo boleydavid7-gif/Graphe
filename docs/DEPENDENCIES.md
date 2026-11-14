@@ -11,13 +11,25 @@ graphs, including platform-specific optional packages.
 | --- | --- | --- | --- |
 | React / React DOM | 19.3.1 | MIT | UI presentation and lifecycle |
 | wasm-bindgen | 0.2.130 | MIT OR Apache-2.0 | Small Rust/WebAssembly binding boundary |
+| base64 | 0.23.1 | MIT OR Apache-2.0 | Native original-source encoding with strict standard padding |
 
 The JavaScript production graph also contains React's MIT-licensed scheduler.
 Existing Serde and Unicode segmentation libraries remain the engine's source
 of serialization and grapheme behavior. IndexedDB uses native browser APIs;
 there is no storage wrapper, JavaScript document model, or browser undo library.
 
-## DOCX adapter dependencies (Step 5A)
+`base64` is pinned exactly with default features disabled and `std` enabled.
+It is a maintained low-level codec, with no additional runtime dependency and
+Rust 1.71 as its declared minimum. Its upstream metadata and installed licenses
+were reviewed; native/WASM checks exercise the retained-source path. Encoding
+budgets and canonical decoding are enforced by the native-file layer rather
+than a handwritten base64 algorithm. Project licensing remains pending.
+The [upstream 0.23.1 tag](https://github.com/marshallpierce/rust-base64/releases/tag/v0.23.1)
+and [RustSec package/advisory record](https://rustsec.org/advisories/RUSTSEC-2017-0004.html)
+were checked: the historical encoding overflow affects old pre-0.5.2 versions,
+not the selected version. This is a targeted advisory review, not `cargo audit`.
+
+## DOCX adapter dependencies (Steps 5A–5C)
 
 | Dependency | Exact version | License | Purpose |
 | --- | --- | --- | --- |
@@ -30,7 +42,9 @@ disabled. The deflate backend uses `flate2` (MIT OR Apache-2.0) and `zlib-rs`
 (Zlib). The ZIP crate requires Rust 1.88; quick-xml requires 1.86; the workspace
 uses stable 1.100.0 on the review date. A native and WebAssembly compile were
 checked. `zip` enables a WASM getrandom backend in its dependency graph; this
-does not add bindings or dependencies to `office-core` or `office-wasm`.
+does not add parser dependencies to `office-core`. The browser conversion bridge
+now depends on `office-docx`, so the adapter is compiled into its WASM build;
+JavaScript bindings remain confined to `office-wasm`.
 
 Two XML parsers are deliberate: a bounded token pass limits namespace/attribute
 work before the DOM parser, which provides stricter namespace/name validation.
@@ -44,6 +58,12 @@ include the selected versions. In particular quick-xml 0.42.0 includes fixes for
 RUSTSEC-2026-0194/0195 (older attribute/namespace DoS). This was not a `cargo audit`
 run. OSV access returned HTTP 403; no claim of an OSV scan is made. Recheck
 advisories when updating versions or preparing a public release.
+
+Conversion reuses these maintained ZIP/XML libraries for writing and parsing;
+no complete Office engine is embedded. No typography dependency or font asset is
+introduced by the retained Step 6 research. Parley/HarfRust/Skrifa remain evaluated
+candidates, not committed dependencies. See RESEARCH for probe limits and
+[base64 upstream](https://github.com/marshallpierce/rust-base64) for codec sources.
 
 ## Frontend development dependencies
 

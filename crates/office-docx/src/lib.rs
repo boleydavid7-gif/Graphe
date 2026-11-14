@@ -1,16 +1,29 @@
-//! Bounded, filesystem-independent DOCX package inspection.
+//! Bounded, filesystem-independent DOCX inspection and semantic conversion.
 //!
-//! Step 5A validates a documented OPC/ZIP and XML profile and locates the main
-//! WordprocessingML part through relationships. It does not import into the
-//! document model, export DOCX, render content, execute embedded data, or fetch
-//! external relationships. Successful inspection is not a claim of semantic
-//! support for every document feature. Keep the original bytes for later use.
+//! Package inspection validates the OPC/ZIP and XML profile. [`import_docx`]
+//! returns a complete editable shared model plus its exact original, or a
+//! preserved read-only outcome for unsupported semantics. [`export_docx`]
+//! regenerates the supported profile from current model values. Source recovery
+//! and regeneration are distinct operations. No rendering, storage, execution
+//! of embedded content or external-relationship fetching occurs here.
+//!
+//! Keep original bytes outside the document model/history using the native
+//! full-file API before editing. Inspection alone does not imply editability,
+//! complete OOXML conformance, or Microsoft Word pagination equivalence.
 
+mod conversion;
 mod error;
+mod export;
+mod import;
 mod opc;
 mod package;
+mod properties;
 mod xml;
 
+pub use conversion::{
+    CompatibilityDiagnostic, CompatibilityIssueKind, CompatibilityReport, ConversionError,
+    DOCX_MEDIA_TYPE, DocxImportOutcome, ImportedDocx, export_docx, import_docx,
+};
 pub use error::DocxError;
 
 /// Maximum compressed input accepted by this prototype, in bytes (16 MiB).
@@ -122,7 +135,7 @@ impl std::fmt::Debug for DocxSource {
 /// or encoding features are explicit errors. No network requests are performed.
 /// Main parts may use Strict or Transitional namespace families. Unsupported
 /// document semantics are not converted or silently discarded by this read-only
-/// operation; DOCX import/export is a later gated implementation.
+/// operation; use [`import_docx`] for a checked semantic conversion outcome.
 pub fn inspect_docx(bytes: &[u8]) -> Result<DocxInspection, DocxError> {
     let package = package::read_package(bytes)?;
     opc::inspect_package(&package)

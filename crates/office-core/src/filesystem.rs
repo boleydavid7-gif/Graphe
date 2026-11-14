@@ -6,7 +6,10 @@ use std::path::{Path, PathBuf};
 
 use tempfile::{Builder, NamedTempFile};
 
-use crate::{Document, PersistenceError, deserialize_document, serialize_document};
+use crate::{
+    Document, MAX_WRITER_FILE_BYTES, PersistenceError, WriterFile, deserialize_document,
+    deserialize_writer_file, serialize_document, serialize_writer_file,
+};
 
 /// The filesystem operation that failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,6 +196,21 @@ pub fn save_document(document: &Document, path: impl AsRef<Path>) -> Result<(), 
     save_bytes(path, &bytes, &mut |_, _| Ok(()))
 }
 
+/// Saves a validated document and its optional immutable original source.
+///
+/// The full file is serialized before touching the destination. Replacement,
+/// synchronization, permissions and failure cleanup have the same behavior and
+/// operating-system limitations as [`save_document`]. Use this API for a
+/// source-bearing file so its original is not discarded.
+pub fn save_writer_file(file: &WriterFile, path: impl AsRef<Path>) -> Result<(), StorageError> {
+    let path = path.as_ref();
+    let bytes = serialize_writer_file(file).map_err(|source| StorageError::Format {
+        path: path.into(),
+        source,
+    })?;
+    save_bytes(path, &bytes, &mut |_, _| Ok(()))
+}
+
 // A private operation hook provides deterministic failure tests without a public
 // filesystem abstraction. Production always uses the no-op hook above.
 fn save_bytes(
@@ -320,11 +338,46 @@ fn save_bytes(
 /// Loads a regular native Writer file, returning only a fully validated document.
 ///
 /// Paths are native [`Path`] values, including Unicode filenames. The full file
-/// is read into memory and passed to the filesystem-independent decoder. Opening
-/// symlinks follows the operating system's normal read behavior. History,
-/// revisions, and editing endpoints are not restored.
+/// is read into memory within [`MAX_WRITER_FILE_BYTES`] and passed to the
+/// filesystem-independent decoder. Source-bearing files are rejected instead
+/// of discarding their original; use [`load_writer_file`] for those files.
+/// Opening symlinks follows the operating system's normal read behavior.
+/// History, revisions, and editing endpoints are not restored.
 pub fn load_document(path: impl AsRef<Path>) -> Result<Document, StorageError> {
     let path = path.as_ref();
+    let bytes = read_file(path)?;
+    deserialize_document(&bytes).map_err(|source| StorageError::Format {
+        path: path.into(),
+        source,
+    })
+}
+
+/// Loads a complete validated Writer file, including its exact original source.
+///
+/// Regular-file checks, bounded reads and path handling match [`load_document`].
+/// Legacy files are migrated by the byte decoder. No source format is parsed or
+/// executed by this format-neutral storage layer.
+pub fn load_writer_file(path: impl AsRef<Path>) -> Result<WriterFile, StorageError> {
+    let path = path.as_ref();
+    let bytes = read_file(path)?;
+    deserialize_writer_file(&bytes).map_err(|source| StorageError::Format {
+        path: path.into(),
+        source,
+    })
+}
+
+fn file_size_error(path: &Path, actual: u64) -> StorageError {
+    StorageError::Format {
+        path: path.into(),
+        source: PersistenceError::LimitExceeded {
+            resource: "writer_file_bytes",
+            limit: MAX_WRITER_FILE_BYTES,
+            actual: usize::try_from(actual).unwrap_or(usize::MAX),
+        },
+    }
+}
+
+fn read_file(path: &Path) -> Result<Vec<u8>, StorageError> {
     // Refuse static directories/devices/pipes before opening, then recheck the
     // opened handle below. Hostile concurrent path substitution is not prevented.
     let metadata = fs::metadata(path)
@@ -339,7 +392,10 @@ pub fn load_document(path: impl AsRef<Path>) -> Result<Document, StorageError> {
             ),
         ));
     }
-    let mut file = File::open(path)
+    if metadata.len() > MAX_WRITER_FILE_BYTES as u64 {
+        return Err(file_size_error(path, metadata.len()));
+    }
+    let file = File::open(path)
         .map_err(|source| io_error(StorageOperation::OpenDocument, path, source))?;
     let metadata = file
         .metadata()
@@ -354,13 +410,19 @@ pub fn load_document(path: impl AsRef<Path>) -> Result<Document, StorageError> {
             ),
         ));
     }
+    if metadata.len() > MAX_WRITER_FILE_BYTES as u64 {
+        return Err(file_size_error(path, metadata.len()));
+    }
     let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)
+    // A file may grow after either metadata check. Read one extra byte to
+    // distinguish the inclusive limit without an unbounded read/allocation.
+    file.take(MAX_WRITER_FILE_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
         .map_err(|source| io_error(StorageOperation::ReadDocument, path, source))?;
-    deserialize_document(&bytes).map_err(|source| StorageError::Format {
-        path: path.into(),
-        source,
-    })
+    if bytes.len() > MAX_WRITER_FILE_BYTES {
+        return Err(file_size_error(path, bytes.len() as u64));
+    }
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -368,7 +430,7 @@ mod tests {
     use std::io::Seek;
 
     use super::*;
-    use crate::{DocumentMetadata, Id};
+    use crate::{DocumentMetadata, Id, OriginalSource};
 
     fn document(title: &str) -> Document {
         Document::from_parts(
@@ -392,40 +454,61 @@ mod tests {
 
     #[test]
     fn preparation_and_pre_replace_failures_preserve_old_bytes_and_remove_temporary_files() {
-        for failed in [
-            StorageOperation::WriteTemporary,
-            StorageOperation::FlushTemporary,
-            StorageOperation::SetPermissions,
-            StorageOperation::SyncTemporary,
-            StorageOperation::ReplaceDestination,
-        ] {
-            let directory = tempfile::tempdir().unwrap();
-            let destination = directory.path().join("report.writer");
-            let old = document("Original valid document");
-            save_document(&old, &destination).unwrap();
-            let original = fs::read(&destination).unwrap();
-            let new = serialize_document(&document("Replacement")).unwrap();
-            let error = save_bytes(&destination, &new, &mut |operation, file| {
-                if operation == failed {
-                    if operation == StorageOperation::WriteTemporary {
-                        // Simulate a partial write rather than only an empty file.
-                        file.write_all(b"partial document")?;
+        for preserve_source in [false, true] {
+            for failed in [
+                StorageOperation::WriteTemporary,
+                StorageOperation::FlushTemporary,
+                StorageOperation::SetPermissions,
+                StorageOperation::SyncTemporary,
+                StorageOperation::ReplaceDestination,
+            ] {
+                let directory = tempfile::tempdir().unwrap();
+                let destination = directory.path().join("report.writer");
+                let old_document = document("Original valid document");
+                let old = if preserve_source {
+                    let source = OriginalSource::new(
+                        "example",
+                        "application/octet-stream",
+                        "original.example",
+                        Vec::from(b"preserve exact unsupported original bytes\0\xff".as_slice()),
+                    )
+                    .unwrap();
+                    let file = WriterFile::with_original_source(old_document, source).unwrap();
+                    save_writer_file(&file, &destination).unwrap();
+                    file
+                } else {
+                    save_document(&old_document, &destination).unwrap();
+                    WriterFile::new(old_document)
+                };
+                let original = fs::read(&destination).unwrap();
+                let new = serialize_document(&document("Replacement")).unwrap();
+                let error = save_bytes(&destination, &new, &mut |operation, file| {
+                    if operation == failed {
+                        if operation == StorageOperation::WriteTemporary {
+                            // Simulate a partial write rather than only an empty file.
+                            file.write_all(b"partial document")?;
+                        }
+                        return Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            "injected I/O failure",
+                        ));
                     }
-                    return Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        "injected I/O failure",
-                    ));
-                }
-                Ok(())
-            })
-            .unwrap_err();
-            assert!(matches!(error, StorageError::Io {
+                    Ok(())
+                })
+                .unwrap_err();
+                assert!(matches!(error, StorageError::Io {
                 operation, ref source, cleanup: None,
                 replacement: ReplacementState::NotAttempted, ..
             } if operation == failed && source.kind() == io::ErrorKind::PermissionDenied));
-            assert_eq!(fs::read(&destination).unwrap(), original);
-            assert_eq!(load_document(&destination).unwrap(), old);
-            assert_only_destination(directory.path(), &destination);
+                assert_eq!(fs::read(&destination).unwrap(), original);
+                let loaded = load_writer_file(&destination).unwrap();
+                assert_eq!(loaded.document(), old.document());
+                assert_eq!(
+                    loaded.original_source().map(OriginalSource::bytes),
+                    old.original_source().map(OriginalSource::bytes)
+                );
+                assert_only_destination(directory.path(), &destination);
+            }
         }
     }
 

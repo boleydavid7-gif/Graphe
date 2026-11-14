@@ -187,7 +187,10 @@ test('native fixture round trips exact supported structures, styles, identifiers
   assert.equal(opened.view.title, source.document.metadata.title);
   const canonical = instance.export_document();
   assert.ok(canonical instanceof Uint8Array);
-  sameSupportedFields(JSON.parse(decoder.decode(canonical)), source);
+  sameSupportedFields(JSON.parse(decoder.decode(canonical)), {
+    ...source, format_version: 2,
+    document: { ...source.document, schema_version: 2 },
+  });
   const other = new WriterEngine('fixture-reopened');
   context.after(() => other.free());
   assert.equal(JSON.parse(other.open_document(canonical, source.document.id)).ok, true);
@@ -240,11 +243,13 @@ test('oversized edits and files fail without publishing, while empty native file
   const empty = { format: 'office-writer', format_version: 1, document: {
     schema_version: 1, id: 'empty-document', metadata: { title: '' }, sections: [], styles: [],
   } };
+  const migratedEmpty = { ...empty, format_version: 2,
+    document: { ...empty.document, schema_version: 2 } };
   assert.equal(JSON.parse(instance.open_document(bytes(empty))).ok, true);
   assert.deepEqual(snapshot(instance).paragraphs, []);
-  assert.deepEqual(JSON.parse(decoder.decode(instance.export_document())), empty);
+  assert.deepEqual(JSON.parse(decoder.decode(instance.export_document())), migratedEmpty);
   dispatch(instance, { type: 'replace_text', text: 'First edit' });
   assert.deepEqual(text(snapshot(instance)), ['First edit']);
   dispatch(instance, { type: 'undo' });
-  assert.deepEqual(JSON.parse(decoder.decode(instance.export_document())), empty);
+  assert.deepEqual(JSON.parse(decoder.decode(instance.export_document())), migratedEmpty);
 });

@@ -74,7 +74,7 @@ fn ordered_sections_blocks_and_runs_survive_serialization() {
                 Block::Paragraph(Paragraph::new(id("empty-paragraph"), vec![])),
             ],
         )
-        .with_properties(SectionProperties {}),
+        .with_properties(SectionProperties::default()),
         Section::new(id("closing"), vec![]),
     ];
     let document = Document::from_parts(
@@ -123,6 +123,7 @@ fn all_character_and_paragraph_properties_round_trip_without_resolving_defaults(
             right: Some(Twips(-120)),
             first_line: Some(Twips(-360)),
         }),
+        page_break_before: Some(false),
     };
     let paragraph = Paragraph::new(
         id("paragraph"),
@@ -413,8 +414,8 @@ fn unicode_is_preserved_without_normalization_or_byte_position_assumptions() {
 }
 
 #[test]
-fn future_and_old_schema_versions_are_rejected_before_reading_model_shape() {
-    for version in [0, 2, u64::MAX] {
+fn future_and_unsupported_old_schema_versions_are_rejected_before_reading_model_shape() {
+    for version in [0, 3, u64::MAX] {
         let error =
             load_json(json!({ "schema_version": version, "future_payload": true })).unwrap_err();
         assert!(

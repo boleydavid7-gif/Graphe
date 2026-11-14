@@ -1,17 +1,19 @@
 import initialize, { WriterEngine } from './wasm/office_wasm.js';
 import wasmUrl from './wasm/office_wasm_bg.wasm?url';
-import type { EngineFailure, EngineResponse, WriterCommand, WriterView } from './types';
+import type { CompatibilityReport, EngineFailure, EngineResponse, WriterCommand, WriterView } from './types';
 
 let initialization: Promise<unknown> | undefined;
 
 /** A structured engine failure; failed commands preserve the current session. */
 export class EngineError extends Error {
   readonly code: string;
+  readonly compatibility: CompatibilityReport | undefined;
 
   constructor(error: EngineFailure) {
     super(error.message);
     this.name = 'EngineError';
     this.code = error.code;
+    this.compatibility = error.compatibility;
   }
 }
 
@@ -32,6 +34,7 @@ function failure(error: unknown): EngineError {
 export class EngineClient {
   private readonly handle: WriterEngine;
   private current: WriterView;
+  private disposed = false;
 
   private constructor(handle: WriterEngine) {
     this.handle = handle;
@@ -68,13 +71,35 @@ export class EngineClient {
     catch (error) { throw failure(error); }
   }
 
+  /** Creates a supported projection while Rust retains the exact original. */
+  importDocx(bytes: Uint8Array, filename: string): WriterView {
+    try { return this.accept(this.handle.import_docx(bytes, filename)); }
+    catch (error) { throw failure(error); }
+  }
+
+  /** Regenerates current supported content, independently of the original. */
+  exportDocx(): Uint8Array {
+    try { return new Uint8Array(this.handle.export_docx()); }
+    catch (error) { throw failure(error); }
+  }
+
+  /** Exact retained original bytes, including content removed by later edits. */
+  exportOriginal(): Uint8Array {
+    try { return new Uint8Array(this.handle.export_original()); }
+    catch (error) { throw failure(error); }
+  }
+
   /** Exact Rust-selected plain text, with one LF per paragraph boundary. */
   selectedText(): string {
     try { return this.handle.selected_text(); }
     catch (error) { throw failure(error); }
   }
 
-  dispose(): void { this.handle.free(); }
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.handle.free();
+  }
 
   private accept(json: string): WriterView {
     const response = JSON.parse(json) as EngineResponse;
