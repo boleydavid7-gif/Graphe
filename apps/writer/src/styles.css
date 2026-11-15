@@ -937,3 +937,91 @@ dialog .dialog-actions { border-color: var(--writer-border); }
 @media (prefers-reduced-motion: reduce) {
   .mobile-document-actions > button { transition: none; }
 }
+
+/* Lamplight pass 3 — desktop contextual inspector.
+   Layout uses a sibling panel; the document's own geometry remains untouched. */
+.writer-work-area { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
+.writer-work-area > .workspace { flex: 1; min-width: 0; }
+.inspector-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-height: 34px;
+  padding-inline: 12px;
+  border: 1px solid var(--writer-border);
+  color: var(--writer-text-muted);
+  background: var(--writer-control);
+  font-size: 12px;
+}
+.inspector-toggle[aria-expanded='true'] {
+  border-color: var(--writer-border-control);
+  color: var(--writer-accent);
+  background: var(--writer-control-selected);
+}
+.writer-inspector {
+  flex: 0 0 272px;
+  width: 272px;
+  min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--writer-surface);
+  color: var(--writer-text);
+  border-left: 1px solid var(--writer-border);
+  box-shadow: -6px 0 20px rgb(0 0 0 / 7%);
+  padding: 20px 17px 28px;
+  animation: writer-inspector-arrive 230ms var(--writer-motion-curve) both;
+}
+.writer-inspector-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 19px;
+}
+.writer-inspector-eyebrow {
+  color: var(--writer-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.writer-inspector-heading h2 { font-size: 18px; font-weight: 600; letter-spacing: -.025em; margin: 3px 0 0; }
+.writer-inspector-heading button { min-width: 32px; min-height: 32px; font-size: 20px; color: var(--writer-text-muted); }
+.writer-inspector-section { display: grid; gap: 9px; padding: 17px 0; border-top: 1px solid var(--writer-border); }
+.writer-inspector-section h3 { margin: 0 0 4px; font-size: 12px; font-weight: 650; }
+.writer-inspector-section label { color: var(--writer-text-muted); font-size: 11px; }
+.writer-inspector-section select {
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--writer-border-control);
+  border-radius: var(--writer-radius-sm);
+  padding: 6px 9px;
+  color: var(--writer-text-control);
+  background: var(--writer-control);
+}
+.writer-inspector-section p { color: var(--writer-text-muted); font-size: 12px; line-height: 1.55; margin: 0 0 6px; }
+.writer-inspector-buttons { display: flex; gap: 6px; }
+.writer-inspector-buttons > button {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  background: var(--writer-control);
+  border: 1px solid var(--writer-border);
+  border-radius: var(--writer-radius-sm);
+}
+.writer-inspector-buttons > button[aria-pressed='true'] {
+  background: var(--writer-control-selected);
+  color: var(--writer-accent);
+  border-color: var(--writer-border-control);
+}
+.writer-inspector-buttons > button[aria-pressed='mixed'] { border-style: dashed; }
+@keyframes writer-inspector-arrive {
+  from { opacity: .55; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (max-width: 899px) {
+  .inspector-toggle { display: none; }
+  .writer-inspector { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .writer-inspector { animation: none; }
+}
