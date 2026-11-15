@@ -275,3 +275,7 @@ dialog p { font-size: 13px; line-height: 1.6; }
 :root[data-writer-appearance] .font-selectors,
 :root[data-writer-appearance] .character-controls { border-color: var(--writer-border-subtle); }
 :root[data-writer-appearance] .import-notice { background: var(--writer-surface-raised); color: var(--writer-text); border-color: var(--writer-border); }
+
+/* Embedded in ProairetOS: the host provides navigation; document title is the primary heading. */
+:root[data-writer-appearance] .top-bar .identity { display: none; }
+:root[data-writer-appearance] .top-bar .title-area { border-left: 0; padding-left: 0; }
