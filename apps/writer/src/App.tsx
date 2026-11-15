@@ -953,6 +953,17 @@ export default function App() {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => format({ type: 'format_character', [property]: !formatState?.[property] })}>{property === 'bold' ? 'B' : property === 'italic' ? 'I' : 'U'}</button>)}
         </fieldset>
+        <fieldset disabled={unavailable} className="format-group list-controls advanced-formatting">
+          <legend className="visually-hidden">Lists</legend>
+          {(['bullet', 'numbered'] as const).map((list) => <button key={list}
+            className="format-button" aria-label={list === 'bullet' ? 'Bulleted list' : 'Numbered list'}
+            title={list === 'bullet' ? 'Bulleted list' : 'Numbered list'}
+            aria-pressed={formatState?.listMixed ? 'mixed' : formatState?.list === list}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'set_list', list: formatState?.list === list && !formatState?.listMixed ? null : list })}>
+            <WriterIcon name={list === 'bullet' ? 'list-bullet' : 'list-numbered'} />
+          </button>)}
+        </fieldset>
       </>}
       {(activeTab === 'write' || activeTab === 'layout') && <fieldset disabled={unavailable}
         className={`format-group alignment-controls${activeTab === 'write' ? ' advanced-formatting' : ''}`}>
