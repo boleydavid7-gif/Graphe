@@ -885,7 +885,7 @@ export default function App() {
           </div>
         </details>
       </nav>
-      <div className="office-brand" aria-label="ProairetOS Office"><span>Proairet</span><span className="office-brand__os">OS</span><span className="office-brand__suite"> Office</span></div>
+      <div className="office-brand" aria-label="ProairetOS Office"><span>Proairet</span><span className="office-brand__os">OS</span><span className="office-brand__suite">{'\u00a0'}Office</span></div>
     </header>
     <nav className="editor-tabs" aria-label="Editor sections">
       <div className={`editor-tab-options editor-tab-options--${activeTab}`}>
