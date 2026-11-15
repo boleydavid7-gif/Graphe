@@ -10,6 +10,11 @@ compatibility come first; spreadsheets and presentations will follow later.
 
 ## Current status
 
+Phase 2's [mobile text selection](docs/PHASE2_MOBILE_SELECTION.md) adds Rust word
+selection, draggable endpoints, scrolling/zoom handling and guarded clipboard
+controls on a separate development branch. Browser automation passes; physical
+iOS/Android/PWA validation remains outstanding. This is not a release approval.
+
 PR #17's [stability and file-compatibility audit](docs/WRITER_STABILITY_AUDIT.md)
 records executed format/save workflows, corrective regressions and outstanding
 mobile, external-producer and hosted-CI limits. It is not a general release or

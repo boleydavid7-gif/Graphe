@@ -978,6 +978,14 @@ a DOCX special case in `office-layout`. Exact original preservation is unchanged
 
 ## Lightweight paged editor and Lamplight UI (Step 7)
 
+Phase 2 adds touch word selection and logical endpoint dragging through the
+existing Rust layout transport. Handles project Rust endpoint rectangles rather
+than a browser text layout. Gesture and clipboard guards include the exact live
+selection as well as identity/revision; selection-only changes do not advance a
+document revision. No model, schema, undo or persistence boundary changes.
+See [PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md) for gesture,
+Unicode, viewport, clipboard and verification details.
+
 The Step 7 review branch preserves model/schema 2, native format 2, existing
 transaction/history behavior and the IndexedDB database. No new dependency,
 format adapter, complete editor library or cloud subsystem is added. The

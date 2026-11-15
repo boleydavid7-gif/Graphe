@@ -1039,3 +1039,24 @@ tracks real approximations before bounded notices overflow; no native schema,
 browser transport, dependency or editing-history format changes are needed.
 Existing document-only APIs remain available; source preservation requires a full
 file. This is a bounded compatibility profile, not full OOXML/XSD validation.
+
+## 050: Project Rust selections onto touch handles without browser text reflow
+
+**Decision:** Keep the SVG editor and native input/IME projection. Add Rust
+word-selection and independent endpoint-drag actions to the existing layout
+transport, and render their endpoint rectangles as touch handles. JavaScript
+recognizes gestures and positions controls, without segmenting text or calculating
+document offsets. Keep logical endpoint identities through reversals and bidi.
+
+**Reason:** Native DOM handles cannot follow arbitrary Rust glyph paths. A
+second visible contenteditable flow would compete with engine pagination. The
+existing Rust geometry and pinned word/grapheme implementation already provide
+the required boundaries; no new model, dependency or layout layer is needed.
+
+**Consequences:** Selection does not change native bytes, revisions or history.
+Gestures also guard exact selections, since selection-only changes do not advance
+revisions. Native scrolling/pinch and IME own their respective input; cancellation
+must not become a tap. Async plain-text clipboard cut/paste rechecks live Rust
+identity, revision, selection and composition after browser I/O. Physical-device
+behavior and OS-native handles/loupe are not claimed by browser automation.
+See [PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).

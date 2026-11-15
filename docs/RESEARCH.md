@@ -951,3 +951,29 @@ touch long-press/selection handles, physical Safari/Android/PWA validation and
 hosted CI runs that fail before runner allocation. Evidence, exact commands,
 counts, screenshots and release limitations are in
 [WRITER_STABILITY_AUDIT.md](WRITER_STABILITY_AUDIT.md).
+
+## Phase 2: mobile selection
+
+Research/retrospective preceded code, starting from latest audited PR #17 head
+`e501d76`, with the Lamplight bridge preserved. Compared visible native DOM
+selection with custom controls projecting the existing Rust SVG geometry. Native
+DOM reflow would introduce competing text layout, so use additive Rust word and
+endpoint actions with the existing pinned `unicode-segmentation` implementation.
+
+[Pointer Events](https://www.w3.org/TR/pointerevents3/) requires gesture policy
+at pointer start; a long hold cannot retroactively reclaim native scrolling.
+Keep page pan/pinch and separate captured handle drags. Respect pointercancel,
+multitouch, stale origins, same-revision selection changes and composition.
+[UAX #29](https://www.unicode.org/reports/tr29/) supplies the word/grapheme
+principles; [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport)
+and [WebKit activation](https://webkit.org/blog/13862/the-user-activation-api/)
+inform presentation and trusted focus/clipboard handling.
+
+Real-browser testing exposed implicit focus from restoring a blurred
+contenteditable range and overlapping touch targets on scaled paper. Guard focus,
+separate/resolve physical targets without changing logical endpoints, and avoid
+caret-reveal scrolling while a handle owns a drag. Deferred clipboard tests prove
+that changed selections at the same revision cannot receive old cuts or pastes.
+No new library, licensing choice, schema or integration protocol is introduced.
+Detailed contracts, results and device limits are in
+[PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).

@@ -310,6 +310,8 @@ export default function App() {
     return client.selectionGeometry();
   }, []);
 
+  const currentEngineView = useCallback(() => documentOpenRef.current ? engine.current?.view ?? null : null, []);
+
   const findText = useCallback((query: string) => {
     if (!engine.current || !documentOpenRef.current) throw new Error('Open a document before searching.');
     return engine.current.find(query);
@@ -961,6 +963,7 @@ export default function App() {
       {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
         : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command}
+          getCurrentView={currentEngineView}
           onError={setError} onCompositionChange={compositionChanged} disabled={opening || pagePreview}
           zoom={previewZoom} loadLayout={loadPageLayout} loadGeometry={loadSelectionGeometry}
           onInteraction={interact} onPageInfo={acceptEditingPageInfo}
