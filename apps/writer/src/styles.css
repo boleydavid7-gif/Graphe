@@ -238,3 +238,40 @@ dialog p { font-size: 13px; line-height: 1.6; }
   kbd { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+
+/* Embedded ProairetOS: semantic Lamplight tokens override legacy fixed colors.
+   Standalone Writer retains its own palette; paper and document ink remain untouched. */
+:root[data-writer-appearance] {
+  color-scheme: var(--writer-color-scheme, normal);
+  color: var(--writer-text);
+  background: var(--writer-shell);
+  --accent: var(--writer-accent);
+  --surface: var(--writer-surface);
+  --surface-raised: var(--writer-surface-raised);
+  --line: var(--writer-border);
+  --muted: var(--writer-text-muted);
+}
+:root[data-writer-appearance] .writer-app { background: var(--writer-shell); color: var(--writer-text); }
+:root[data-writer-appearance] .top-bar,
+:root[data-writer-appearance] .formatting-bar,
+:root[data-writer-appearance] .document-menu-panel { background: var(--writer-surface); border-color: var(--writer-border); }
+:root[data-writer-appearance] .identity,
+:root[data-writer-appearance] .file-actions .desktop-action { color: var(--writer-text); }
+:root[data-writer-appearance] .editor-tabs { background: var(--writer-shell); }
+:root[data-writer-appearance] .workspace { background: var(--writer-workspace); scrollbar-color: var(--writer-text-muted) var(--writer-workspace); }
+:root[data-writer-appearance] .format-group select,
+:root[data-writer-appearance] .zoom-controls select,
+:root[data-writer-appearance] .document-title:hover:not(:disabled),
+:root[data-writer-appearance] .document-title:focus { background: var(--writer-control); border-color: var(--writer-border-control); color: var(--writer-text); }
+:root[data-writer-appearance] button:hover:not(:disabled),
+:root[data-writer-appearance] summary:hover { background: var(--writer-control-hover); }
+:root[data-writer-appearance] button.primary-button { color: var(--writer-accent-contrast); background: var(--writer-accent); border-color: var(--writer-accent); }
+:root[data-writer-appearance] .format-button[aria-pressed='true'],
+:root[data-writer-appearance] .format-button[aria-pressed='mixed'] { background: var(--writer-control-selected); border-color: var(--writer-border-control); color: var(--writer-accent); }
+:root[data-writer-appearance] .save-state { color: var(--writer-text-muted); }
+:root[data-writer-appearance] .formatting-bar,
+:root[data-writer-appearance] .history-controls,
+:root[data-writer-appearance] .font-selectors,
+:root[data-writer-appearance] .character-controls { border-color: var(--writer-border-subtle); }
+:root[data-writer-appearance] .import-notice { background: var(--writer-surface-raised); color: var(--writer-text); border-color: var(--writer-border); }
