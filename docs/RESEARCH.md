@@ -991,3 +991,18 @@ prevent ordinary settings from concealing later unsafe content. No additional
 parser, editor engine or core format-specific structure is justified. Sources,
 accepted boundaries and actual verification are in
 [PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).
+
+## Phase 2: PDF text representation
+
+Primary PDF 1.7/ISO 32000-1, existing `pdf-writer` APIs and OFL embedding guidance
+support evaluating Type 3 embedded fonts from the exact resolved Rust outlines.
+Raw catalog embedding would misrepresent variable instances; glyph-to-source
+provenance must come from Parley shaped atoms, including ligature continuations.
+No new dependency or core model change was introduced. Six Type 3 variants were
+generated; tested variants preserved source mappings but failed rendering
+acceptance, and one was untested. Their code and added transient metadata were
+removed from production. Keep outlined
+export and its warning. A mature CID/subsetting and exact font-instancing proposal
+needs separate review. Tagged PDF and PDF/A remain distinct investigations with
+no compliance claim.
+See [PHASE2_PDF.md](PHASE2_PDF.md).

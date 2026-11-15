@@ -1081,3 +1081,20 @@ regenerated copies retain supported semantics rather than arbitrary source XML
 or control words. Full native files retain exact recovery sources. No dependency,
 model, storage migration or additional formatting engine is introduced. See
 [PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).
+
+## 052: Retain outlined PDF after cross-reader text-font experiments fail
+
+**Decision:** Keep current outlined PDF and its limitations warning. Do not ship
+the experimental Type 3 text-font path or its extra layout metadata. Archive the
+experiment and evaluate a pinned mature CID/subsetting solution separately.
+
+**Reason:** Exact Unicode mappings, unchanged Rust geometry and valid font syntax
+did not preserve rendering across PDFium, Poppler and MuPDF. Bounded experiments
+exposed color, metrics, caching and reader-order differences. No tested variant
+met the existing visual-fidelity requirement.
+
+**Consequences:** Production APIs, native state, font catalog and dependencies
+stay unchanged. Searchable/selectable PDF remains unfinished. Exact variable-font
+instances and shaped-source provenance are requirements for a follow-up, with
+independent reader tests before acceptance. Tagged PDF/PDF-A are separate work
+and no accessibility/conformance claim is made. See [PHASE2_PDF.md](PHASE2_PDF.md).
