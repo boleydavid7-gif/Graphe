@@ -789,7 +789,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app">
     <header className="top-bar">
-      <div className="identity" role="img" aria-label="Writer"><WriterIcon name="lantern" className="writer-lantern" /><span>Writer</span></div>
+      <div className="identity" role="img" aria-label="Writer"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><span>Writer</span></div>
       <div className="title-area">
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
@@ -950,7 +950,7 @@ export default function App() {
             loadLayout={loadPageLayout} zoom={previewZoom} onZoomChange={setPreviewZoom}
             onPageInfo={acceptPreviewPageInfo}
             onClose={togglePagePreview} />}</>
-          : <div className="closed-document"><WriterIcon name="lantern" className="writer-lantern" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
+          : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
     {inspectorOpen && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector">
       <div className="writer-inspector-heading">
