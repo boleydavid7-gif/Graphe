@@ -387,3 +387,71 @@ dialog p { font-size: 13px; line-height: 1.6; }
     display: none;
   }
 }
+
+
+/* Lamplight Solid Mica — Writer design refinement.
+   Opaque surfaces only. Editing canvas, document pagination, caret, text selection,
+   and scroll containers are deliberately excluded from motion. */
+:root {
+  --writer-motion-fast: 125ms;
+  --writer-motion-control: 185ms;
+  --writer-motion-menu: 230ms;
+  --writer-motion-ease: cubic-bezier(.2,.8,.2,1);
+}
+.top-bar {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, currentColor 7%, transparent);
+}
+.formatting-bar {
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, currentColor 6%, transparent);
+}
+.document-menu-panel {
+  transform-origin: top right;
+  background: var(--surface-raised);
+  border-color: var(--line);
+  box-shadow: 0 10px 26px rgb(0 0 0 / .20), inset 0 1px 0 color-mix(in srgb, currentColor 8%, transparent);
+}
+:root[data-writer-appearance] .document-menu-panel {
+  background: var(--writer-surface-raised);
+  border-color: var(--writer-border);
+}
+:root[data-writer-appearance] .top-bar,
+:root[data-writer-appearance] .formatting-bar {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--writer-text) 7%, transparent);
+}
+:root[data-writer-appearance] .document-menu-panel {
+  box-shadow: 0 10px 26px rgb(0 0 0 / .20), inset 0 1px 0 color-mix(in srgb, var(--writer-text) 8%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .writer-app button,
+  .writer-app select,
+  .writer-app summary {
+    transition: background-color var(--writer-motion-control) var(--writer-motion-ease),
+      border-color var(--writer-motion-control) var(--writer-motion-ease),
+      color var(--writer-motion-control) var(--writer-motion-ease);
+  }
+  .writer-app button:active:not(:disabled) { scale: .97; }
+  .writer-app button {
+    transition: background-color var(--writer-motion-control) var(--writer-motion-ease),
+      border-color var(--writer-motion-control) var(--writer-motion-ease),
+      color var(--writer-motion-control) var(--writer-motion-ease),
+      scale var(--writer-motion-fast) var(--writer-motion-ease);
+  }
+  .document-menu[open] > .document-menu-panel {
+    animation: writer-menu-enter var(--writer-motion-menu) var(--writer-motion-ease) both;
+  }
+  .writer-app dialog[open] {
+    animation: writer-dialog-enter var(--writer-motion-menu) var(--writer-motion-ease) both;
+  }
+}
+@keyframes writer-menu-enter {
+  from { opacity:.65; translate:0 -5px; scale:.985; }
+  to { opacity:1; translate:0 0; scale:1; }
+}
+@keyframes writer-dialog-enter {
+  from { opacity:.65; translate:0 8px; scale:.99; }
+  to { opacity:1; translate:0 0; scale:1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .writer-app button, .writer-app select, .writer-app summary { transition:none !important; }
+}
