@@ -1030,3 +1030,37 @@ assumptions do not justify new skips. Keep all jobs/tests and extend portable
 coverage; report failed official browser downloads and launch probes separately
 from passed discovery or Chromium tests. Evidence and required infrastructure
 actions are in [PHASE2_CI.md](PHASE2_CI.md).
+
+
+## Phase 2: reconcile the audited branch with current main
+
+Compared the audited `f33e086` tree with main `efde8a8` and reviewed the intervening
+Lamplight integration commits, rather than treating divergence as CSS alone.
+Retain main's exact trusted-parent bridge, embedding headers and standalone root
+asset paths; retain the complete audit/Phase 2 engine, storage, mobile interaction
+and visual safeguards. Embedded mobile focus mode is compatible with the existing
+workspace ResizeObserver and focus-driven geometry updates.
+
+CSS specificity review identified an integration-only hazard: main's scoped
+button-hover selector would paint the transparent selection-handle hit target.
+Exclude handles from that generic selector, retaining their existing styles.
+The inherited `/writer/` assertion/documentation also predates main's explicit
+root-path restoration; align its test and documentation with the actual standalone
+build. These are focused integration corrections, not a new document/layout engine
+or a deployment/routing change. Combined-tree verification is recorded in
+[PHASE2_REPORT.md](PHASE2_REPORT.md).
+
+The first combined full browser run exposed a test-driver race after undo: the
+helper assigned a DOM range while replacement Rust layout was pending. Trace
+snapshots showed layout restoring the authoritative caret before ArrowLeft.
+Wait for Rust layout readiness and assert both DOM and Rust UTF-16 endpoints;
+the unchanged production engine then passed five repeated Unicode cases.
+
+Embedding regressions route both intended HTTPS origins locally to the actual
+production preview, without disabling CSP, mixed-content or local-network
+protections. The initial HTTPS-to-loopback fixture was correctly blocked by
+Chromium. A synthetic unrelated cross-site origin also showed a storage failure;
+the intended same-site `proairetos.com` / `writer.proairetos.com` fixture passed
+save/reload/reopen. This does not verify live routing/access restrictions or all
+browser third-party storage policies. Tests also cover immutable paper geometry,
+trusted token updates, mobile focus chrome and Rust touch selection/format/undo.

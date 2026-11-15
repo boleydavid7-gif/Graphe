@@ -115,3 +115,60 @@ Implementation commits: `2bccd2c` selection, `2a6b2cf` compatibility,
 `9648a46` PDF findings, `6f0bc41` measured storage/performance. CI coverage and
 this report are a separate focused review commit. Final SHA and any hosted retry
 outcome are reported with delivery.
+
+
+## Approved main reconciliation verification
+
+The owner explicitly approved merging the audited branch into main. First
+reconciled audited `f33e086` with main `efde8a8`, preserving the full Phase 2 tree
+and main's trusted parent bridge, embedding headers, root assets and mobile theme
+rules. Excluded selection handles from the added generic themed hover rule.
+Corrected the obsolete subpath assertion/docs to match main's deliberate root
+asset restoration; included those checks in `test:build` after the CI build.
+
+Actual combined-tree commands (Cargo from root, npm from `apps/writer`):
+
+| Command | Actual result |
+| --- | --- |
+| `cargo fmt --all -- --check` | Passed. |
+| `cargo clippy --workspace --all-targets -- -D warnings` | Passed. |
+| `cargo test --workspace` | 650 passed, zero failed/ignored. |
+| `cargo build --workspace` | Passed. |
+| `cargo check --locked --workspace --target wasm32-unknown-unknown` | Passed. |
+| `npm run typecheck` | Passed. |
+| `npm run lint` | Passed after correcting an inherited missing Node URL import. |
+| `npm test` | 64 passed, zero failed/skipped. |
+| `npm run test:wasm` | 65 passed, zero failed/skipped. |
+| `npm run test:build` | 4 passed, zero failed/skipped, including real built asset/WASM checks. |
+| `npm run build` | Passed; actual Rust/WASM production bundle. |
+| `node apps/writer/tests/layout-check-native.mjs` | Passed with configured Cargo environment and subprocess access; original four-page fingerprint unchanged. |
+| `npm run test:browser -- --project=chromium --output=/tmp/writer-main-final-browser-results --reporter=list` | 187 passed, zero failed/skipped, 10.5min. |
+
+The first full Chromium attempt had 182 passes and one test synchronization
+failure. Its trace showed a raw DOM cursor assigned during pending undo layout;
+layout then restored the authoritative Rust cursor. The test now awaits layout
+readiness and verifies both Rust and DOM UTF-16 endpoints. The unchanged engine
+passed five repetitions of that case and the complete final 187-case run above.
+Targeted repeats overlap the complete suite and are not extra suite passes.
+
+New embedding tests serve the unchanged production preview through intercepted
+HTTPS origins matching the intended same-site host topology. An initial HTTPS
+to HTTP loopback fixture was blocked by browser local-network protection; no
+browser protections were disabled. An unrelated synthetic cross-site origin
+showed a storage failure, while the intended same-site fixture passed saving,
+reload and reopening. These tests do not verify live hosting/access restrictions,
+physical devices, or every third-party storage policy.
+
+Logs: `/tmp/writer-main-integration-*.log`, `/tmp/writer-main-unicode-repeat.log`,
+`/tmp/writer-main-embedded-*.log` and `/tmp/writer-main-final-browser.log`.
+Rust layout/model/editing/storage implementations remain the audited versions.
+No new dependency, native schema or database migration was introduced.
+Historical audit screenshots are retained; incidental screenshot rewrites from
+repeat test execution are excluded from the merge.
+
+Main advanced during verification with PR #25/#26 (`2ad7865`); their final
+integration and affected-suite results are recorded separately below. The
+187-case result above applies to the `efde8a8` reconciliation, not those later
+UI commits. Hosted CI, unavailable browser engines and real-device limitations
+remain as disclosed in this report and PHASE2_CI.md; no unexecuted check is a pass.
+No deployment command was run.

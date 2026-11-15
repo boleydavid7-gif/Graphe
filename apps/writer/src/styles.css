@@ -1185,3 +1185,151 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
   .save-copy-dialog .save-as-fields > label:not(:first-child) { margin-top: 6px; }
   .document-title { font-size: 16px; }
 }
+
+/* Embedded ProairetOS: semantic Lamplight tokens override legacy fixed colors.
+   Standalone Writer retains its own palette; paper and document ink remain untouched. */
+:root[data-writer-appearance] {
+  color-scheme: var(--writer-color-scheme, normal);
+  color: var(--writer-text);
+  background: var(--writer-shell);
+  --accent: var(--writer-accent);
+  --surface: var(--writer-surface);
+  --surface-raised: var(--writer-surface-raised);
+  --line: var(--writer-border);
+  --muted: var(--writer-text-muted);
+}
+:root[data-writer-appearance] .writer-app { background: var(--writer-shell); color: var(--writer-text); }
+:root[data-writer-appearance] .top-bar,
+:root[data-writer-appearance] .formatting-bar,
+:root[data-writer-appearance] .document-menu-panel { background: var(--writer-surface); border-color: var(--writer-border); }
+:root[data-writer-appearance] .identity,
+:root[data-writer-appearance] .file-actions .desktop-action { color: var(--writer-text); }
+:root[data-writer-appearance] .editor-tabs { background: var(--writer-shell); }
+:root[data-writer-appearance] .workspace { background: var(--writer-workspace); scrollbar-color: var(--writer-text-muted) var(--writer-workspace); }
+:root[data-writer-appearance] .format-group select,
+:root[data-writer-appearance] .zoom-controls select,
+:root[data-writer-appearance] .document-title:hover:not(:disabled),
+:root[data-writer-appearance] .document-title:focus { background: var(--writer-control); border-color: var(--writer-border-control); color: var(--writer-text); }
+:root[data-writer-appearance] button:hover:not(:disabled):not(.touch-selection-handle),
+:root[data-writer-appearance] summary:hover { background: var(--writer-control-hover); }
+:root[data-writer-appearance] button.primary-button { color: var(--writer-accent-contrast); background: var(--writer-accent); border-color: var(--writer-accent); }
+:root[data-writer-appearance] .format-button[aria-pressed='true'],
+:root[data-writer-appearance] .format-button[aria-pressed='mixed'] { background: var(--writer-control-selected); border-color: var(--writer-border-control); color: var(--writer-accent); }
+:root[data-writer-appearance] .save-state { color: var(--writer-text-muted); }
+:root[data-writer-appearance] .formatting-bar,
+:root[data-writer-appearance] .history-controls,
+:root[data-writer-appearance] .font-selectors,
+:root[data-writer-appearance] .character-controls { border-color: var(--writer-border-subtle); }
+:root[data-writer-appearance] .import-notice { background: var(--writer-surface-raised); color: var(--writer-text); border-color: var(--writer-border); }
+
+/* Embedded in ProairetOS: the host provides navigation; document title is the primary heading. */
+:root[data-writer-appearance] .top-bar .identity { display: none; }
+:root[data-writer-appearance] .top-bar .title-area { border-left: 0; padding-left: 0; }
+
+
+/* ProairetOS embedded Writer: mobile-first composition, without changing standalone or desktop. */
+@media (max-width: 620px) {
+  :root[data-writer-appearance] .top-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 3px 10px;
+    min-height: 62px;
+    padding: 9px 14px 8px;
+    border-bottom: 1px solid var(--writer-border-subtle);
+  }
+  :root[data-writer-appearance] .top-bar .title-area {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    padding: 0;
+  }
+  :root[data-writer-appearance] .document-title {
+    width: 100%;
+    margin: 0;
+    padding: 3px 0;
+    font-size: 16px;
+    line-height: 1.3;
+    color: var(--writer-text);
+  }
+  :root[data-writer-appearance] .mobile-save-state {
+    display: block;
+    max-width: 100%;
+    font-size: 10px;
+    line-height: 1.3;
+    color: var(--writer-text-muted);
+  }
+  :root[data-writer-appearance] .file-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    gap: 4px;
+  }
+  :root[data-writer-appearance] .editor-tabs {
+    min-height: 39px;
+    padding-inline: 10px;
+    border-bottom: 1px solid var(--writer-border-subtle);
+  }
+  :root[data-writer-appearance] .editor-tabs > button {
+    padding-block: 9px;
+  }
+  :root[data-writer-appearance] .formatting-bar {
+    margin: 7px 10px 0;
+    min-height: 44px;
+    padding: 5px 7px;
+    gap: 7px;
+    border: 1px solid var(--writer-border-subtle);
+    border-radius: 5px;
+    box-shadow: none;
+  }
+  :root[data-writer-appearance] .format-group select,
+  :root[data-writer-appearance] .zoom-controls select {
+    border-color: var(--writer-border-subtle);
+    background: var(--writer-control);
+  }
+  :root[data-writer-appearance] .workspace {
+    padding: 16px 12px 20px;
+  }
+  :root[data-writer-appearance] .document-page {
+    box-shadow: 0 2px 10px #00000018;
+  }
+  :root[data-writer-appearance] .status-bar {
+    min-height: 29px;
+    padding: 3px 12px;
+    gap: 6px;
+    font-size: 10px;
+    background: var(--writer-surface);
+    border-color: var(--writer-border-subtle);
+  }
+  :root[data-writer-appearance] .zoom-controls {
+    gap: 0;
+  }
+  :root[data-writer-appearance] .zoom-controls select {
+    width: 72px;
+  }
+  :root[data-writer-appearance] .mobile-document-actions {
+    padding: 5px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--writer-border-subtle);
+    background: var(--writer-surface);
+  }
+  :root[data-writer-appearance] .mobile-document-actions > button {
+    min-height: 40px;
+    gap: 2px;
+    font-size: 10px;
+    color: var(--writer-text);
+  }
+  :root[data-writer-appearance] .mobile-document-actions svg {
+    width: 19px;
+    height: 19px;
+    color: var(--writer-text);
+  }
+  /* During document editing, preserve the formatting ribbon and give the keyboard room. */
+  :root[data-writer-appearance] .writer-app:has(.editor-surface:focus-within) .mobile-document-actions,
+  :root[data-writer-appearance] .writer-app:has(.editor-surface:focus-within) .status-bar {
+    display: none;
+  }
+}

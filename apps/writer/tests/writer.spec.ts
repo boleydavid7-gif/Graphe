@@ -28,6 +28,10 @@ async function start(page: Page) {
 
 /** Set native UTF-16 endpoints, including reverse selections across runs. */
 async function select(page: Page, anchorParagraph: number, anchorOffset: number, focusParagraph = anchorParagraph, focusOffset = anchorOffset) {
+  // An undo can restore semantic text before its replacement Rust layout is
+  // painted. Wait before setting the native range so that pending caret
+  // restoration cannot overwrite the test's selection before selectionchange.
+  await readyPages(page);
   await editor(page).evaluate((element, endpoints) => {
     const paragraphs = element.querySelectorAll('p');
     function point(index: number, offset: number): { node: Node; offset: number } {
@@ -216,17 +220,32 @@ test('native arrows cross graphemes split across differently formatted runs', as
   } };
   await importNative(page, native);
   await expect(paragraph(page, 0)).toHaveText('Ae\u0301👩🏽‍💻Z');
-  await select(page, 0, 3);
+  async function selectBoundary(offset: number) {
+    await select(page, 0, offset);
+    // These are complete grapheme boundaries. Verify that Rust accepted the
+    // requested position, rather than assuming two frames delivered the range.
+    await expect(page.locator('[data-editor-caret]')).toHaveAttribute('data-editor-utf16', `${offset}`);
+    await expect.poll(() => editor(page).evaluate((element) => {
+      const selection = window.getSelection();
+      const paragraph = element.querySelector('p');
+      if (!selection?.isCollapsed || !selection.focusNode || !paragraph?.contains(selection.focusNode)) return null;
+      const prefix = document.createRange();
+      prefix.setStart(paragraph, 0);
+      prefix.setEnd(selection.focusNode, selection.focusOffset);
+      return prefix.toString().length;
+    })).toBe(offset);
+  }
+  await selectBoundary(3);
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.insertText('X');
   await expect(paragraph(page, 0)).toHaveText('AXe\u0301👩🏽‍💻Z');
   await page.keyboard.press('Control+z');
-  await select(page, 0, 10);
+  await selectBoundary(10);
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.insertText('Y');
   await expect(paragraph(page, 0)).toHaveText('Ae\u0301Y👩🏽‍💻Z');
   await page.keyboard.press('Control+z');
-  await select(page, 0, 3);
+  await selectBoundary(3);
   await page.keyboard.press('Shift+ArrowLeft');
   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('e\u0301');
   await page.keyboard.press('Shift+ArrowRight');
@@ -234,7 +253,7 @@ test('native arrows cross graphemes split across differently formatted runs', as
   await page.keyboard.insertText('C');
   await expect(paragraph(page, 0)).toHaveText('Ae\u0301C👩🏽‍💻Z');
   await page.keyboard.press('Control+z');
-  await select(page, 0, 10);
+  await selectBoundary(10);
   await page.keyboard.press('Shift+ArrowLeft');
   await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe('👩🏽‍💻');
   await page.keyboard.press('Shift+ArrowRight');

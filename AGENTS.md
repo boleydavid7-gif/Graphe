@@ -56,10 +56,12 @@ and explicit approvals govern the task's scope.
   The stability/file-compatibility audit was committed to PR #17 at `f78e3ba`.
   Phase 2 starts on `dev/writer-stability-phase2` from latest audited PR #17
   head `e501d76`, including the Lamplight bridge also merged through PR #19.
-  Preserve those corrections and integration boundaries. Complete mobile text
-  selection before proceeding to compatibility, PDF, performance or CI work.
-  Do not merge, deploy or modify unrelated applications. Earlier approvals do
-  not authorize a merge or deployment for Phase 2.
+  Phase 2 was merged through PR #24 into the audited branch at `f33e086`.
+  The owner now authorizes merging the audited branch into main through PR #17
+  after verification, preserving main's trusted Lamplight embedding and mobile
+  appearance changes. This does not authorize deployment commands, Cloudflare
+  changes, unrelated application changes or future merges. Preserve all audit
+  corrections, regression coverage and disclosed verification limitations.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.

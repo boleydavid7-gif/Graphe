@@ -1,0 +1,4 @@
+/*
+  Content-Security-Policy: frame-ancestors https://proairetos.com https://research-and-development-proairetos.boleydavid7.workers.dev
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
