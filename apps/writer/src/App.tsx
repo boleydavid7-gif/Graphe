@@ -1,4 +1,4 @@
-import { canSaveToProairetos, saveToProairetos } from './proairetosFilesBridge';
+import { canSaveToProairetos, saveToProairetos, type FilesOpenPayload } from './proairetosFilesBridge';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import type { EditorSurfaceHandle } from './EditorSurface';
@@ -543,7 +543,7 @@ export default function App() {
     });
   }
 
-  function importFile(file: File) {
+  function importFile(file: File, filesId?: string) {
     guardReplacement(async () => {
       const active = engine.current;
       const local = storage.current;
@@ -581,10 +581,12 @@ export default function App() {
           candidate = null;
           replaceSession(next, { sessionId: next.sessionId, id: saved.id, etag: saved.etag },
             `${formatName(selectedFormat)} imported. ${next.originalSource ? 'The document and its exact original are' : 'The document is'} saved on this device.`);
+          if (filesId) { setProairetosFileId(filesId); proairetosSession.current = next.sessionId; }
           active.dispose();
         } else {
           const next = active.open(bytes);
           replaceSession(next, null, 'Imported Writer file. Save a local copy to keep it on this device.');
+          if (filesId) { setProairetosFileId(filesId); proairetosSession.current = next.sessionId; }
         }
       } catch (failure) {
         if (selectedFormat && selectedFormat !== 'writer' && failure instanceof EngineError
@@ -599,6 +601,16 @@ export default function App() {
       }
     });
   }
+
+  useEffect(() => {
+    const open = (event: Event) => {
+      const payload = (event as CustomEvent<FilesOpenPayload>).detail;
+      if (!payload) return;
+      importFile(new File([payload.data], payload.name, { type: payload.mime }), payload.fileId);
+    };
+    window.addEventListener('proairetos:files-open', open);
+    return () => window.removeEventListener('proairetos:files-open', open);
+  });
 
   function exportWriterFile() {
     if (!engine.current || !viewRef.current || !documentOpen || composing) return;
