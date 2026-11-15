@@ -1019,3 +1019,14 @@ measurements identify full layout/transport and SVG footprint as important large
 document limits; existing memoization is preserved and a larger cache/transport
 change requires a concrete review. Reproducible tools, counters and limitations
 are recorded in [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).
+
+## Phase 2: cross-platform execution boundaries
+
+Hosted job/check data proves no runner or step executed, while inaccessible
+annotations prevent classifying the cause. Direct API fallback fails at the
+proxy CONNECT stage; this does not diagnose account billing or source defects.
+Pinned Playwright 1.65.1 supports Firefox touch/mobile overrides, so old capability
+assumptions do not justify new skips. Keep all jobs/tests and extend portable
+coverage; report failed official browser downloads and launch probes separately
+from passed discovery or Chromium tests. Evidence and required infrastructure
+actions are in [PHASE2_CI.md](PHASE2_CI.md).

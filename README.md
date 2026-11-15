@@ -30,6 +30,11 @@ buffer retention without changing save protections. Large-document layout,
 snapshot and SVG costs remain explicit limits; reproducible developer probes
 are included for future changes.
 
+The [Phase 2 report](docs/PHASE2_REPORT.md) distinguishes verified improvements
+from physical-device, large-document, PDF-text and
+[hosted CI/browser availability](docs/PHASE2_CI.md) limitations. No merge or
+deployment is authorized by those reports.
+
 PR #17's [stability and file-compatibility audit](docs/WRITER_STABILITY_AUDIT.md)
 records executed format/save workflows, corrective regressions and outstanding
 mobile, external-producer and hosted-CI limits. It is not a general release or
