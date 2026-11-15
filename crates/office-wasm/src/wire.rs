@@ -39,6 +39,11 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    ReplaceAll {
+        query: String,
+        text: String,
+        expected_revision: Option<String>,
+    },
     InsertParagraph {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
@@ -104,6 +109,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::ReplaceText {
+                expected_revision, ..
+            }
+            | Self::ReplaceAll {
                 expected_revision, ..
             }
             | Self::InsertParagraph {
