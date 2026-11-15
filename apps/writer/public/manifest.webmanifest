@@ -9,6 +9,12 @@
   "theme_color": "#493026",
   "icons": [
     {
+      "src": "/graphe-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
       "src": "/graphe-icon.png",
       "sizes": "any",
       "type": "image/png",
