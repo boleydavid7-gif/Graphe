@@ -844,7 +844,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app">
     <header className="top-bar">
-      <div className="identity" role="img" aria-label="Writer"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><span>Writer</span></div>
+      <div className="identity" role="img" aria-label="Graphe"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><span>Graphe</span></div>
       <div className="title-area">
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
