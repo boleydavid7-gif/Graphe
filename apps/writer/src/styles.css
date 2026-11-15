@@ -1526,3 +1526,15 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 .office-brand__suite{font-weight:400;letter-spacing:-.02em}
 @media(max-width:1100px){.top-bar{gap:12px;padding-inline:14px}.office-brand{font-size:12px}}
 @media(max-width:760px){.office-brand{font-size:11px}.office-brand__suite{font-size:10px}.identity{gap:7px}}
+
+/* About Graphe: compact, opaque Lamplight information panel. */
+.about-graphe-dialog { width: min(480px, calc(100vw - 32px)); }
+.about-graphe-intro { padding: 16px 0 18px; border-bottom: 1px solid var(--writer-border-subtle); }
+.about-graphe-intro strong { display: block; font-size: 22px; font-weight: 600; color: var(--writer-text-strong); }
+.about-graphe-intro span { display: block; margin-top: 4px; font-size: 12px; color: var(--writer-text-muted); }
+.about-graphe-intro p { margin: 12px 0 0; }
+.about-graphe-section { padding: 15px 0; border-bottom: 1px solid var(--writer-border-subtle); }
+.about-graphe-section h3 { margin: 0 0 9px; font-size: 13px; color: var(--writer-text-strong); }
+.about-graphe-section p { margin: 8px 0; color: var(--writer-text-muted); }
+.about-graphe-section a { display: block; padding: 9px 0; color: var(--writer-accent); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.about-graphe-section a:focus-visible { outline: 2px solid var(--writer-focus); outline-offset: 3px; }
