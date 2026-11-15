@@ -12,18 +12,18 @@ const MAX_QUERY_BYTES: usize = 1024;
 const MAX_MATCHES: usize = 1000;
 
 #[derive(Serialize)]
-struct FindMatch {
-    selection: BrowserSelection,
+pub(super) struct FindMatch {
+    pub(super) selection: BrowserSelection,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FindSnapshot<'a> {
+pub(super) struct FindSnapshot<'a> {
     session_id: &'a str,
     document_id: &'a str,
     revision: String,
-    matches: Vec<FindMatch>,
-    truncated: bool,
+    pub(super) matches: Vec<FindMatch>,
+    pub(super) truncated: bool,
 }
 
 impl BrowserEngine {
@@ -35,7 +35,7 @@ impl BrowserEngine {
     /// synthesized into searchable text. At most 1,000 matches are returned.
     /// The response's session, document and revision must still match before a
     /// caller applies a result as its live selection.
-    pub fn find_text(&self, query: &str) -> Result<String, EngineError> {
+    pub(super) fn find_snapshot(&self, query: &str) -> Result<FindSnapshot<'_>, EngineError> {
         if query.len() > MAX_QUERY_BYTES {
             return Err(EngineError::new(
                 "invalid_find",
@@ -102,7 +102,11 @@ impl BrowserEngine {
                 }
             }
         }
-        serde_json::to_string(&response)
+        Ok(response)
+    }
+
+    pub fn find_text(&self, query: &str) -> Result<String, EngineError> {
+        serde_json::to_string(&self.find_snapshot(query)?)
             .map_err(|error| EngineError::new("find_failed", error.to_string()))
     }
 }
