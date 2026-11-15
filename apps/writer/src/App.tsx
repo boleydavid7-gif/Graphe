@@ -1089,7 +1089,7 @@ export default function App() {
       <button aria-label="New" disabled={!view || busy || composing} onClick={newDocument}><WriterIcon name="new" /><span>New</span></button>
       <button aria-label="Open" disabled={!view || busy || composing} onClick={() => void showLibrary()}><WriterIcon name="open" /><span>Open</span></button>
       <button aria-label="Find" disabled={unavailable} onClick={openFind}><WriterIcon name="search" /><span>Find</span></button>
-      <button aria-label="Export" disabled={unavailable} onClick={exportFile}><WriterIcon name="export" /><span>Export</span></button>
+      <button aria-label="Save As" disabled={unavailable} onClick={() => reviewSaveAs()}><WriterIcon name="save" /><span>Save As</span></button>
     </nav>
     <input ref={fileInput} type="file" accept={`.writer,.docx,.odt,.rtf,.txt,application/json,${DOCX_MEDIA_TYPE},application/vnd.oasis.opendocument.text,application/rtf,text/rtf,text/plain`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
