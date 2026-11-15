@@ -495,3 +495,25 @@ dialog p { font-size: 13px; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) {
   .editor-tab-indicator { transition: none; }
 }
+
+
+/* Keep section tabs flat: iOS can retain :hover after tapping a button.
+   The moving underline is the only selected surface. */
+.editor-tabs .editor-tab-options { flex: 1 1 auto; }
+.editor-tabs .editor-tab-options > button {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  font-size: 13px;
+  padding: 9px 5px;
+}
+.editor-tabs .editor-tab-options > button[aria-pressed='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.editor-tabs .editor-tab-indicator { z-index: 2; }
+@media (max-width: 620px) {
+  .editor-tabs .editor-tab-options { width: 100%; }
+}
