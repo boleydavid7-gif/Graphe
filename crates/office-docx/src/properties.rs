@@ -17,6 +17,7 @@ use crate::conversion::{
 pub(crate) struct ParsedParagraphProperties {
     pub format: ParagraphFormat,
     pub style_id: Option<String>,
+    pub numbering_id: Option<u32>,
     pub section: Option<SectionProperties>,
 }
 
@@ -172,6 +173,7 @@ pub(crate) fn parse_paragraph(
     let mut result = ParsedParagraphProperties {
         format: ParagraphFormat::default(),
         style_id: None,
+        numbering_id: None,
         section: None,
     };
     let mut seen = BTreeSet::new();
@@ -213,6 +215,36 @@ pub(crate) fn parse_paragraph(
                 };
             }
             "spacing" => spacing(property, namespace, part, report, &mut result.format)?,
+            "numPr" => {
+                attributes(property, namespace, &[], part, report);
+                let mut level = None;
+                let mut num_id = None;
+                for part_node in property_children(property, namespace, part, report)? {
+                    match part_node.tag_name().name() {
+                        "ilvl" => {
+                            attributes(part_node, namespace, &["val"], part, report);
+                            leaf(part_node, part, report)?;
+                            if level.is_some() { return Err(invalid(part, "duplicate list level")); }
+                            level = Some(required(part_node, namespace, "val", part)?
+                                .parse::<u32>().map_err(|_| invalid(part, "invalid list level"))?);
+                        }
+                        "numId" => {
+                            attributes(part_node, namespace, &["val"], part, report);
+                            leaf(part_node, part, report)?;
+                            if num_id.is_some() { return Err(invalid(part, "duplicate numbering id")); }
+                            num_id = Some(required(part_node, namespace, "val", part)?
+                                .parse::<u32>().map_err(|_| invalid(part, "invalid numbering id"))?);
+                        }
+                        _ => unsupported_element(part_node, part, report),
+                    }
+                }
+                if level != Some(0) || num_id.is_none() {
+                    report.push(Issue::UnsupportedValue, part, "pPr/numPr",
+                        "Only first-level numbered or bulleted paragraphs are editable.");
+                } else {
+                    result.numbering_id = num_id.filter(|id| *id != 0);
+                }
+            }
             "pBdr" => paragraph_borders(property, namespace, part, report)?,
             "ind" => {
                 result.format.indentation = Some(indentation(property, namespace, part, report)?);
