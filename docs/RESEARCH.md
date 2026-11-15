@@ -1084,3 +1084,45 @@ coverage checks their mobile page baseline, all section controls, viewport-limit
 menus, safe-copy behavior and captured touch geometry. The scoped motion exclusions
 remain necessary. Exact successive-tree verification and overlapping-suite counts
 are recorded in PHASE2_REPORT.md; this is not live-host or device certification.
+
+
+## Graphe lists — November 2026
+
+**Question:** How should bullet and numbered lists work without a second browser-owned
+document model or regressions in undo, pagination and DOCX interoperability?
+
+**Evidence reviewed:**
+- ECMA-376 WordprocessingML numbering properties: paragraph `w:numPr` refers to
+  `w:numId` and zero-based `w:ilvl`; instances/abstract numbering live in a separate
+  numbering part: https://ooxml.org/wordml/w-numpr/ and
+  Microsoft's WordprocessingML primer:
+  https://download.microsoft.com/download/e/1/4/e14fb96f-83b8-4a2a-84db-7fa8acbe061a/Office%20Open%20XML%20Part%203%20-%20Primer.pdf
+- ProseMirror's list schema distinguishes list/item nodes from text rather than
+  inserting bullet characters into content:
+  https://github.com/ProseMirror/prosemirror-schema-list/blob/master/src/schema-list.ts
+- W3C WAI recommends conveying genuine ordered/unordered list relationships
+  to assistive technology: https://www.w3.org/WAI/tutorials/page-structure/content/
+
+**Options:** (1) insert literal `•` and `1.` text: simplest but breaks renumbering,
+content semantics and DOCX; rejected. (2) introduce an entirely new nested list
+block tree: future-proof but would require rewriting the current paragraph-only
+editing, selection and layout engines; deferred. (3) carry an explicit,
+format-neutral list classification on each paragraph and derive labels for
+contiguous groups: supports first-level lists with minimal impact, no fake text,
+and can later evolve to grouped/nested list definitions; chosen for v1.
+
+**Initial scope:** bullets and decimal numbers at one level; normal Enter inherits
+list classification; Enter on an empty item exits; toolbar toggles list type for
+selected paragraphs; consecutive numbered paragraphs renumber and restart
+after unrelated content. All edits use core transactions/undo. Markers must be
+laid out using Rust's pinned fonts, not CSS-generated editable text. The native
+schema must evolve explicitly and older files must migrate without accepting
+new attributes in old payloads. DOCX requires proper numbering parts and
+relationships; unsupported formats must give explicit lossy-export warnings
+or block export rather than silently lose markers. Nested lists, custom
+styles, arbitrary restart values and mixed numbering definitions are deferred.
+
+**Verification limits:** The connected GitHub repository is private and the
+current container has no Rust toolchain or network route; code review and
+regression additions are possible, but CI/Cloudflare compile feedback and
+manual phone testing are still required before treating this feature as stable.
