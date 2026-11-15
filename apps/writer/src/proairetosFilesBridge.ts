@@ -52,6 +52,22 @@ export function announceFilesReady(): void {
   if (connectedHost) window.parent.postMessage({ type: 'writer:files-ready', version: 1 }, connectedHost);
 }
 
+export type SaveDialogSelection = { requestId: string; name: string; format: string };
+export function requestProairetosSaveDialog(name: string, format: string, warnings: Record<string,string[]>, fileId?: string): Promise<string> {
+  if (!connectedHost) return Promise.reject(new Error('ProairetOS Files is unavailable.'));
+  if (pending.size) return Promise.reject(new Error('Another save is in progress.'));
+  const requestId = crypto.randomUUID().replace(/-/g, '');
+  return new Promise((resolve,reject) => {
+    pending.set(requestId,{resolve,reject});
+    window.parent.postMessage({type:'writer:files-dialog-open',version:1,requestId,name,format,warnings,...(fileId?{fileId}:{})},connectedHost!);
+  });
+}
+export function sendProairetosExport(requestId:string,name:string,format:string,data:Uint8Array,fileId?:string):void {
+  if (!connectedHost || data.byteLength > MAX_BYTES) throw new Error('ProairetOS Files is unavailable or the document exceeds 10 MB.');
+  const bytes=data.slice().buffer;
+  window.parent.postMessage({type:'writer:files-save-request',version:1,requestId,name,mime:MIME[format],data:bytes,...(fileId?{fileId}:{})},connectedHost,[bytes]);
+}
+
 export function canSaveToProairetos(): boolean { return connectedHost !== null && window.parent !== window; }
 
 export function saveToProairetos(name: string, format: string, data: Uint8Array, fileId?: string): Promise<string> {
