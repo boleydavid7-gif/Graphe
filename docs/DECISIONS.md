@@ -912,3 +912,50 @@ with layout/font diagnostics. Geometry errors fail explicitly. No cloud service,
 full Office engine or proprietary font dependency is introduced. This targeted
 dependency review does not select the project's license or replace the planned
 comprehensive commercial licensing/security audit.
+
+## 044: Classify DOCX auxiliary relationships without weakening semantic guards
+
+**Decision:** Accept exact known package-root/main relationships only in their
+correct roles, with matching content types, XML roots and an explicit inert
+payload profile. Retain nonsemantic metadata and unused ancillary information
+in the existing immutable original. Continue using the existing style parser;
+do not resolve themes, discard active settings or infer support from filenames.
+
+**Reason:** The old graph whitelist rejected ordinary Word/LibreOffice metadata,
+theme, font-table, settings and web-settings parts before inspecting them. The
+presence of these parts does not by itself imply content loss, whereas their
+active properties and relationships may affect formatting or document behavior.
+
+**Consequences:** An otherwise supported document can become editable without a
+new model or schema. Unknown/external relationships, unresolved theme properties,
+embedded fonts and unsupported active settings remain read-only; malformed or
+ambiguous packages fail explicitly. All child relationship parts remain checked.
+Bounded diagnostics identify the actual relationship Type, Target and Id.
+Native saving preserves the exact original before editing. A regenerated DOCX
+copy omits unmodeled auxiliary information and requires the existing Save As
+acknowledgement; original download remains byte-identical. Real producer fixture
+limits and evidence are recorded in [DOCX_RELATIONSHIPS.md](DOCX_RELATIONSHIPS.md).
+
+## 045: Normalize known DOCX formatting while preserving content and originals
+
+**Decision:** With the owner's explicit authorization, permit validated known
+formatting approximations on editable import. Preserve all supported text/order,
+exact originals and core validation. Keep content, revision, protection,
+unknown-markup and malformed-structure safeguards. Report normalization notices
+separately from blocking compatibility findings with independent bounds.
+
+**Reason:** Ordinary Word and LibreOffice documents include unused style
+libraries, theme/script defaults and layout preferences beyond Writer's model.
+Requiring every formatting detail to match the native model made ordinary
+content unavailable for editing without improving content integrity.
+
+**Consequences:** Resolve supported used character styles into run properties;
+retain unused libraries in the original and never prune active/default/inherited
+numbering. Use deterministic documented font/color/layout fallbacks and display
+an accessible adjustment notice after original-preserving local storage. Native
+reopen derives runtime notices from the original without replacing edited state.
+Existing import APIs remain available; a richer facade result carries notices
+without a second parse. No native schema, dependency or layout-engine change is
+needed. Regenerated exports disclose losses; full originals remain recoverable.
+This is a bounded compatibility profile, not complete Word fidelity. See
+[DOCX_NORMALIZATION.md](DOCX_NORMALIZATION.md) for evidence and safeguards.

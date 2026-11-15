@@ -70,6 +70,12 @@ a { color: inherit; text-underline-offset: 3px; }
 .insert-controls, .review-controls { gap: 8px; }
 kbd { font: inherit; font-size: 10px; color: var(--muted); margin-left: 5px; }
 .workspace { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 23px 24px 36px; background: #302a24; scrollbar-color: #675b4d #302a24; }
+.import-notice { flex-shrink: 0; max-height: 35dvh; overflow: auto; padding: 9px 24px; border-bottom: 1px solid #6d5835; background: #3c3224; color: #eee5d6; font-size: 12px; line-height: 1.45; }
+.import-notice p { margin: 0; }
+.import-notice summary { margin-top: 4px; color: var(--accent); }
+.import-notice ul { margin: 8px 0; padding-left: 20px; }
+.import-notice li { margin: 6px 0; overflow-wrap: anywhere; }
+.import-notice li > strong, .import-notice li > span { display: block; }
 .paged-editing-view { min-width: 0; width: 100%; }
 .paged-editor { min-width: 0; outline: none; }
 .paged-editor-pages { display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 1px 1px 12px; min-width: 0; }
@@ -204,6 +210,7 @@ dialog p { font-size: 13px; line-height: 1.6; }
   #paragraph-style { width: 99px; font-size: 11px; }
   #font-family { flex: 1; width: 130px; }
   .workspace { padding: 15px 11px 24px; }
+  .import-notice { padding: 8px 12px; font-size: 11px; }
   .paged-editor-pages { gap: 18px; }
   .status-bar { flex-wrap: wrap; gap: 10px; padding: 4px 13px; font-size: 11px; min-height: 36px; }
   .word-count { padding-left: 10px; }

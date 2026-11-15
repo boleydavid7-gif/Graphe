@@ -88,6 +88,7 @@ pub struct BrowserEngine {
     undo_cursor: Vec<CursorHistory>,
     redo_cursor: Vec<CursorHistory>,
     original_source: Option<OriginalSource>,
+    import_warnings: wire::CompatibilityReportView,
     source_overhead: usize,
     layout_state: layout::LayoutState,
 }
@@ -113,6 +114,7 @@ impl BrowserEngine {
             undo_cursor: Vec::new(),
             redo_cursor: Vec::new(),
             original_source: None,
+            import_warnings: Default::default(),
             source_overhead: 0,
             layout_state: layout::LayoutState::default(),
         };
@@ -152,7 +154,11 @@ impl BrowserEngine {
     /// Browser callers must use a detached candidate and save its source-bearing
     /// native bytes before activating it for editing.
     pub fn import_docx(&mut self, bytes: &[u8], filename: &str) -> String {
+        let next_id = self.next_id;
         let result = self.import_word(bytes, filename);
+        if result.is_err() {
+            self.next_id = next_id;
+        }
         self.response(result)
     }
 
@@ -165,6 +171,7 @@ impl BrowserEngine {
             DocxImportOutcome::Editable(imported) => imported,
             DocxImportOutcome::Preserved { report, .. } => return Err(unsupported_docx(report)),
         };
+        let warnings = normalization_warnings(imported.report());
         let (document, source) = imported.into_parts();
         let original = OriginalSource::new(
             "docx",
@@ -175,6 +182,7 @@ impl BrowserEngine {
         let (_, overhead) = checked_file(&document, Some(original.clone()))?;
         self.replace_session(document)?;
         self.original_source = Some(original);
+        self.import_warnings = warnings;
         self.source_overhead = overhead;
         Ok(())
     }
@@ -227,12 +235,14 @@ impl BrowserEngine {
                 "Stored document identity does not match its contents.",
             ));
         }
-        if let Some(source) = &original {
-            validate_source(source, document.id().clone())?;
-        }
+        let warnings = match &original {
+            Some(source) => validate_source(source, document.id().clone())?,
+            None => Default::default(),
+        };
         let (_, overhead) = checked_file(&document, original.clone())?;
         self.replace_session(document)?;
         self.original_source = original;
+        self.import_warnings = warnings;
         self.source_overhead = overhead;
         Ok(())
     }
@@ -380,6 +390,7 @@ impl BrowserEngine {
         )?;
         self.replace_session(document)?;
         self.original_source = None;
+        self.import_warnings = Default::default();
         self.source_overhead = 0;
         Ok(())
     }
@@ -507,6 +518,7 @@ impl BrowserEngine {
                     filename: source.filename().into(),
                     byte_length: source.bytes().len(),
                 }),
+            import_warnings: self.import_warnings.clone(),
         }
     }
 
@@ -543,7 +555,10 @@ fn checked_file(
     Ok((bytes, overhead))
 }
 
-fn validate_source(source: &OriginalSource, document_id: Id) -> Result<(), EngineError> {
+fn validate_source(
+    source: &OriginalSource,
+    document_id: Id,
+) -> Result<wire::CompatibilityReportView, EngineError> {
     if source.format() != "docx" {
         return formats::validate_source(source, document_id);
     }
@@ -557,8 +572,24 @@ fn validate_source(source: &OriginalSource, document_id: Id) -> Result<(), Engin
         ));
     }
     match office_docx::import_docx(source.bytes(), document_id)? {
-        DocxImportOutcome::Editable(_) => Ok(()),
+        DocxImportOutcome::Editable(imported) => Ok(normalization_warnings(imported.report())),
         DocxImportOutcome::Preserved { report, .. } => Err(unsupported_docx(report)),
+    }
+}
+
+fn normalization_warnings(report: &CompatibilityReport) -> wire::CompatibilityReportView {
+    wire::CompatibilityReportView {
+        omitted_diagnostics: report.omitted_normalizations,
+        diagnostics: report
+            .normalizations
+            .iter()
+            .map(|item| wire::CompatibilityDiagnosticView {
+                kind: item.kind.code().into(),
+                part: item.part.clone(),
+                path: item.path.clone(),
+                message: item.message.clone(),
+            })
+            .collect(),
     }
 }
 

@@ -77,7 +77,7 @@ format, storage database and existing engines are reused. See
 [verification](docs/WRITER_STEP7_VERIFICATION.md) and
 [approved references](docs/design/README.md).
 
-The owner subsequently authorized Step 7.5 on `dev/writer-file-formats`:
+Step 7.5 was merged through PR #13 at `3f447c4` with the owner's approval:
 DOCX/ODT/RTF/TXT open, edit and save within declared profiles; PDF export only;
 and full native `.writer` retention. Open and Save As reuse the Rust adapters,
 preserve imported originals and require acknowledgement of conversion warnings.
@@ -592,10 +592,25 @@ is not implemented.
 The profile covers paragraphs, runs, supported paragraph styles/defaults and
 inheritance, direct formatting, spacing/indentation, section page geometry,
 page-break-before, soft line breaks and tabs. Tables, images, fields, links,
-numbering, revisions, headers/footers, theme/script-specific font differences
-and unknown semantic properties remain read-only. Ambiguous text whitespace or
+numbering, revisions, headers/footers and unknown semantic properties remain
+read-only. Known theme/script and other unsupported visual formatting may use
+documented approximations with an import notice and exact original retention.
+Ambiguous text whitespace or
 literal CR/LF/TAB in Word text elements is reported rather than silently trimmed
 or approximated. See [DOCX.md](docs/DOCX.md) for precise restrictions.
+
+Ordinary auxiliary relationships no longer make an otherwise supported document
+read-only: inspected inert metadata, unused themes, font descriptors, cached
+thumbnails and view/session preferences are retained in its exact original.
+Active unsupported formatting/settings still prevent editing. Save As warns
+that a newly generated DOCX omits unmodeled original metadata and auxiliary parts.
+See [relationship policy and regressions](docs/DOCX_RELATIONSHIPS.md).
+
+[Formatting normalization](docs/DOCX_NORMALIZATION.md) allows ordinary Word and
+LibreOffice styles/settings to open for editing with visible adjustment notices.
+Content, protection and structure safeguards stay strict. Native save/reopen
+preserves the edited model and exact original; exported copies use the normalized
+current formatting and disclose source-only information that they omit.
 
 DOCX semantic round trips do not promise arbitrary native ID preservation, exact
 run partitions or identical future Word style-editing behavior. Originals remain

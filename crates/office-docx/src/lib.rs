@@ -11,6 +11,7 @@
 //! full-file API before editing. Inspection alone does not imply editability,
 //! complete OOXML conformance, or Microsoft Word pagination equivalence.
 
+mod ancillary;
 mod conversion;
 mod error;
 mod export;

@@ -673,6 +673,9 @@ export default function App() {
 
   const unavailable = !view || !documentOpen || busy || composing;
   const formatState = view?.format;
+  const importWarnings = view?.importWarnings;
+  const importWarningCount = (importWarnings?.diagnostics.length ?? 0)
+    + (importWarnings?.omittedDiagnostics ?? 0);
   const visibleError = error || (saveState.error
     ? `${message(saveState.error)} Autosave is paused. Your document is still open; retry Save or export a backup.` : '');
   const saveLabel = !documentOpen ? 'No document open'
@@ -801,6 +804,17 @@ export default function App() {
       {saveConflict && <button onClick={() => void saveCopy()} disabled={busy}>Save a separate copy</button>}
       {saveState.error && <button disabled={busy || composing} onClick={() => void saveDocument()}>Retry save</button>}
       {error && <button aria-label="Dismiss error" onClick={() => setError('')}>×</button>}</div>}
+    {documentOpen && importWarnings && importWarningCount > 0 && <aside className="import-notice" aria-label="Import formatting notice" key={view?.sessionId}>
+      <p role="status"><strong>Formatting adjusted for editing.</strong> Some original formatting uses disclosed approximations. Your exact original is retained.</p>
+      <details>
+        <summary>Review {importWarningCount.toLocaleString()} formatting {importWarningCount === 1 ? 'notice' : 'notices'}</summary>
+        <ul>{importWarnings.diagnostics.map((warning, index) => <li key={`${warning.kind}-${index}`}>
+          <strong>{warning.part}: {warning.path}</strong><span>{warning.message}</span>
+        </li>)}</ul>
+        {importWarnings.omittedDiagnostics > 0 && <p>{importWarnings.omittedDiagnostics.toLocaleString()} further notices were omitted from this bounded report.</p>}
+        <p>Keep the native Writer file or download the original for full source preservation. New exported copies use the current supported document formatting.</p>
+      </details>
+    </aside>}
     <main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>

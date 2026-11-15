@@ -14,6 +14,12 @@ const UNSUPPORTED: &[u8] =
     include_bytes!("../../../tests/fixtures/docx/writer-source-preservation.docx");
 const PARTIAL_SPACING: &[u8] =
     include_bytes!("../../../tests/fixtures/docx/unsupported-partial-line-spacing.docx");
+const PROTECTED: &[u8] = include_bytes!(
+    "../../../tests/fixtures/docx/relationships/unsupported-active-document-protection.docx"
+);
+const TRACKED: &[u8] = include_bytes!(
+    "../../../tests/fixtures/docx/relationships/unsupported-active-track-revisions.docx"
+);
 
 fn view(engine: &BrowserEngine) -> Value {
     serde_json::from_str(&engine.snapshot()).unwrap()
@@ -88,7 +94,8 @@ fn unsupported_and_corrupt_docx_preserve_existing_content_history_and_original()
     let bytes = engine.export_document().unwrap();
     for (input, code) in [
         (UNSUPPORTED, "unsupported_docx"),
-        (PARTIAL_SPACING, "unsupported_docx"),
+        (PROTECTED, "unsupported_docx"),
+        (TRACKED, "unsupported_docx"),
         (b"broken".as_slice(), "invalid_docx"),
     ] {
         let response: Value =
@@ -109,6 +116,35 @@ fn unsupported_and_corrupt_docx_preserve_existing_content_history_and_original()
     }
     execute(&mut engine, json!({"type":"undo"}));
     assert_eq!(view(&engine)["title"], "");
+}
+
+#[test]
+fn partial_line_spacing_uses_the_standard_auto_rule_with_a_notice_and_exact_original() {
+    let mut engine = BrowserEngine::new("partial-spacing-normalization").unwrap();
+    let imported = open_docx(&mut engine, PARTIAL_SPACING);
+    assert!(
+        imported["importWarnings"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|notice| notice["kind"] == "normalized_formatting")
+    );
+    let native = engine.export_document().unwrap();
+    let file = deserialize_writer_file(&native).unwrap();
+    let office_core::Block::Paragraph(paragraph) = &file.document().sections()[0].blocks()[0];
+    assert_eq!(
+        paragraph.format().line_spacing,
+        Some(office_core::LineSpacing::Multiple { value: 300 })
+    );
+    assert_eq!(engine.export_original().unwrap(), PARTIAL_SPACING);
+    let mut reopened = BrowserEngine::new("partial-spacing-native-reopen").unwrap();
+    let restored: Value = serde_json::from_str(&reopened.open_document(&native)).unwrap();
+    assert_eq!(restored["ok"], true);
+    assert_eq!(
+        restored["view"]["importWarnings"],
+        imported["importWarnings"]
+    );
+    assert_eq!(reopened.export_document().unwrap(), native);
 }
 
 #[test]

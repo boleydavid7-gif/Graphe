@@ -565,6 +565,7 @@ impl BrowserEngine {
     pub(super) fn format_summary(&self, paragraphs: &[ParagraphView]) -> FormatSummary {
         let selected = self.selection.as_ref();
         let mut chosen = Vec::new();
+        let mut empty_paragraphs = Vec::new();
         let mut alignments = Vec::new();
         let mut styles = Vec::new();
         if let Some(selection) = selected {
@@ -601,17 +602,23 @@ impl BrowserEngine {
                         let mut offset = 0;
                         for run in &display.runs {
                             let next = offset + run.text.encode_utf16().count();
-                            if offset < to && next > from {
+                            if next > offset && offset < to && next > from {
                                 chosen.push(run.format.clone());
                             }
                             offset = next;
                         }
-                        if display.runs.is_empty() {
-                            chosen.push(view::character_view(&base));
+                        if display.runs.iter().all(|run| run.text.is_empty()) {
+                            empty_paragraphs.push(view::character_view(&base));
                         }
                     }
                 }
             }
+        }
+        // Character formatting applies to selected text. Blank paragraphs must
+        // not make a uniformly formatted text range appear mixed; their own
+        // defaults still describe a selection containing only blank paragraphs.
+        if chosen.is_empty() {
+            chosen = empty_paragraphs;
         }
         if chosen.is_empty() {
             chosen.push(view::character_view(

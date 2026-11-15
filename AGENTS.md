@@ -46,18 +46,31 @@ and explicit approvals govern the task's scope.
 - Use Rust's pinned grapheme rules and explicit UTF-8/UTF-16 conversions. Do not
   substitute JavaScript string length or a different segmenter for engine offsets.
 - Keep unsaved Rust state intact on input, import, or storage failure.
-- Step 7 was merged through PR #12 at `dab4db7`. The owner subsequently
-  authorized Step 7.5 on `dev/writer-file-formats`: DOCX/ODT/RTF/TXT open, edit
-  and save, native Writer retention, and PDF export only. Preserve the shared
-  model, editing, layout, native storage and existing source-preservation rules.
-  The owner authorized merging Step 7.5 after successful verification; this
-  authorization does not include manual deployment or Cloudflare changes.
+- Step 7 was merged through PR #12 at `dab4db7`; Step 7.5 was merged through
+  PR #13 at `3f447c4` with the owner's explicit approval. Preserve its file
+  formats, research, regression tests and disclosed verification limits.
+  The current focused DOCX relationship correction is on
+  `fix/docx-harmless-relationships`: create a review PR, but do not merge it or
+  deploy. Do not change Cloudflare or begin unrelated feature work.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
 - Editable DOCX import requires a complete supported projection and persistence
   of its exact original before browser editing is activated. Unsupported content
   stays preserved read-only with diagnostics; do not publish lossy editable copies.
+- The owner subsequently authorized safe normalization of known unsupported
+  formatting so ordinary Word/LibreOffice documents can be edited. Preserve all
+  text and its order, retain exact originals, expose bounded adjustment notices,
+  and disclose regenerated-export losses. This supersedes the earlier demand
+  that every formatting value fit the native model exactly. Content, protection,
+  revision, malformed-structure and unknown-markup guards remain strict; an
+  independent warning budget must never hide a blocking finding.
+- Recognize inert DOCX auxiliary data by exact relationship URI/source role,
+  content type and inspected payload, never by filename alone. Preserve it in
+  the original. Known theme/script formatting and layout preferences may be
+  normalized with notices; content, embedded fonts and unknown relationships
+  remain guarded. See `docs/DOCX_RELATIONSHIPS.md`; current-content
+  export must disclose omitted unmodeled metadata and auxiliary parts.
 - Use full `WriterFile` APIs when source state is present. Document-only loaders
   must reject source loss. Preserve strict legacy decoding and explicit migrations;
   do not accept newer fields under old schema/envelope version labels.

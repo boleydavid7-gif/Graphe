@@ -3,6 +3,9 @@
 **Current conversion implementation:** [DOCX_CONVERSION.md](DOCX_CONVERSION.md)
 describes semantic import/export, strict editable-versus-preserved outcomes,
 schema/native format 2, browser integration, and the compatibility profile.
+The owner's later [formatting-normalization policy](DOCX_NORMALIZATION.md) allows
+known appearance approximations with notices and exact source preservation;
+content, protection and malformed-structure safeguards remain strict.
 [DOCX_CONVERSION_VERIFICATION.md](DOCX_CONVERSION_VERIFICATION.md) records the
 executed final checks. The sections below retain the Step 5A package-foundation
 research and limits; statements restricting 5A to inspection describe that
