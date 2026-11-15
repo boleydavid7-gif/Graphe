@@ -104,13 +104,14 @@ test.describe('trusted embedded mobile Writer', () => {
     await frame.locator('svg[data-layout-page]').first().tap({ position: { x: 90, y: 90 } });
     await expect(content(frame)).toBeFocused();
     await expect(frame.locator('.status-bar')).toBeHidden();
-    await expect(frame.locator('.mobile-document-actions')).toBeHidden();
+    await expect(frame.locator('.mobile-document-actions')).toHaveCount(0);
     await page.keyboard.insertText(text);
     await expect(content(frame)).toHaveText(text);
     await expect(frame.getByTestId('paged-editor')).toHaveAttribute('aria-busy', 'false');
     await title.tap();
     await expect(frame.locator('.status-bar')).toBeVisible();
-    await expect(frame.locator('.mobile-document-actions')).toBeVisible();
+    await expect(frame.locator('.mobile-document-actions')).toHaveCount(0);
+    await expect(frame.locator('.document-menu > summary')).toBeVisible();
     await frame.getByRole('button', { name: 'Save', exact: true }).tap();
     await expect.poll(async () => ({
       status: await frame.locator('.mobile-save-state').textContent(),
