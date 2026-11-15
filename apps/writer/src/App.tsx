@@ -1,4 +1,4 @@
-import { announceFilesReady, canSaveToProairetos, saveToProairetos, requestProairetosSaveDialog, sendProairetosExport, type FilesOpenPayload } from './proairetosFilesBridge';
+import { announceFilesReady, canSaveToProairetos, requestProairetosSaveDialog, sendProairetosExport, type FilesOpenPayload } from './proairetosFilesBridge';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import type { EditorSurfaceHandle } from './EditorSurface';
