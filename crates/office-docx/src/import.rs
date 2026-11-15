@@ -1310,6 +1310,8 @@ fn parse_main_document(
     let mut sections = Vec::new();
     let mut blocks = Vec::new();
     let mut paragraph_index = 0;
+    let mut preceding_numbering: Option<(u32, ListKind)> = None;
+    let mut used_numbering = BTreeSet::new();
     let mut final_properties = None;
     let mut ended_section = false;
     for node in body.children() {
@@ -1324,7 +1326,7 @@ fn parse_main_document(
             return Err(invalid(part, "content follows final section properties"));
         }
         if node.has_tag_name((namespace, "p")) {
-            let (paragraph, properties) = parse_paragraph_content(
+            let (paragraph, properties, numbering_id) = parse_paragraph_content(
                 node,
                 namespace,
                 part,
@@ -1335,6 +1337,28 @@ fn parse_main_document(
                 report,
             )?;
             paragraph_index += 1;
+            if let Some(id) = numbering_id {
+                if let Some(kind) = paragraph.list() {
+                    if preceding_numbering != Some((id, kind))
+                        && used_numbering.contains(&id)
+                    {
+                        report.push(Issue::UnsupportedValue, part, "pPr/numPr",
+                            "A Word numbering instance resumes after a break; Graphe would restart its sequence.");
+                    }
+                    if let Some((previous_id, previous_kind)) = preceding_numbering
+                        && previous_id != id && previous_kind == kind
+                    {
+                        report.push(Issue::UnsupportedValue, part, "pPr/numPr",
+                            "Adjacent Word list groups with separate numbering instances must remain distinct.");
+                    }
+                    used_numbering.insert(id);
+                    preceding_numbering = Some((id, kind));
+                } else {
+                    preceding_numbering = None;
+                }
+            } else {
+                preceding_numbering = None;
+            }
             blocks.push(Block::Paragraph(paragraph));
             ended_section = false;
             if let Some(properties) = properties {
@@ -1345,6 +1369,7 @@ fn parse_main_document(
                     document_id,
                 )?;
                 ended_section = true;
+                preceding_numbering = None;
             }
         } else if node.has_tag_name((namespace, "sectPr")) {
             final_properties = Some(crate::properties::parse_section(
@@ -1391,7 +1416,7 @@ fn parse_paragraph_content(
     styles: &StyleBook,
     numbering: &BTreeMap<u32, ListKind>,
     report: &mut CompatibilityReport,
-) -> Result<(Paragraph, Option<SectionProperties>), ConversionError> {
+) -> Result<(Paragraph, Option<SectionProperties>, Option<u32>), ConversionError> {
     check_word_attributes(node, namespace, &[], part, report);
     let mut properties = None;
     let mut runs = Vec::new();
@@ -1422,9 +1447,11 @@ fn parse_paragraph_content(
     }
     let mut paragraph = Paragraph::new(generated_id(document_id, "paragraph", index)?, runs);
     let mut section = None;
+    let mut numbering_id = None;
     let explicit_style = if let Some(properties) = properties {
         paragraph = paragraph.with_format(properties.format);
-        if let Some(id) = properties.numbering_id {
+        numbering_id = properties.numbering_id;
+        if let Some(id) = numbering_id {
             match numbering.get(&id) {
                 Some(kind) => paragraph = paragraph.with_list(Some(*kind)),
                 None => report.push(Issue::UnsupportedValue, part, "pPr/numPr",
@@ -1508,7 +1535,7 @@ fn parse_paragraph_content(
     if let Some(style) = style {
         paragraph = paragraph.with_style(style);
     }
-    Ok((paragraph, section))
+    Ok((paragraph, section, numbering_id))
 }
 
 fn parse_run(
