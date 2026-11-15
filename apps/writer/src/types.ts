@@ -1,5 +1,6 @@
 /** Read-only presentation transport. All edits and Unicode rules live in Rust. */
 export type Alignment = 'left' | 'center' | 'right' | 'justify';
+export type ListKind = 'bullet' | 'numbered';
 
 /** Native and external adapters; PDF is export-only. */
 export type DocumentFormat = 'writer' | 'docx' | 'odt' | 'rtf' | 'txt' | 'pdf';
@@ -44,6 +45,7 @@ export interface ParagraphView {
   readonly id: string;
   readonly sectionId: string;
   readonly styleId: string | null;
+  readonly list: ListKind | null;
   readonly runs: readonly RunView[];
   readonly format: {
     readonly alignment: Alignment;
@@ -74,6 +76,8 @@ export interface WriterView {
     readonly alignment: Alignment | null;
     readonly styleId: string | null;
     readonly styleMixed: boolean;
+    readonly list: ListKind | null;
+    readonly listMixed: boolean;
   };
   readonly canUndo: boolean;
   readonly canRedo: boolean;
@@ -107,6 +111,7 @@ export type WriterCommand =
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
   | ({ readonly type: 'format_paragraph'; readonly alignment: Alignment } & EditOrigin)
+  | ({ readonly type: 'set_list'; readonly list: ListKind | null } & EditOrigin)
   | ({ readonly type: 'assign_style'; readonly styleId: string | null } & EditOrigin)
   | { readonly type: 'undo'; readonly expectedRevision?: string }
   | { readonly type: 'redo'; readonly expectedRevision?: string };
