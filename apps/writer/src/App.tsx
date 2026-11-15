@@ -850,7 +850,7 @@ export default function App() {
   return <div className="writer-app">
     <header className="top-bar">
       <div className="identity">
-        <img src="/writer-logo.svg" className="writer-lantern" alt="" />
+        <img src="/graphe-icon.svg" className="writer-lantern" alt="" />
         <span className="identity__label">
           <span>Graphe</span>
           <span className="identity__office">Proairet<span className="office-brand__os">OS</span>&nbsp;Office</span>
