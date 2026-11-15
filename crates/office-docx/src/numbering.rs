@@ -11,13 +11,14 @@ use crate::{
     conversion::invalid, xml::parse_xml,
 };
 
-fn field<'a>(
-    node: Node<'a, 'a>,
+fn field(
+    node: Node<'_, '_>,
     ns: &str,
     attr: &str,
     part: &str,
-) -> Result<&'a str, ConversionError> {
-    node.attribute((ns, attr)).ok_or_else(|| invalid(part, "missing required numbering attribute"))
+) -> Result<String, ConversionError> {
+    node.attribute((ns, attr)).map(str::to_owned)
+        .ok_or_else(|| invalid(part, "missing required numbering attribute"))
 }
 
 fn unsupported(report: &mut CompatibilityReport, part: &str, path: &str) {
@@ -91,11 +92,11 @@ pub(crate) fn parse_numbering(
                                     _ => unsupported(report, part, "lvl/unsupportedProperty"),
                                 }
                             }
-                            if start != Some("1") {
+                            if start.as_deref() != Some("1") {
                                 valid_level = false;
                                 unsupported(report, part, "lvl/start");
                             }
-                            kind = match (fmt, label) {
+                            kind = match (fmt.as_deref(), label.as_deref()) {
                                 (Some("bullet"), Some("•")) => Some(ListKind::Bullet),
                                 (Some("decimal"), Some("%1.")) => Some(ListKind::Numbered),
                                 _ => {
