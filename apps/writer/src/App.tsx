@@ -74,7 +74,7 @@ type SaveAsState = {
 
 const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const FILE_FORMATS: readonly { format: DocumentFormat; label: string; mediaType: string }[] = [
-  { format: 'writer', label: 'Writer document (.writer)', mediaType: 'application/octet-stream' },
+  { format: 'writer', label: 'Graphe document (.writer)', mediaType: 'application/octet-stream' },
   { format: 'docx', label: 'Word document (.docx)', mediaType: DOCX_MEDIA_TYPE },
   { format: 'odt', label: 'OpenDocument text (.odt)', mediaType: 'application/vnd.oasis.opendocument.text' },
   { format: 'rtf', label: 'Rich Text Format (.rtf)', mediaType: 'application/rtf' },
@@ -95,7 +95,7 @@ function fileFormat(file: File): DocumentFormat {
 }
 
 function formatName(format: string): string {
-  return format === 'writer' ? 'Writer' : format.toUpperCase();
+  return format === 'writer' ? 'Graphe' : format.toUpperCase();
 }
 
 function formatMediaType(format: string): string {
@@ -664,7 +664,7 @@ export default function App() {
       const bytes = engine.current.serialize();
       download(new Blob([bytes.slice().buffer], { type: formatMediaType('writer') }), safeFilename(viewRef.current.title, 'writer'));
       setExportDisclosure(false);
-      setNotice('Writer copy ready. Export does not replace your local save.');
+      setNotice('Graphe copy ready. Export does not replace your local save.');
     } catch (failure) { setError(message(failure)); }
   }
 
@@ -996,7 +996,7 @@ export default function App() {
       </details>
     </aside>}
     <div className="writer-work-area"><main className="workspace" aria-label="Document workspace">
-      {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
+      {startupError ? <div className="startup-message" role="alert"><h1>Graphe could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
         : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command}
           getCurrentView={currentEngineView}
