@@ -8,7 +8,10 @@
 
 use std::{error::Error, fmt};
 
-use office_core::{Document, Id, OriginalSource, WriterFile};
+use office_core::{
+    Alignment, Block, CharacterFormat, Document, Id, OriginalSource, PageOrientation, TextColor,
+    Underline, WriterFile,
+};
 
 mod odt;
 mod pdf;
@@ -187,7 +190,7 @@ pub struct ImportReport {
     pub omitted_warnings: usize,
 }
 
-/// Explicit conversion losses and fidelity limitations requiring acknowledgement.
+/// Meaningful conversion losses to present before saving a copy.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExportReport {
     /// Warnings to present before publishing converted bytes.
@@ -287,40 +290,225 @@ pub fn import_document_with_warnings(
 
 /// Describes expected conversion losses before external-format saving.
 ///
-/// The semantic model is never modified to make a conversion fit. Callers must
-/// separately preserve full native files and acknowledge these warnings.
+/// The semantic model is never modified to make a conversion fit. Native
+/// identifiers, unused property distinctions and retained-original bytes are
+/// not user-visible formatting losses. Source-aware callers use [`assess_file`].
 pub fn assess_export(
     format: DocumentFormat,
     document: &Document,
 ) -> Result<ExportReport, FormatError> {
     document.validate()?;
     let mut warnings = Vec::new();
-    if format != DocumentFormat::Writer {
-        warnings.push(FormatDiagnostic::new("native_information", format.extension(), "document", "This format does not retain native Writer identifiers, exact run/property distinctions or retained original files. Keep a .writer copy for full native preservation. Editing history is not persisted by any current file format."));
-    }
     match format {
-        DocumentFormat::Odt => {
-            if document
-                .sections()
-                .iter()
-                .filter_map(|section| section.properties())
-                .filter_map(|properties| properties.page_margins)
-                .any(|margins| margins.header.0 != 0 || margins.footer.0 != 0)
-            {
-                warnings.push(FormatDiagnostic::new("odt_header_footer_offsets", "odt", "section/page_margins", "ODT export preserves body dimensions and margins, but does not retain the native model's currently unused header/footer offset values. Keep the .writer copy to retain them."));
-            }
-        }
         DocumentFormat::Txt => {
             text::validate_export(document)?;
-            warnings.push(FormatDiagnostic::new("plain_text_only", "txt", "document", "TXT keeps text only. Formatting, styles, title metadata, page geometry and section/soft-line-break distinctions are not preserved. Output is UTF-8 with LF line endings."));
+            if text_loses_formatting(document) {
+                warnings.push(FormatDiagnostic::new(
+                    "plain_text_only",
+                    "txt",
+                    "document",
+                    "Plain text will lose this document's formatting or page layout.",
+                ));
+            }
         }
         DocumentFormat::Pdf => {
-            warnings.push(FormatDiagnostic::new("outlined_pdf", "pdf", "document", "PDF preserves laid-out appearance as vector outlines. Text is not searchable or selectable, and this export is not PDF/UA tagged or an editable Writer document."));
-            warnings.extend(pdf::assess_document(document)?);
+            warnings.push(FormatDiagnostic::new(
+                "outlined_pdf",
+                "pdf",
+                "document",
+                "Text in this PDF cannot be searched, selected or read by screen readers.",
+            ));
+            for diagnostic in pdf::assess_document(document)? {
+                let (code, message) = match diagnostic.code.as_str() {
+                    "pdf_layout_missing_glyph" => (
+                        "pdf_layout_missing_glyph",
+                        "Some characters cannot be shown in the PDF.",
+                    ),
+                    _ => (
+                        "pdf_layout_changes",
+                        "Some fonts or text placement may change or extend beyond the PDF page.",
+                    ),
+                };
+                if !warnings.iter().any(|warning| warning.code == code) {
+                    warnings.push(FormatDiagnostic::new(code, "pdf", "document", message));
+                }
+            }
         }
         _ => {}
     }
     Ok(ExportReport { warnings })
+}
+
+/// Describes meaningful losses when saving a complete native file as a copy.
+///
+/// Native saving preserves the complete file without a conversion warning.
+/// Interfaces separately disclose that an included original can contain removed
+/// text. DOCX copies preserve validated source information when available.
+pub fn assess_file(format: DocumentFormat, file: &WriterFile) -> Result<ExportReport, FormatError> {
+    let mut report = assess_export(format, file.document())?;
+    if format != DocumentFormat::Writer
+        && let Some(source) = docx_source(file)?
+    {
+        let assessment = office_docx::assess_docx_copy(file.document(), &source)
+            .map_err(|error| FormatError::new("unsupported_docx_export", error.to_string()))?;
+        if format == DocumentFormat::Docx && assessment.formatting_may_differ {
+            report.warnings.push(FormatDiagnostic::new(
+                "docx_formatting_changes",
+                "docx",
+                "document",
+                "Some original formatting may look different in this Word copy.",
+            ));
+        }
+        if format == DocumentFormat::Docx && assessment.theme_omitted {
+            report.warnings.push(FormatDiagnostic::new(
+                "docx_theme_omitted",
+                "docx",
+                "document",
+                "Some original theme details won't be included in this Word copy.",
+            ));
+        }
+        if assessment.bookmarks_omitted {
+            let (code, message) = if format == DocumentFormat::Docx {
+                (
+                    "docx_bookmarks_omitted",
+                    "Bookmarks in the original will not be included in this Word copy.",
+                )
+            } else {
+                (
+                    "bookmarks_omitted",
+                    "Bookmarks in the original won't be included in this copy.",
+                )
+            };
+            report.warnings.push(FormatDiagnostic::new(
+                code,
+                format.extension(),
+                "document",
+                message,
+            ));
+        }
+        if format != DocumentFormat::Docx && assessment.has_document_properties {
+            report.warnings.push(FormatDiagnostic::new(
+                "document_properties_omitted",
+                format.extension(),
+                "document",
+                "Some document properties won't be included in this copy.",
+            ));
+        }
+    }
+    Ok(report)
+}
+
+fn docx_source(file: &WriterFile) -> Result<Option<office_docx::DocxSource>, FormatError> {
+    let Some(original) = file
+        .original_source()
+        .filter(|original| original.format() == "docx")
+    else {
+        return Ok(None);
+    };
+    if !original
+        .media_type()
+        .eq_ignore_ascii_case(office_docx::DOCX_MEDIA_TYPE)
+    {
+        return Err(FormatError::new(
+            "invalid_docx_source",
+            "The original Word document has inconsistent format information.",
+        ));
+    }
+    office_docx::DocxSource::open(original.bytes())
+        .map(Some)
+        .map_err(|error| FormatError::new("invalid_docx_source", error.to_string()))
+}
+
+fn text_loses_formatting(document: &Document) -> bool {
+    let defaults = office_layout::LayoutOptions::default();
+    if document.sections().len() > 1 {
+        return true;
+    }
+    for section in document.sections() {
+        if let Some(properties) = section.properties() {
+            if let Some(size) = properties.page_size
+                && (size.width != defaults.page_size.width
+                    || size.height != defaults.page_size.height
+                    || size.orientation == Some(PageOrientation::Landscape))
+            {
+                return true;
+            }
+            if let Some(margins) = properties.page_margins
+                && (margins.top != defaults.page_margins.top
+                    || margins.right != defaults.page_margins.right
+                    || margins.bottom != defaults.page_margins.bottom
+                    || margins.left != defaults.page_margins.left
+                    || margins.gutter != defaults.page_margins.gutter)
+            {
+                return true;
+            }
+        }
+        for block in section.blocks() {
+            let Block::Paragraph(paragraph) = block;
+            let inherited = office_layout::resolve_paragraph_style(document, paragraph);
+            let paragraph_format = inherited.paragraph;
+            if paragraph_format.alignment.unwrap_or(Alignment::Left) != Alignment::Left
+                || paragraph_format
+                    .spacing_before
+                    .is_some_and(|value| value.0 != 0)
+                || paragraph_format
+                    .spacing_after
+                    .unwrap_or(defaults.spacing_after)
+                    != defaults.spacing_after
+                || paragraph_format
+                    .line_spacing
+                    .unwrap_or(defaults.line_spacing)
+                    != defaults.line_spacing
+                || paragraph_format.page_break_before == Some(true)
+                || paragraph_format.indentation.is_some_and(|indentation| {
+                    [indentation.left, indentation.right, indentation.first_line]
+                        .into_iter()
+                        .flatten()
+                        .any(|value| value.0 != 0)
+                })
+            {
+                return true;
+            }
+            if paragraph.runs().is_empty() && nondefault_character(&inherited.character, &defaults)
+            {
+                return true;
+            }
+            for run in paragraph.runs() {
+                let mut format = inherited.character.clone();
+                office_layout::overlay_character(&mut format, &run.format);
+                if nondefault_character(&format, &defaults) || run.text.contains(['\n', '\r']) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn nondefault_character(format: &CharacterFormat, defaults: &office_layout::LayoutOptions) -> bool {
+    format.bold == Some(true)
+        || format.italic == Some(true)
+        || format
+            .underline
+            .is_some_and(|value| value != Underline::None)
+        || format
+            .font_family
+            .as_deref()
+            .is_some_and(|family| !family.eq_ignore_ascii_case(&defaults.font_family))
+        || format
+            .font_size
+            .is_some_and(|size| size != defaults.font_size)
+        || format.color.is_some_and(|color| {
+            !matches!(
+                color,
+                TextColor::Auto {}
+                    | TextColor::Rgb {
+                        red: 36,
+                        green: 33,
+                        blue: 29
+                    }
+            )
+        })
 }
 
 /// Produces complete external-format bytes from an editable model.
@@ -348,6 +536,10 @@ pub fn export_document(
         DocumentFormat::Txt => text::export_document(document)?,
         DocumentFormat::Pdf => pdf::export_document(document)?,
     };
+    checked_export(format, bytes)
+}
+
+fn checked_export(format: DocumentFormat, bytes: Vec<u8>) -> Result<Vec<u8>, FormatError> {
     if bytes.len() > MAX_OUTPUT_BYTES {
         return Err(FormatError::new(
             "file_too_large",
@@ -400,11 +592,18 @@ pub fn export_document(
 ///
 /// Writer output retains the exact original when present. Such a file may
 /// contain content removed from the current document; interfaces must disclose
-/// that before sharing. External output retains current supported content only
-/// and callers must present [`assess_export`] warnings before publishing it.
+/// that before sharing. DOCX copies also retain validated source metadata and
+/// safe auxiliary information without restoring removed body text. Callers
+/// present [`assess_file`] warnings before publishing a converted copy.
 pub fn export_file(format: DocumentFormat, file: &WriterFile) -> Result<Vec<u8>, FormatError> {
     if format == DocumentFormat::Writer {
         Ok(office_core::serialize_writer_file(file)?)
+    } else if format == DocumentFormat::Docx
+        && let Some(source) = docx_source(file)?
+    {
+        let bytes = office_docx::export_docx_with_source(file.document(), &source)
+            .map_err(|error| FormatError::new("unsupported_docx_export", error.to_string()))?;
+        checked_export(format, bytes)
     } else {
         export_document(format, file.document())
     }

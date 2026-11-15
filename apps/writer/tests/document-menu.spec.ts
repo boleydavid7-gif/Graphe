@@ -63,10 +63,9 @@ async function downloadBytes(download: Download) {
 async function reviewDownload(page: Page, format: 'writer' | 'docx' | 'pdf', touch: boolean) {
   const dialog = page.getByRole('dialog', { name: 'Save As', exact: true });
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption(format);
-  const acknowledge = dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true });
-  if (await acknowledge.count()) await acknowledge.check();
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
   const pending = page.waitForEvent('download');
-  await activate(dialog.getByRole('button', { name: 'Download copy', exact: true }), touch);
+  await activate(dialog.getByRole('button', { name: 'Save copy', exact: true }), touch);
   const downloaded = await pending;
   expect(downloaded.suggestedFilename()).toMatch(new RegExp(`\\.${format}$`));
   await expect(dialog).toHaveCount(0);
@@ -231,8 +230,9 @@ for (const touch of [false, true]) {
       };
       expect(native.document.sections.flatMap((section) => section.blocks)
         .flatMap((block) => block.content.runs).map((run) => run.text).join('')).toBe(text);
+      const wordDownload = page.waitForEvent('download');
       await action(page, 'Export Word', touch);
-      expect((await reviewDownload(page, 'docx', touch)).subarray(0, 2).toString()).toBe('PK');
+      expect((await downloadBytes(await wordDownload)).subarray(0, 2).toString()).toBe('PK');
       await expect(page.locator('.save-state')).toHaveText('Saved on this device');
       await readyPages(page);
       const box = await page.locator('svg[data-layout-page]').first().boundingBox();
@@ -405,10 +405,12 @@ for (const touch of [false, true]) {
         viewport.dispatchEvent(new Event('scroll'));
       });
       await openMenu(page, touch);
-      const panel = await page.locator('.document-menu-panel').boundingBox();
-      if (!panel) throw new Error('The keyboard-constrained menu was not displayed');
-      expect(panel.y).toBeGreaterThanOrEqual(88);
-      expect(panel.y + panel.height).toBeLessThanOrEqual(452);
+      // Native details queues toggle after opening. Wait for its viewport fit,
+      // rather than sampling the CSS fallback before that event is delivered.
+      await expect.poll(async () => {
+        const panel = await page.locator('.document-menu-panel').boundingBox();
+        return !!panel && panel.y >= 88 && panel.y + panel.height <= 452;
+      }).toBe(true);
       await scrollMenuToEnd(page);
       const pending = page.waitForEvent('popup');
       await activate(menu(page).getByRole('link', { name: 'Format library notices', exact: true }), touch);

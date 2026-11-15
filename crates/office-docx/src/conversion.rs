@@ -69,6 +69,10 @@ pub struct CompatibilityReport {
     pub normalizations: Vec<CompatibilityDiagnostic>,
     /// Number of further normalization notices omitted from this bounded report.
     pub omitted_normalizations: usize,
+    /// Whether any normalization affects current formatting/layout rather than
+    /// only source metadata. Tracked before the display-notice budget is applied.
+    /// This runtime summary does not change blocking compatibility decisions.
+    pub has_formatting_normalizations: bool,
 }
 
 impl CompatibilityReport {
@@ -104,11 +108,13 @@ impl CompatibilityReport {
         path: impl Into<String>,
         message: impl Into<String>,
     ) {
+        let path = path.into();
+        self.has_formatting_normalizations |= crate::copy::meaningful_normalization(&path);
         if self.normalizations.len() < MAX_DIAGNOSTICS {
             self.normalizations.push(CompatibilityDiagnostic {
                 kind: CompatibilityIssueKind::NormalizedFormatting,
                 part: bounded_label(part, 512),
-                path: bounded_label(&path.into(), 512),
+                path: bounded_label(&path, 512),
                 message: bounded_label(&message.into(), 2048),
             });
         } else {

@@ -128,6 +128,20 @@ test('actual WASM native Save As preserves identifiers, styles, metadata, source
   assert.ok(native(other).document.styles.length > 0);
 });
 
+test('actual WASM ordinary supported copies have no technical warning or loss confirmation gate', (context) => {
+  const value = instance(context);
+  command(value, { type: 'replace_text', text: 'Ordinary Café e\u0301 👩🏽‍💻' });
+  const before = value.export_document();
+  const snapshot = value.snapshot();
+  for (const format of ['writer', 'docx', 'odt', 'rtf', 'txt']) {
+    const result = assessment(value, format);
+    assert.deepEqual(result.warnings, [], `${format} ordinary copy must not warn about internal identifiers`);
+    assert.ok(value.export_format(format, false, result.revision).byteLength > 0);
+    assert.equal(value.snapshot(), snapshot);
+    assert.deepEqual(value.export_document(), before);
+  }
+});
+
 test('actual WASM text BOM decoding preserves Unicode and original bytes without guessing legacy encodings', (context) => {
   const value = instance(context);
   const source = 'Café e\u0301 👩🏽‍💻\r\nSecond';

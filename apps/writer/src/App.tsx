@@ -16,17 +16,33 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
 }
 
-function Dialog({ title, children, onClose, busy = false }: {
-  title: string; children: ReactNode; onClose: () => void; busy?: boolean;
+function Dialog({ title, children, onClose, busy = false, className }: {
+  title: string; children: ReactNode; onClose: () => void; busy?: boolean; className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const label = useId();
   useLayoutEffect(() => {
     const dialog = ref.current;
+    const visual = window.visualViewport;
+    const position = () => {
+      dialog?.style.setProperty('--save-copy-top', `${visual?.offsetTop ?? 0}px`);
+      dialog?.style.setProperty('--save-copy-height', `${visual?.height ?? window.innerHeight}px`);
+    };
+    if (className === 'save-copy-dialog') {
+      position();
+      window.addEventListener('resize', position);
+      visual?.addEventListener('resize', position);
+      visual?.addEventListener('scroll', position);
+    }
     dialog?.showModal();
-    return () => dialog?.close();
-  }, []);
-  return <dialog ref={ref} aria-labelledby={label} onCancel={(event) => {
+    return () => {
+      window.removeEventListener('resize', position);
+      visual?.removeEventListener('resize', position);
+      visual?.removeEventListener('scroll', position);
+      dialog?.close();
+    };
+  }, [className]);
+  return <dialog ref={ref} className={className} aria-labelledby={label} onCancel={(event) => {
     event.preventDefault();
     if (!busy) onClose();
   }}>
@@ -52,7 +68,6 @@ type SaveAsState = {
   format: DocumentFormat;
   filename: string;
   assessment: ExportAssessment | null;
-  acknowledged: boolean;
   error: string;
 };
 
@@ -614,8 +629,7 @@ export default function App() {
     catch (failure) { failureMessage = message(failure); }
     rememberSaveAsFocus();
     setError('');
-    setSaveAs({ format, filename: filename ?? safeFilename(current.title, format), assessment,
-      acknowledged: false, error: failureMessage });
+    setSaveAs({ format, filename: filename ?? safeFilename(current.title, format), assessment, error: failureMessage });
   }
 
   function rememberSaveAsFocus() {
@@ -650,15 +664,15 @@ export default function App() {
     const current = saveAs;
     if (!engine.current || !current?.assessment || !documentOpen || composing || busy) return;
     try {
-      // Rust rechecks the reviewed origin and explicit loss acknowledgement.
+      // Save copy confirms the brief warning already shown for this revision.
       // A download never changes the native local save/etag association.
-      const bytes = engine.current.exportFormat(current.format, current.acknowledged, current.assessment);
+      const bytes = engine.current.exportFormat(current.format, current.assessment.warnings.length > 0, current.assessment);
       const filename = safeFilename(current.filename.replace(/\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
       download(new Blob([bytes.slice().buffer], { type: formatMediaType(current.format) }), filename);
       closeSaveAs();
       setNotice(`${formatName(current.format)} copy ready. This does not replace your local Writer save.`);
     } catch (failure) {
-      setSaveAs({ ...current, assessment: null, acknowledged: false, error: message(failure) });
+      setSaveAs({ ...current, assessment: null, error: message(failure) });
     }
   }
 
@@ -668,7 +682,7 @@ export default function App() {
       const assessment = engine.current.assessExport('docx');
       if (assessment.warnings.length) {
         rememberSaveAsFocus();
-        setSaveAs({ format: 'docx', filename: safeFilename(viewRef.current.title, 'docx'), assessment, acknowledged: false, error: '' });
+        setSaveAs({ format: 'docx', filename: safeFilename(viewRef.current.title, 'docx'), assessment, error: '' });
         return;
       }
       const bytes = engine.current.exportFormat('docx', false, assessment);
@@ -950,31 +964,30 @@ export default function App() {
       <p className="storage-note">Browser storage can be cleared or evicted. Keep exported .writer files as backups.</p>
       <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Open file…</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
     </Dialog>}
-    {saveAs && <Dialog title="Save As" onClose={closeSaveAs} busy={busy}>
-      <p className="dialog-description">Download a separate file. Local Save and autosave continue to preserve the complete native Writer document on this device.</p>
+    {saveAs && <Dialog title="Save As" onClose={closeSaveAs} busy={busy} className="save-copy-dialog">
+      <form onSubmit={(event) => { event.preventDefault(); downloadSaveAs(); }}>
       <div className="save-as-fields">
+        <label htmlFor="save-as-filename">Filename</label>
+        <input id="save-as-filename" value={saveAs.filename} maxLength={120} disabled={busy}
+          onChange={(event) => setSaveAs({ ...saveAs, filename: event.target.value })} />
         <label htmlFor="save-as-format">File format</label>
         <select id="save-as-format" value={saveAs.format} disabled={busy}
           onChange={(event) => changeSaveAsFormat(event.target.value as DocumentFormat)}>
           {FILE_FORMATS.map((item) => <option key={item.format} value={item.format}>{item.label}</option>)}
         </select>
-        <label htmlFor="save-as-filename">Filename</label>
-        <input id="save-as-filename" value={saveAs.filename} maxLength={120} disabled={busy}
-          onChange={(event) => setSaveAs({ ...saveAs, filename: event.target.value })} />
       </div>
-      {!!saveAs.assessment?.warnings.length && <div className="format-warning" role="note">
-        <p><strong>Review this format before saving</strong></p>
-        <ul>{saveAs.assessment.warnings.map((warning, index) => <li key={`${warning.code}-${index}`}>{warning.message}</li>)}</ul>
-        <label className="format-acknowledgement"><input type="checkbox" checked={saveAs.acknowledged}
-          onChange={(event) => setSaveAs({ ...saveAs, acknowledged: event.target.checked })} />
-          I understand the format limitations</label>
-      </div>}
+      {!!saveAs.assessment?.warnings.length && <p className="save-copy-warning" id="save-copy-warning" role="note" aria-label="Format warning">
+        {saveAs.assessment.warnings.map((warning) => warning.message).join(' ')}
+      </p>}
+      {saveAs.format === 'writer' && view?.originalSource && <p className="save-copy-hint" role="note" aria-label="Original included">
+        Includes the imported original, which may contain removed text.
+      </p>}
       {saveAs.error && <div className="dialog-error" role="alert"><p>{saveAs.error}</p>
-        <button disabled={busy} onClick={() => reviewSaveAs(saveAs.format, saveAs.filename)}>Review current document</button></div>}
-      <p className="storage-note">Downloads do not overwrite browser-local saves. Your browser controls the destination and prompts or renames when a filename already exists.</p>
-      <div className="dialog-actions"><button disabled={busy} onClick={closeSaveAs}>Cancel</button>
-        <button className="primary-button" disabled={busy || !saveAs.assessment
-          || (!!saveAs.assessment.warnings.length && !saveAs.acknowledged)} onClick={downloadSaveAs}>Download copy</button></div>
+        <button type="button" disabled={busy} onClick={() => reviewSaveAs(saveAs.format, saveAs.filename)}>Review current document</button></div>}
+      <div className="dialog-actions"><button type="button" disabled={busy} onClick={closeSaveAs}>Cancel</button>
+        <button type="submit" className="primary-button" disabled={busy || !saveAs.assessment}
+          aria-describedby={saveAs.assessment?.warnings.length ? 'save-copy-warning' : undefined}>Save copy</button></div>
+      </form>
     </Dialog>}
     {exportDisclosure && <Dialog title="Export Writer file" onClose={() => setExportDisclosure(false)}>
       <p>This Writer file includes the preserved original {view?.originalSource ? formatName(view.originalSource.format) : 'document'}, {view?.originalSource?.filename}.</p>

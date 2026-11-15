@@ -67,8 +67,10 @@ preserves active content and history. Empty TXT is the documented no-source
 exception because its bytes contain nothing to preserve.
 
 Save As assessments and exported bytes come from Rust and identify the current
-session/document/revision. The UI must acknowledge warnings before foreign
-conversion and cannot reuse stale acknowledgement after editing. Save As creates
+session/document/revision. The explicit Save copy action confirms any brief
+meaningful-loss warning shown for that assessment; ordinary saves need no checkbox.
+Technical IDs/run distinctions are documented rather than shown as loss warnings.
+The UI cannot reuse stale confirmation after editing. Save As creates
 a downloaded copy; native Save/autosave, etags and dirty-state rules are retained.
 Native source validation now dispatches each known format to its adapter instead
 of assuming every original is DOCX. Full native APIs still preserve exact source
@@ -86,6 +88,36 @@ formats, broad lossy-import policies, a new schema or major source-policy change
 remain separate decisions. The owner's Step 7.5 request authorizes this bounded
 extension and merging after verification; it does not complete the planned
 comprehensive audit or authorize deployment.
+
+### Source-aware DOCX copies
+
+The old browser exporter passed only `Document` to conversion, so it regenerated
+six package parts and had no source from which to recover auxiliary metadata.
+The browser now passes an immutable full `WriterFile` to `assess_file` and
+`export_file`. The facade routes a DOCX source to `office-docx`'s format-specific
+`assess_docx_copy` / `export_docx_with_source`; no OOXML structures enter the core.
+Document-only export APIs retain their existing behavior.
+
+The DOCX adapter regenerates current body/styles, carries a bounded set of
+validated source properties/auxiliaries, regenerates relationships/content types,
+and checks that the complete semantic projection equals its fresh generated
+baseline. Original body bytes, thumbnails, stale caches and audit counters are
+not grafted. Unknown or dangling theme payload is omitted with a brief warning;
+malformed packages and unsupported body/relationship graphs still fail. Exact
+original recovery remains independent and native files retain it byte-for-byte.
+
+Loss classification stays in Rust: used effective formatting/geometry for TXT,
+outlined-text/layout limits for PDF, and proven source-property/bookmark/theme
+losses for conversions. A runtime meaningful-formatting flag is set before
+bounded import notices can overflow; an unused style gallery cannot create a
+false warning or hide a later real approximation. No native schema, database,
+dependency or undo-history format changes are required.
+
+The Lamplight Save As dialog uses a native form and current-revision Save copy
+confirmation, with a compact original-included hint for native source-bearing
+files. Mobile fields stack at 16px; VisualViewport bounds keep the dialog and
+button visible through keyboard resize/pan. Presentation never calculates document
+layout or modifies the Rust document. See [SAVE_COPY.md](SAVE_COPY.md).
 
 ## Document model
 

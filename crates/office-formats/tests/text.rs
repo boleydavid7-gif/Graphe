@@ -151,16 +151,10 @@ fn empty_source_still_validates_filename() {
 }
 
 #[test]
-fn text_conversion_always_discloses_formatting_and_structure_loss() {
+fn ordinary_plain_text_conversion_needs_no_loss_warning() {
     let file = read(b"sample", "sample.txt");
     let report = assess_export(DocumentFormat::Txt, file.document()).unwrap();
-    assert!(report.warnings.iter().any(|w| w.code == "plain_text_only"));
-    assert!(
-        report
-            .warnings
-            .iter()
-            .any(|w| w.code == "native_information")
-    );
+    assert!(report.warnings.is_empty());
     assert!(
         assess_export(DocumentFormat::Writer, file.document())
             .unwrap()
