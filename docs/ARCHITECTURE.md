@@ -76,6 +76,15 @@ Native source validation now dispatches each known format to its adapter instead
 of assuming every original is DOCX. Full native APIs still preserve exact source
 bytes independently from editing history.
 
+Phase 2 extends known-formatting normalization to validated producer settings in
+the ODT/RTF adapters and forced DOCX run direction. Each adapter classifies these
+before bounded blocking reports; non-blocking notices have an independent budget.
+A runtime meaningful-formatting summary is set before truncation and source-aware
+copy assessment applies it across external destinations. It is not a persisted
+document field. Original bytes, strict unsupported-content/protection guards and
+complete-projection requirements remain unchanged. See
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md) for supported approximations.
+
 TXT uses explicit Unicode encoding/BOM rules and documented paragraph-newline
 normalization. ODT uses bounded ZIP/XML libraries already in the workspace; RTF
 uses a low-level tokenizer with strict native-file semantics. PDF serializes the
@@ -765,6 +774,14 @@ A new record expects no existing etag. A stale tab or same-ID imported document
 cannot silently overwrite another saved version; the user can reopen it or save
 a separate copy with a new document identity.
 
+Phase 2 measures library listing separately from storage writes. The list path
+uses a read-only cursor and the existing record checks without copying complete
+native bodies for metadata. It retains summaries and corruption warnings, sorts
+at cursor exhaustion, and resolves only on transaction completion. Load/save
+retain owned byte copies, and etags/write serialization are unchanged. This
+requires no database migration; a cursor still reads each full value. Measurements,
+limits and regression evidence are in [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).
+
 Local Save captures document bytes and its Rust session/revision before awaiting
 storage. Dirty state clears only if that revision is still current when saving
 finishes. New, Open, Import, and Close guard unsaved replacement. Async open/import
@@ -977,6 +994,14 @@ future source-aware default materialization belongs to the DOCX adapter, never
 a DOCX special case in `office-layout`. Exact original preservation is unchanged.
 
 ## Lightweight paged editor and Lamplight UI (Step 7)
+
+Phase 2 adds touch word selection and logical endpoint dragging through the
+existing Rust layout transport. Handles project Rust endpoint rectangles rather
+than a browser text layout. Gesture and clipboard guards include the exact live
+selection as well as identity/revision; selection-only changes do not advance a
+document revision. No model, schema, undo or persistence boundary changes.
+See [PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md) for gesture,
+Unicode, viewport, clipboard and verification details.
 
 The Step 7 review branch preserves model/schema 2, native format 2, existing
 transaction/history behavior and the IndexedDB database. No new dependency,

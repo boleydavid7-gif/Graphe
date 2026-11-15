@@ -91,9 +91,11 @@ describe('WriterStorage', () => {
     original.bytes.fill(0);
     const saved = await pending;
     expect(saved.bytes).toEqual(expected);
+    expect((await library.list()).documents[0]).not.toHaveProperty('bytes');
     saved.bytes.fill(1);
     const loaded = await library.load(original.id);
     expect(loaded.bytes).toEqual(expected);
+    await library.list();
     loaded.bytes.fill(2);
     expect((await library.load(original.id)).bytes).toEqual(expected);
   });
@@ -240,6 +242,70 @@ describe('WriterStorage', () => {
     expect(listed.documents.every((entry) => !('bytes' in entry))).toBe(true);
     expect(listed.problems).toEqual([]);
   });
+
+  it('lists large bodies without extra byte copies, retains sorting and continues past damaged records', async () => {
+    const values = [
+      { id: 'z-tied', title: 'Tie Z', bytes: new Uint8Array(256 * 1024).fill(90), etag: 'z-token', updatedAt: 20 },
+      { id: 'a-tied', title: 'Tie A', bytes: new Uint8Array(256 * 1024).fill(65), etag: 'a-token', updatedAt: 20 },
+      { id: 'older', title: 'Older', bytes: new Uint8Array(256 * 1024).fill(79), etag: 'older-token', updatedAt: 10 },
+    ];
+    for (const value of values) await rawPut(value);
+    await rawPut({ id: 'damaged-between-healthy', title: 'Damaged', bytes: 'not byte data', etag: 'bad-token', updatedAt: 30 });
+    const before = await rawRecords();
+    const library = storage();
+    // The measured regression was eager duplication of every full body while
+    // producing metadata. IndexedDB still owns its structured-clone boundary;
+    // listing must not make another application-side copy of those buffers.
+    const copy = vi.spyOn(Uint8Array.prototype, 'slice');
+    const listed = await library.list();
+    expect(copy).not.toHaveBeenCalled();
+    copy.mockRestore();
+    expect(listed.documents).toEqual([values[1], values[0], values[2]].map((value) => ({
+      id: value!.id, title: value!.title, etag: value!.etag, updatedAt: value!.updatedAt,
+    })));
+    expect(listed.documents.every((value) => !('bytes' in value))).toBe(true);
+    expect(listed.problems).toEqual([{ id: 'damaged-between-healthy', message: expect.stringContaining('damaged') }]);
+    expect(await rawRecords()).toEqual(before);
+    expect((await library.load('a-tied')).bytes).toEqual(values[1]!.bytes);
+  });
+
+  for (const when of ['first record', 'final cursor result'] as const) {
+    it(`rejects an aborted listing after the ${when} instead of publishing partial metadata`, async () => {
+      const library = storage();
+      await library.save(document('first'), null);
+      await library.save(document('second'), null);
+      const before = await rawRecords();
+      const nativeCursor = IDBObjectStore.prototype.openCursor;
+      let observed = 0;
+      let aborted = false;
+      const intercept = vi.spyOn(IDBObjectStore.prototype, 'openCursor').mockImplementation(function (this: IDBObjectStore, ...args) {
+        const request = nativeCursor.apply(this, args);
+        let hasCursor = false;
+        request.addEventListener('success', () => {
+          // A later continue() makes request.result unavailable in browsers.
+          // Capture the completed result before Writer advances the cursor.
+          hasCursor = request.result !== null;
+          if (hasCursor) observed += 1;
+        });
+        // Register after Writer's synchronous onsuccess assignment, so this
+        // abort follows candidate accumulation/end-of-cursor but precedes the
+        // transaction's complete event.
+        queueMicrotask(() => request.addEventListener('success', () => {
+          if (!aborted && (when === 'first record' ? hasCursor : !hasCursor)) {
+            aborted = true;
+            this.transaction.abort();
+          }
+        }));
+        return request;
+      });
+      await expect(library.list()).rejects.toMatchObject({ code: 'io' });
+      expect(aborted).toBe(true);
+      expect(observed).toBe(when === 'first record' ? 1 : 2);
+      intercept.mockRestore();
+      expect(await rawRecords()).toEqual(before);
+      expect((await library.list()).documents).toHaveLength(2);
+    });
+  }
 
   it('enforces application size and token bounds before opening a transaction', async () => {
     const library = storage();

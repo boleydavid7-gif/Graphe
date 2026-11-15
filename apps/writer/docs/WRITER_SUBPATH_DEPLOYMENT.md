@@ -1,30 +1,33 @@
-# Writer Worker at proairetos.com/writer
+# Writer deployment paths
 
-Writer is deployed independently from ProairetOS. Its Cloudflare Worker route is `proairetos.com/writer*` on the `proairetos.com` zone. The route must point to the **Writer** Worker, never the main ProairetOS Worker.
+Writer builds for the root of its independent Worker. Commit `72a0113` explicitly
+restored Vite's root asset paths after the earlier `/writer/` experiment. The
+production entry references `/assets/...`, including its Vite-managed Rust WASM
+asset. Keep that behavior unless a separately reviewed deployment changes it.
 
-## Deployment configuration
+The previous version of this document described an unverified `/writer/` mount.
+Its proposed `base: '/writer/'` and asset-prefix configuration do not describe the
+current build and must not be applied as deployment instructions. The retained
+`tests/subpath-routing.test.mjs` filename is historical; its checks now protect
+the intended standalone root paths.
 
-The Vite build uses `base: '/writer/'`, so built JS/CSS and Vite-managed WASM assets are requested under `/writer/`. Configure the Writer Worker's static assets with `base_path: '/writer'` (or the corresponding dashboard setting). The static assets directory is `apps/writer/dist` and its root contains `index.html`. If deploying via Wrangler, an example configuration fragment is:
+ProairetOS can embed the independent Writer application from a specifically
+trusted parent origin. The current preview CSP and static `_headers` allow the
+two documented ProairetOS origins; the theme bridge validates both parent source
+and exact origin. Embedding does not require changing Writer's asset base. The
+merge's browser regressions exercise the real production app in a routed local
+test host; they do not verify live Cloudflare routing or private access.
 
-```jsonc
-{
-  "assets": {
-    "directory": "./dist",
-    "base_path": "/writer",
-    "not_found_handling": "single-page-application"
-  }
-}
-```
+Before any separately authorized deployment:
 
-This fragment is documentation, not an automatically deployed Wrangler configuration. Check the actual deployment configuration before applying it. A route alone does **not** strip the `/writer` prefix. If the existing Worker has a custom fetch handler, ensure it serves the correct assets without swallowing requests. Route matching `/writer*` also includes `/writer-test`; use an explicit exclusion or narrower routing where practical.
+1. From `apps/writer`, run `npm run build` and
+   `node --test tests/subpath-routing.test.mjs`.
+2. Verify the standalone entry, direct refresh, JS/CSS/WASM responses and MIME
+   types at the actual deployment origin. Check CSP and runtime errors.
+3. Verify the trusted host, keyboard editing, save/reopen and access restrictions
+   without affecting unrelated ProairetOS routes.
+4. If a future `/writer/` proxy is needed, review both frontend asset paths and
+   actual Worker request routing together. A route alone does not establish
+   prefix stripping or working WASM loading.
 
-## Verify before release
-
-1. Build from `apps/writer` using `npm run build`, then `node --test tests/subpath-routing.test.mjs`.
-2. Confirm `/writer/` returns HTML and all requested `/writer/assets/...` JS/CSS/WASM requests return HTTP 200 with correct MIME types, not HTML fallback.
-3. Check `/writer` (no trailing slash): redirect to `/writer/` or serve the same entry point; check direct refresh.
-4. Check the browser console for missing modules, blocked WASM, CSP and runtime errors.
-5. Verify standalone Writer and document save/open behavior. Existing `frame-ancestors 'none'` in Vite preview headers may need separate, tightly scoped review before iframe embedding.
-6. Verify the main `/` ProairetOS app is unaffected.
-
-Do not claim live routing works until the Cloudflare deployment and these HTTP/browser checks pass.
+No live routing, DNS, access policy or deployment configuration is changed here.

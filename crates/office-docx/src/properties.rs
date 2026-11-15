@@ -54,6 +54,8 @@ fn parse_character_properties(
     let mut bold_cs = None;
     let mut italic_cs = None;
     let mut size_cs = None;
+    let mut font_property = None;
+    let mut forced_rtl = false;
     let mut seen = BTreeSet::new();
     for property in property_children(node, namespace, part, report)? {
         if !unique(property, &mut seen, part, report) {
@@ -80,7 +82,17 @@ fn parse_character_properties(
                     size_cs = size;
                 }
             }
-            "rFonts" => format.font_family = fonts(property, namespace, part, report)?,
+            "rFonts" => font_property = Some(property),
+            "rtl" => {
+                forced_rtl = on_off(property, namespace, part, report)?;
+                if forced_rtl {
+                    report.normalize(
+                        part,
+                        "rPr/rtl",
+                        "Forced right-to-left run formatting uses Writer's Unicode bidirectional layout. Punctuation, spacing and inherited or mixed-script appearance may differ; the exact direction and formatting remain in the original source.",
+                    );
+                }
+            }
             "u" => {
                 attributes(property, namespace, &["val"], part, report);
                 leaf(property, part, report)?;
@@ -120,9 +132,33 @@ fn parse_character_properties(
             }
         }
     }
-    format.bold = normalized_script_value("bCs", bold_cs, format.bold, part, report);
-    format.italic = normalized_script_value("iCs", italic_cs, format.italic, part, report);
-    format.font_size = normalized_script_value("szCs", size_cs, format.font_size, part, report);
+    // `rtl` selects complex-script appearance even for non-complex characters.
+    // Defer this choice until all properties have been read: XML property order
+    // must not select a different font or direct bold/italic/size. Styles still
+    // use the documented ordinary-first projection; retaining both inherited
+    // script cascades would require model support. The RTL notice discloses it.
+    let prefer_complex = allow_run_style && forced_rtl;
+    if let Some(property) = font_property {
+        format.font_family = fonts(property, namespace, part, report, prefer_complex)?;
+    }
+    format.bold =
+        normalized_script_value("bCs", bold_cs, format.bold, part, report, prefer_complex);
+    format.italic = normalized_script_value(
+        "iCs",
+        italic_cs,
+        format.italic,
+        part,
+        report,
+        prefer_complex,
+    );
+    format.font_size = normalized_script_value(
+        "szCs",
+        size_cs,
+        format.font_size,
+        part,
+        report,
+        prefer_complex,
+    );
     Ok((format, style))
 }
 
@@ -318,8 +354,13 @@ fn fonts(
     namespace: &str,
     part: &str,
     report: &mut CompatibilityReport,
+    prefer_complex: bool,
 ) -> Result<Option<String>, ConversionError> {
-    let names = ["ascii", "hAnsi", "cs", "eastAsia"];
+    let names = if prefer_complex {
+        ["cs", "ascii", "hAnsi", "eastAsia"]
+    } else {
+        ["ascii", "hAnsi", "cs", "eastAsia"]
+    };
     let themes = ["asciiTheme", "hAnsiTheme", "cstheme", "eastAsiaTheme"];
     attributes(
         node,
@@ -384,7 +425,11 @@ fn fonts(
             node,
             part,
             report,
-            "Script/theme fonts are normalized to the first explicit ASCII, high-ANSI, complex-script or East Asian family, or inherited Writer defaults when no concrete family exists. Appearance may differ; original formatting is preserved in the source.",
+            if prefer_complex {
+                "A forced right-to-left run prefers its explicit complex-script font, then ASCII, high-ANSI or East Asian family, or inherited Writer defaults when no concrete family exists. Theme and inherited script appearance may differ; original formatting is preserved in the source."
+            } else {
+                "Script/theme fonts are normalized to the first explicit ASCII, high-ANSI, complex-script or East Asian family, or inherited Writer defaults when no concrete family exists. Appearance may differ; original formatting is preserved in the source."
+            },
         );
     }
     // Full inherited properties are cached and may later be copied into many
@@ -408,11 +453,24 @@ fn normalized_script_value<T: PartialEq>(
     ordinary: Option<T>,
     part: &str,
     report: &mut CompatibilityReport,
+    prefer_complex: bool,
 ) -> Option<T> {
     if (complex.is_some() || ordinary.is_some()) && complex != ordinary {
-        report.normalize(part, format!("rPr/{name}"), "Script-specific formatting is normalized to the ordinary value, or the complex-script value when ordinary formatting is absent. The original retains every script-specific value.");
+        report.normalize(
+            part,
+            format!("rPr/{name}"),
+            if prefer_complex {
+                "A forced right-to-left run prefers its direct complex-script value, or the ordinary value when no direct complex-script value exists. Inherited script appearance may differ; the original retains every script-specific value."
+            } else {
+                "Script-specific formatting is normalized to the ordinary value, or the complex-script value when ordinary formatting is absent. The original retains every script-specific value."
+            },
+        );
     }
-    ordinary.or(complex)
+    if prefer_complex {
+        complex.or(ordinary)
+    } else {
+        ordinary.or(complex)
+    }
 }
 
 fn color(
@@ -651,9 +709,9 @@ fn normalize_character_property(
         | "imprint" | "strike" | "dstrike" => {
             let _ = on_off(node, namespace, part, report)?;
         }
-        "vanish" | "webHidden" | "rtl" | "specVanish" => {
+        "vanish" | "webHidden" | "specVanish" => {
             if on_off(node, namespace, part, report)? {
-                unsupported_value(node, part, report, "hidden text or forced run direction");
+                unsupported_value(node, part, report, "hidden text");
             }
             return Ok(true);
         }

@@ -90,14 +90,14 @@ jobs:
       - name: Run frontend unit tests
         run: npm test
 
-      - name: Test hosted toolchain bootstrap
-        run: npm run test:build
-
       - name: Test compiled WebAssembly bindings
         run: npm run test:wasm
 
       - name: Build production frontend
         run: npm run build:cloudflare
+
+      - name: Test hosted toolchain bootstrap and built standalone asset paths
+        run: npm run test:build
 
       - name: Install browser engines for integration tests
         run: npx playwright install --with-deps chromium firefox webkit

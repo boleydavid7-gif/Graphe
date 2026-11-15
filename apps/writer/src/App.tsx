@@ -73,7 +73,7 @@ type SaveAsState = {
 
 const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const FILE_FORMATS: readonly { format: DocumentFormat; label: string; mediaType: string }[] = [
-  { format: 'writer', label: 'Writer document (.writer)', mediaType: 'application/json' },
+  { format: 'writer', label: 'Writer document (.writer)', mediaType: 'application/octet-stream' },
   { format: 'docx', label: 'Word document (.docx)', mediaType: DOCX_MEDIA_TYPE },
   { format: 'odt', label: 'OpenDocument text (.odt)', mediaType: 'application/vnd.oasis.opendocument.text' },
   { format: 'rtf', label: 'Rich Text Format (.rtf)', mediaType: 'application/rtf' },
@@ -86,7 +86,8 @@ function fileFormat(file: File): DocumentFormat {
   const byExtension = FILE_FORMATS.find((item) => item.format === extension);
   if (byExtension) return byExtension.format;
   const mediaType = file.type.toLowerCase().split(';')[0];
-  const byMediaType = FILE_FORMATS.find((item) => item.mediaType.split(';')[0] === mediaType);
+  // Generic binary MIME is deliberately not used to guess Writer on import.
+  const byMediaType = FILE_FORMATS.find((item) => item.format !== 'writer' && item.mediaType.split(';')[0] === mediaType);
   if (byMediaType) return byMediaType.format;
   if (mediaType === 'text/rtf') return 'rtf';
   throw new Error('Choose a .writer, .docx, .odt, .rtf or .txt file. TXT supports UTF-8 or BOM-marked UTF-16. PDF is available for export only.');
@@ -115,7 +116,8 @@ function requestDownload(url: string, filename: string) {
 }
 
 function safeFilename(title: string, extension: string): string {
-  const name = [...(title.trim() || 'Untitled document')]
+  const base = (title.trim() || 'Untitled document').replace(/\.(writer\.json|writer|docx|odt|rtf|txt|pdf)$/i, '');
+  const name = [...(base || 'Untitled document')]
     .map((character) => {
       const code = character.codePointAt(0) ?? 0;
       return code < 32 || (code >= 0x7f && code <= 0x9f) || '\\/:*?"<>|'.includes(character) ? '_' : character;
@@ -171,6 +173,22 @@ export default function App() {
   const [moreFormatting, setMoreFormatting] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const ribbonRef = useRef<HTMLDivElement | null>(null);
+  const previousTabRef = useRef(activeTab);
+  useEffect(() => {
+    if (previousTabRef.current === activeTab) return;
+    previousTabRef.current = activeTab;
+    const ribbon = ribbonRef.current;
+    if (!ribbon || typeof ribbon.animate !== 'function' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const animation = ribbon.animate(
+      [{ opacity: .68, transform: 'translateY(3px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 230, easing: 'cubic-bezier(.22, 1, .36, 1)' }
+    );
+    return () => animation.cancel();
+  }, [activeTab]);
+
   const [pageInfo, setPageInfo] = useState<PageInfo>({ pageCount: null, currentPage: null, status: 'loading', zoomPercent: null });
   const editingPageInfo = useRef(pageInfo);
   const previousPreview = useRef(false);
@@ -271,6 +289,8 @@ export default function App() {
     }
     return client.selectionGeometry();
   }, []);
+
+  const currentEngineView = useCallback(() => documentOpenRef.current ? engine.current?.view ?? null : null, []);
 
   const findText = useCallback((query: string) => {
     if (!engine.current || !documentOpenRef.current) throw new Error('Open a document before searching.');
@@ -603,7 +623,7 @@ export default function App() {
     if (!engine.current || !viewRef.current || !documentOpen || composing) return;
     try {
       const bytes = engine.current.serialize();
-      download(new Blob([bytes.slice().buffer], { type: 'application/json;charset=utf-8' }), safeFilename(viewRef.current.title, 'writer'));
+      download(new Blob([bytes.slice().buffer], { type: formatMediaType('writer') }), safeFilename(viewRef.current.title, 'writer'));
       setExportDisclosure(false);
       setNotice('Writer copy ready. Export does not replace your local save.');
     } catch (failure) { setError(message(failure)); }
@@ -743,11 +763,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', shortcut);
   });
 
+  const mobileFormattingPointer = useRef(false);
   function format(input: WriterCommand, refocus = true) {
     const next = command(input);
     // Focus synchronously; a deferred callback could steal focus from the next
     // keyboard control. The surface restores the new Rust selection on update.
-    if (refocus && next) surface.current?.focus();
+    // A mobile toolbar tap can blur the hidden IME input before click fires.
+    // Rust retains the selection; forcing focus from that click reopens the
+    // software keyboard and can shift the viewport on iOS and Android.
+    // Keep the existing desktop keyboard/mouse behavior.
+    if (refocus && next && !mobileFormattingPointer.current) surface.current?.focus();
   }
 
   const unavailable = !view || !documentOpen || busy || composing;
@@ -765,7 +790,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app">
     <header className="top-bar">
-      <div className="identity" role="img" aria-label="Writer"><WriterIcon name="lantern" className="writer-lantern" /><span>Writer</span></div>
+      <div className="identity" role="img" aria-label="Writer"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><span>Writer</span></div>
       <div className="title-area">
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
@@ -818,7 +843,10 @@ export default function App() {
         {saveLabel}
       </span>
     </nav>
-    <div id="writer-formatting" className={`formatting-bar${moreFormatting ? ' show-more-formatting' : ''}`} aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls`}>
+    <div id="writer-formatting" ref={ribbonRef} className={`formatting-bar${moreFormatting ? ' show-more-formatting' : ''}`}
+      onPointerDownCapture={(event) => { mobileFormattingPointer.current = event.pointerType === 'touch' || event.pointerType === 'pen'; }}
+      onKeyDownCapture={() => { mobileFormattingPointer.current = false; }}
+      aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls`}>
       <div className="history-controls" role="group" aria-label="History">
         <button aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={unavailable || !view?.canUndo}
           onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'undo' })}><WriterIcon name="undo" /></button>
@@ -881,6 +909,10 @@ export default function App() {
         <button disabled={unavailable} onClick={openFind}><WriterIcon name="search" />Find</button>
         <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
       </div>}
+      <button className="inspector-toggle" aria-controls="writer-inspector" aria-expanded={inspectorOpen}
+        onClick={() => setInspectorOpen((open) => !open)} title="Toggle formatting inspector">
+        {inspectorOpen ? 'Hide details' : 'Details'}
+      </button>
     </div>
     {findOpen && view && documentOpen && <div ref={findPanel} className="find-panel"><FindBar view={view} onFind={findText} onCommand={command}
       onClose={() => setFindOpen(false)} onFocusDocument={() => surface.current?.focus()}
@@ -909,10 +941,11 @@ export default function App() {
         <p>Keep the native Writer file or download the original for full source preservation. New exported copies use the current supported document formatting.</p>
       </details>
     </aside>}
-    <main className="workspace" aria-label="Document workspace">
+    <div className="writer-work-area"><main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
         : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command}
+          getCurrentView={currentEngineView}
           onError={setError} onCompositionChange={compositionChanged} disabled={opening || pagePreview}
           zoom={previewZoom} loadLayout={loadPageLayout} loadGeometry={loadSelectionGeometry}
           onInteraction={interact} onPageInfo={acceptEditingPageInfo}
@@ -924,8 +957,59 @@ export default function App() {
             loadLayout={loadPageLayout} zoom={previewZoom} onZoomChange={setPreviewZoom}
             onPageInfo={acceptPreviewPageInfo}
             onClose={togglePagePreview} />}</>
-          : <div className="closed-document"><WriterIcon name="lantern" className="writer-lantern" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
+          : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
+    {inspectorOpen && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector"
+      onPointerDownCapture={(event) => { mobileFormattingPointer.current = event.pointerType === 'touch' || event.pointerType === 'pen'; }}
+      onKeyDownCapture={() => { mobileFormattingPointer.current = false; }}>
+      <div className="writer-inspector-heading">
+        <div><span className="writer-inspector-eyebrow">Writer</span><h2>Formatting</h2></div>
+        <button aria-label="Close formatting inspector" onClick={() => {
+          ribbonRef.current?.querySelector<HTMLButtonElement>('.inspector-toggle')?.focus({ preventScroll: true });
+          setInspectorOpen(false);
+        }}>×</button>
+      </div>
+      <section className="writer-inspector-section" aria-label="Text formatting">
+        <h3>Text</h3>
+        <label htmlFor="inspector-style">Paragraph style</label>
+        <select id="inspector-style" disabled={unavailable}
+          value={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
+          onChange={(event) => format({ type: 'assign_style', styleId: JSON.parse(event.target.value) as string | null }, false)}>
+          {formatState?.styleMixed && <option value="mixed" disabled>Mixed styles</option>}
+          <option value="null">Paragraph</option>
+          {view?.styles.map((style) => <option key={style.id} value={JSON.stringify(style.id)}>{style.name}</option>)}
+        </select>
+        <label htmlFor="inspector-font-size">Font size</label>
+        <select id="inspector-font-size" disabled={unavailable} value={formatState?.fontSizePt ?? ''}
+          onChange={(event) => format({ type: 'format_character', fontSizePt: Number(event.target.value) }, false)}>
+          <option value="" disabled>Mixed</option>
+          {[...new Set([8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72, ...(formatState?.fontSizePt ? [formatState.fontSizePt] : [])])].sort((a, b) => a - b).map((size) => <option key={size} value={size}>{size} pt</option>)}
+        </select>
+        <div className="writer-inspector-buttons" role="group" aria-label="Text emphasis">
+          {(['bold', 'italic', 'underline'] as const).map((property) => <button key={property}
+            disabled={unavailable} aria-label={property} aria-pressed={formatState?.[property] === null ? 'mixed' : !!formatState?.[property]}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'format_character', [property]: !formatState?.[property] })}>
+            {property === 'bold' ? 'B' : property === 'italic' ? 'I' : 'U'}
+          </button>)}
+        </div>
+      </section>
+      <section className="writer-inspector-section" aria-label="Paragraph formatting">
+        <h3>Paragraph</h3>
+        <div className="writer-inspector-buttons" role="group" aria-label="Alignment">
+          {(['left', 'center', 'right', 'justify'] as const).map((alignment) => <button key={alignment}
+            disabled={unavailable} aria-label={`Align ${alignment}`} aria-pressed={formatState?.alignment === alignment}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'format_paragraph', alignment })}><AlignmentIcon alignment={alignment}/></button>)}
+        </div>
+      </section>
+      <section className="writer-inspector-section">
+        <h3>Page</h3>
+        <p>Page size and margins follow the document. Use Page preview to inspect the layout.</p>
+        <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
+      </section>
+    </aside>}
+    </div>
     <footer className="status-bar">
       <span className="page-status" aria-live="polite">{!documentOpen ? 'No document open'
         : pageInfo.status === 'unavailable' ? 'Pages unavailable'

@@ -1,7 +1,7 @@
 //! The explicit ODF property subset representable by the shared model.
 
 use super::{FO, STYLE, SVG, diagnostic};
-use crate::{FormatDiagnostic, FormatError};
+use crate::{FormatDiagnostic, FormatError, ImportNotices};
 use office_core::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, PageMargins, PageOrientation,
     PageSize, ParagraphFormat, SectionProperties, TextColor, Twips, Underline,
@@ -86,7 +86,9 @@ pub(super) fn character(
     part: &str,
     fonts: &std::collections::BTreeMap<String, String>,
     report: &mut Vec<FormatDiagnostic>,
+    notices: &mut ImportNotices,
 ) -> Result<CharacterFormat, FormatError> {
+    super::container_text(node)?;
     let mut result = CharacterFormat::default();
     let mut named_family = None;
     let mut explicit_family = None;
@@ -128,6 +130,13 @@ pub(super) fn character(
                 }
             }
             (Some(FO), "font-family") => explicit_family = Some(font_family(value)?),
+            (Some(STYLE), "font-name-asian" | "font-name-complex")
+                if !fonts.contains_key(value) =>
+            {
+                return Err(super::package::invalid(
+                    "script font-name does not resolve to a font face",
+                ));
+            }
             (Some(STYLE), "font-name") => {
                 named_family = Some(fonts.get(value).cloned().ok_or_else(|| {
                     super::package::invalid("font-name does not resolve to a font face")
@@ -153,6 +162,7 @@ pub(super) fn character(
             (Some(STYLE), "text-underline-type") => underline_type = Some(value),
             (Some(STYLE), "text-underline-width") if value == "auto" => {}
             (Some(STYLE), "text-underline-color") if value == "font-color" => {}
+            _ if super::compatibility::property(node, attribute, notices, part) => {}
             _ => unsupported(report, part, node, attribute.name()),
         }
     }
@@ -181,6 +191,9 @@ pub(super) fn character(
         unsupported(report, part, node, "underline-type without style");
     }
     for child in node.children().filter(Node::is_element) {
+        if super::compatibility::property_child(child) {
+            continue;
+        }
         diagnostic(
             report,
             "unsupported_element",
@@ -196,7 +209,9 @@ pub(super) fn paragraph(
     node: Node<'_, '_>,
     part: &str,
     report: &mut Vec<FormatDiagnostic>,
+    notices: &mut ImportNotices,
 ) -> Result<ParagraphFormat, FormatError> {
+    super::container_text(node)?;
     let mut result = ParagraphFormat::default();
     let mut indentation = Indentation::default();
     for attribute in node.attributes() {
@@ -248,6 +263,7 @@ pub(super) fn paragraph(
                     }
                 }
             }
+            _ if super::compatibility::property(node, attribute, notices, part) => {}
             _ => unsupported(report, part, node, attribute.name()),
         }
     }
@@ -260,6 +276,9 @@ pub(super) fn paragraph(
         result.indentation = Some(indentation);
     }
     for child in node.children().filter(Node::is_element) {
+        if super::compatibility::property_child(child) {
+            continue;
+        }
         diagnostic(
             report,
             "unsupported_element",
@@ -275,7 +294,9 @@ pub(super) fn geometry(
     node: Node<'_, '_>,
     part: &str,
     report: &mut Vec<FormatDiagnostic>,
+    notices: &mut ImportNotices,
 ) -> Result<SectionProperties, FormatError> {
+    super::container_text(node)?;
     let mut width = None;
     let mut height = None;
     let mut orientation = None;
@@ -326,10 +347,14 @@ pub(super) fn geometry(
                 margins.left = length(value)?;
                 has_margins = true;
             }
+            _ if super::compatibility::property(node, attribute, notices, part) => {}
             _ => unsupported(report, part, node, attribute.name()),
         }
     }
     for child in node.children().filter(Node::is_element) {
+        if super::compatibility::property_child(child) {
+            continue;
+        }
         diagnostic(
             report,
             "unsupported_element",

@@ -916,3 +916,171 @@ Office application interoperability remain subjects for the planned audit.
 
 See [SAVE_COPY.md](SAVE_COPY.md) for the preservation contract, tests, screenshots
 and physical iOS/hosted verification limits.
+
+## PR #17 stability and file-compatibility audit
+
+Reviewed this branch's App dialogs/save lane, IndexedDB records, semantic input,
+SVG interaction/viewport code, WASM sessions and all concrete file adapters.
+Reused the verified PR #18 source-aware copy and warning corrections, preserving
+the branch's UI/theme and native filename/MIME behavior. No replacement storage,
+input or document engine was justified.
+
+[MDN touch-action](https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action)
+explains that `pan-y` permits vertical panning and must be combined with
+`pinch-zoom` to permit native magnification. Identical real Chromium two-finger
+events reproduced scale 1 before correction and magnification after correction.
+Retain Rust page geometry and selection; the browser changes only its viewport.
+The tested dialog entrance keyframes separately overrode viewport-centering
+transforms; disable that animation only for the positioned Save As modal.
+
+The [IndexedDB transaction-complete contract](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/complete_event)
+remains the right save boundary. New real-browser tests abort after successful
+`put`, proving that request success alone does not mark the document saved.
+Corrupt native records and identity mismatches cannot replace live content.
+
+Actual LibreOfficeDev independently consumed edited DOCX/ODT/RTF exports with
+verified Unicode and supported character formatting. Its resaved files expose
+remaining restrictive import profiles; preserve these read-only with diagnostics
+rather than equating self-roundtrips with unrestricted compatibility. Strict
+PDF parsing and Poppler rasterization check exported page geometry/outlines.
+No installed complete editor is embedded in Writer; LibreOffice is an external
+audit consumer only, and no dependency or licensing decision was introduced.
+
+Important remaining gaps include external-producer editable interoperability,
+touch long-press/selection handles, physical Safari/Android/PWA validation and
+hosted CI runs that fail before runner allocation. Evidence, exact commands,
+counts, screenshots and release limitations are in
+[WRITER_STABILITY_AUDIT.md](WRITER_STABILITY_AUDIT.md).
+
+## Phase 2: mobile selection
+
+Research/retrospective preceded code, starting from latest audited PR #17 head
+`e501d76`, with the Lamplight bridge preserved. Compared visible native DOM
+selection with custom controls projecting the existing Rust SVG geometry. Native
+DOM reflow would introduce competing text layout, so use additive Rust word and
+endpoint actions with the existing pinned `unicode-segmentation` implementation.
+
+[Pointer Events](https://www.w3.org/TR/pointerevents3/) requires gesture policy
+at pointer start; a long hold cannot retroactively reclaim native scrolling.
+Keep page pan/pinch and separate captured handle drags. Respect pointercancel,
+multitouch, stale origins, same-revision selection changes and composition.
+[UAX #29](https://www.unicode.org/reports/tr29/) supplies the word/grapheme
+principles; [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport)
+and [WebKit activation](https://webkit.org/blog/13862/the-user-activation-api/)
+inform presentation and trusted focus/clipboard handling.
+
+Real-browser testing exposed implicit focus from restoring a blurred
+contenteditable range and overlapping touch targets on scaled paper. Guard focus,
+separate/resolve physical targets without changing logical endpoints, and avoid
+caret-reveal scrolling while a handle owns a drag. Deferred clipboard tests prove
+that changed selections at the same revision cannot receive old cuts or pastes.
+No new library, licensing choice, schema or integration protocol is introduced.
+Detailed contracts, results and device limits are in
+[PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).
+
+## Phase 2: external producer compatibility
+
+Revisited the actual public LibreOffice resaves from the audit, alongside the
+existing adapters and original/source-aware copy paths. Official OOXML, ODF 1.3
+and RTF 1.9.1 specifications distinguish inactive authoring scaffolding from
+formatting and unsupported content. Active run RTL and script appearance are
+meaningful approximations, not metadata. Normalize known formatting with notices;
+retain strict structural, protection, hidden-content and unknown-markup checks.
+Independent notice/blocker budgets and a pre-truncation meaningful-loss summary
+prevent ordinary settings from concealing later unsafe content. No additional
+parser, editor engine or core format-specific structure is justified. Sources,
+accepted boundaries and actual verification are in
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).
+
+## Phase 2: PDF text representation
+
+Primary PDF 1.7/ISO 32000-1, existing `pdf-writer` APIs and OFL embedding guidance
+support evaluating Type 3 embedded fonts from the exact resolved Rust outlines.
+Raw catalog embedding would misrepresent variable instances; glyph-to-source
+provenance must come from Parley shaped atoms, including ligature continuations.
+No new dependency or core model change was introduced. Six Type 3 variants were
+generated; tested variants preserved source mappings but failed rendering
+acceptance, and one was untested. Their code and added transient metadata were
+removed from production. Keep outlined
+export and its warning. A mature CID/subsetting and exact font-instancing proposal
+needs separate review. Tagged PDF and PDF/A remain distinct investigations with
+no compliance claim.
+See [PHASE2_PDF.md](PHASE2_PDF.md).
+
+## Phase 2: measure before optimizing storage and layout
+
+MDN IndexedDB guidance confirms `getAll` structured clones and the transaction
+completion boundary. Actual Chromium measurements found full-body cloning plus
+redundant `decode` copies in metadata listing. Interleaved before/after tests
+justify cursor iteration with the same validation and no metadata-side byte copy;
+load/save ownership, corruption warnings, etags and completion guards remain.
+No database migration or extra dependency is needed. Separate real keyboard
+measurements identify full layout/transport and SVG footprint as important large-
+document limits; existing memoization is preserved and a larger cache/transport
+change requires a concrete review. Reproducible tools, counters and limitations
+are recorded in [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).
+
+## Phase 2: cross-platform execution boundaries
+
+Hosted job/check data proves no runner or step executed, while inaccessible
+annotations prevent classifying the cause. Direct API fallback fails at the
+proxy CONNECT stage; this does not diagnose account billing or source defects.
+Pinned Playwright 1.65.1 supports Firefox touch/mobile overrides, so old capability
+assumptions do not justify new skips. Keep all jobs/tests and extend portable
+coverage; report failed official browser downloads and launch probes separately
+from passed discovery or Chromium tests. Evidence and required infrastructure
+actions are in [PHASE2_CI.md](PHASE2_CI.md).
+
+
+## Phase 2: reconcile the audited branch with current main
+
+Compared the audited `f33e086` tree with main `efde8a8` and reviewed the intervening
+Lamplight integration commits, rather than treating divergence as CSS alone.
+Retain main's exact trusted-parent bridge, embedding headers and standalone root
+asset paths; retain the complete audit/Phase 2 engine, storage, mobile interaction
+and visual safeguards. Embedded mobile focus mode is compatible with the existing
+workspace ResizeObserver and focus-driven geometry updates.
+
+CSS specificity review identified an integration-only hazard: main's scoped
+button-hover selector would paint the transparent selection-handle hit target.
+Exclude handles from that generic selector, retaining their existing styles.
+The inherited `/writer/` assertion/documentation also predates main's explicit
+root-path restoration; align its test and documentation with the actual standalone
+build. These are focused integration corrections, not a new document/layout engine
+or a deployment/routing change. Combined-tree verification is recorded in
+[PHASE2_REPORT.md](PHASE2_REPORT.md).
+
+The first combined full browser run exposed a test-driver race after undo: the
+helper assigned a DOM range while replacement Rust layout was pending. Trace
+snapshots showed layout restoring the authoritative caret before ArrowLeft.
+Wait for Rust layout readiness and assert both DOM and Rust UTF-16 endpoints;
+the unchanged production engine then passed five repeated Unicode cases.
+
+Embedding regressions route both intended HTTPS origins locally to the actual
+production preview, without disabling CSP, mixed-content or local-network
+protections. The initial HTTPS-to-loopback fixture was correctly blocked by
+Chromium. A synthetic unrelated cross-site origin also showed a storage failure;
+the intended same-site `proairetos.com` / `writer.proairetos.com` fixture passed
+save/reload/reopen. This does not verify live routing/access restrictions or all
+browser third-party storage policies. Tests also cover immutable paper geometry,
+trusted token updates, mobile focus chrome and Rust touch selection/format/undo.
+
+
+Main's subsequent PR #25/#26 introduced a CSS-driven shared indicator and generic
+control motion. Retain that accepted implementation rather than competing with
+legacy inline measurements; keep the independent ribbon effect. Specificity
+review identified dialog-animation and handle-motion collisions, corrected with
+narrow exclusions while retaining fixed document/selection geometry. New browser
+regressions verify the accepted chrome geometry and real captured touch behavior;
+a separate forced CSS pseudo-state probe is labeled as such, since preventing
+touch defaults can suppress native `:active`. No document-layout algorithm moved
+to JavaScript. Main's later tab/ribbon/menu refinements are presentation-only and
+must retain viewport and selection safeguards.
+
+
+Preserved subsequent main PR #27/#28/#29 CSS: flat sticky-hover-safe tabs, stable
+52px collapsed mobile ribbon and opaque menu refinements. Final focused browser
+coverage checks their mobile page baseline, all section controls, viewport-limited
+menus, safe-copy behavior and captured touch geometry. The scoped motion exclusions
+remain necessary. Exact successive-tree verification and overlapping-suite counts
+are recorded in PHASE2_REPORT.md; this is not live-host or device certification.

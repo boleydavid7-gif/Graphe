@@ -1,0 +1,292 @@
+{
+  "generatedAt": "2026-11-15T09:36:52.704Z",
+  "browser": [
+    {
+      "paragraphs": 90,
+      "utf16Units": 24920,
+      "utf8Bytes": 26540,
+      "pages": 10,
+      "startupMs": 765.319782,
+      "coldLayoutWasmMs": [
+        7.399999991059303
+      ],
+      "initialPasteRenderMs": 1116.2388069999997,
+      "trustedKeys": 20,
+      "geometry": {
+        "n": 20,
+        "p50Ms": 172.29999999701977,
+        "p95Ms": 188.40000000596046,
+        "maxMs": 208.79999999701977
+      },
+      "nextAnimationFrame": {
+        "n": 20,
+        "p50Ms": 173.6000000089407,
+        "p95Ms": 196,
+        "maxMs": 211.69999998807907
+      },
+      "wasmDispatch": {
+        "n": 20,
+        "p50Ms": 3.4000000059604645,
+        "p95Ms": 5.0999999940395355,
+        "maxMs": 6.800000011920929
+      },
+      "wasmLayout": {
+        "n": 20,
+        "p50Ms": 67.09999999403954,
+        "p95Ms": 71.5,
+        "maxMs": 83.70000000298023
+      },
+      "wasmSelection": {
+        "n": 20,
+        "p50Ms": 0.09999999403953552,
+        "p95Ms": 0.20000000298023224,
+        "maxMs": 0.20000000298023224
+      },
+      "emptyMemory": {
+        "jsHeapUsedBytes": 3508016,
+        "jsHeapTotalBytes": 4333568,
+        "nodes": 464,
+        "documents": 2,
+        "eventListeners": 276,
+        "embedderHeapUsedBytes": 1934224,
+        "backingStorageBytes": 342572,
+        "wasmLinearMemoryBytes": 8650752
+      },
+      "loadedMemory": {
+        "jsHeapUsedBytes": 26167344,
+        "jsHeapTotalBytes": 26877952,
+        "nodes": 71909,
+        "documents": 2,
+        "eventListeners": 261,
+        "embedderHeapUsedBytes": 112542976,
+        "backingStorageBytes": 2281928,
+        "wasmLinearMemoryBytes": 28573696
+      },
+      "svgUses": 23591,
+      "pageErrors": []
+    },
+    {
+      "paragraphs": 225,
+      "utf16Units": 62441,
+      "utf8Bytes": 66491,
+      "pages": 29,
+      "startupMs": 448.4415250000002,
+      "coldLayoutWasmMs": [
+        6.100000008940697
+      ],
+      "initialPasteRenderMs": 1990.1509800000003,
+      "trustedKeys": 20,
+      "geometry": {
+        "n": 20,
+        "p50Ms": 360.3999999910593,
+        "p95Ms": 459.90000000596046,
+        "maxMs": 466.90000000596046
+      },
+      "nextAnimationFrame": {
+        "n": 20,
+        "p50Ms": 365.80000001192093,
+        "p95Ms": 470.5,
+        "maxMs": 471.30000001192093
+      },
+      "wasmDispatch": {
+        "n": 20,
+        "p50Ms": 8,
+        "p95Ms": 9.5,
+        "maxMs": 9.899999991059303
+      },
+      "wasmLayout": {
+        "n": 20,
+        "p50Ms": 167.20000000298023,
+        "p95Ms": 198.79999999701977,
+        "maxMs": 222.5
+      },
+      "wasmSelection": {
+        "n": 20,
+        "p50Ms": 0.20000000298023224,
+        "p95Ms": 0.29999999701976776,
+        "maxMs": 0.30000001192092896
+      },
+      "emptyMemory": {
+        "jsHeapUsedBytes": 3541876,
+        "jsHeapTotalBytes": 4071424,
+        "nodes": 462,
+        "documents": 2,
+        "eventListeners": 243,
+        "embedderHeapUsedBytes": 1770688,
+        "backingStorageBytes": 342507,
+        "wasmLinearMemoryBytes": 8650752
+      },
+      "loadedMemory": {
+        "jsHeapUsedBytes": 56402936,
+        "jsHeapTotalBytes": 57810944,
+        "nodes": 179478,
+        "documents": 2,
+        "eventListeners": 283,
+        "embedderHeapUsedBytes": 264619488,
+        "backingStorageBytes": 6860926,
+        "wasmLinearMemoryBytes": 79233024
+      },
+      "svgUses": 59087,
+      "pageErrors": []
+    },
+    {
+      "paragraphs": 315,
+      "utf16Units": 87461,
+      "utf8Bytes": 93131,
+      "pages": 42,
+      "startupMs": 455.7073059999966,
+      "coldLayoutWasmMs": [
+        7.399999991059303
+      ],
+      "initialPasteRenderMs": 2822.036519000001,
+      "trustedKeys": 20,
+      "geometry": {
+        "n": 20,
+        "p50Ms": 486,
+        "p95Ms": 610.7000000029802,
+        "maxMs": 662.5999999940395
+      },
+      "nextAnimationFrame": {
+        "n": 20,
+        "p50Ms": 487.3999999910593,
+        "p95Ms": 614.9000000059605,
+        "maxMs": 675.7000000029802
+      },
+      "wasmDispatch": {
+        "n": 20,
+        "p50Ms": 11.599999994039536,
+        "p95Ms": 30.5,
+        "maxMs": 36.29999999701977
+      },
+      "wasmLayout": {
+        "n": 20,
+        "p50Ms": 229.90000000596046,
+        "p95Ms": 295.1000000089407,
+        "maxMs": 336.29999999701977
+      },
+      "wasmSelection": {
+        "n": 20,
+        "p50Ms": 0.29999999701976776,
+        "p95Ms": 0.4000000059604645,
+        "maxMs": 0.4000000059604645
+      },
+      "emptyMemory": {
+        "jsHeapUsedBytes": 3549104,
+        "jsHeapTotalBytes": 4071424,
+        "nodes": 459,
+        "documents": 2,
+        "eventListeners": 243,
+        "embedderHeapUsedBytes": 1362192,
+        "backingStorageBytes": 342507,
+        "wasmLinearMemoryBytes": 8650752
+      },
+      "loadedMemory": {
+        "jsHeapUsedBytes": 77354992,
+        "jsHeapTotalBytes": 79044608,
+        "nodes": 251222,
+        "documents": 2,
+        "eventListeners": 296,
+        "embedderHeapUsedBytes": 370407376,
+        "backingStorageBytes": 8479702,
+        "wasmLinearMemoryBytes": 134348800
+      },
+      "svgUses": 82757,
+      "pageErrors": []
+    }
+  ],
+  "instrumentation": "Actual WASM exports wrapped without changing results; trusted beforeinput through committed Rust SVG revision + next RAF. Timings include WASM export execution, not OS input-to-paint. JS/DOM/native/WASM memory metrics are separate and not summed as process RSS.",
+  "raw": [
+    {
+      "paragraphs": 90,
+      "utf8Bytes": 26540,
+      "utf16Units": 24920,
+      "pages": 11,
+      "glyphs": 23591,
+      "responseBytes": 6072970,
+      "initialLayoutMs": 245.98803399999997,
+      "commit": {
+        "n": 20,
+        "p50Ms": 3.6268880000002355,
+        "p95Ms": 4.345688000000109,
+        "maxMs": 5.704971999999998
+      },
+      "layout": {
+        "n": 20,
+        "p50Ms": 91.14213300000029,
+        "p95Ms": 139.88112900000033,
+        "maxMs": 153.07883800000002
+      },
+      "cachedLayout": {
+        "n": 20,
+        "p50Ms": 19.483001999999942,
+        "p95Ms": 68.77676099999985,
+        "maxMs": 74.21638299999995
+      }
+    },
+    {
+      "paragraphs": 225,
+      "utf8Bytes": 66491,
+      "utf16Units": 62441,
+      "pages": 29,
+      "glyphs": 59087,
+      "responseBytes": 15225409,
+      "initialLayoutMs": 357.7534920000003,
+      "commit": {
+        "n": 20,
+        "p50Ms": 8.842183999999179,
+        "p95Ms": 10.77891400000044,
+        "maxMs": 10.819814999998925
+      },
+      "layout": {
+        "n": 20,
+        "p50Ms": 221.1406139999999,
+        "p95Ms": 257.44117200000073,
+        "maxMs": 311.71864000000005
+      },
+      "cachedLayout": {
+        "n": 20,
+        "p50Ms": 44.02436300000045,
+        "p95Ms": 105.64083599999958,
+        "maxMs": 106.72542499999963
+      }
+    },
+    {
+      "paragraphs": 315,
+      "utf8Bytes": 93131,
+      "utf16Units": 87461,
+      "pages": 42,
+      "glyphs": 82757,
+      "responseBytes": 21330604,
+      "initialLayoutMs": 395.01115799999934,
+      "commit": {
+        "n": 20,
+        "p50Ms": 11.41497900000104,
+        "p95Ms": 13.970108999999866,
+        "maxMs": 14.368377000000692
+      },
+      "layout": {
+        "n": 20,
+        "p50Ms": 316.18937600000027,
+        "p95Ms": 350.984798999998,
+        "maxMs": 376.45332000000053
+      },
+      "cachedLayout": {
+        "n": 20,
+        "p50Ms": 96.97801000000072,
+        "p95Ms": 116.18810200000007,
+        "maxMs": 125.91304300000047
+      }
+    }
+  ],
+  "responseLimit": {
+    "paragraphs": 540,
+    "utf8Bytes": 159731,
+    "utf16Units": 150011,
+    "error": {
+      "code": "layout_too_large",
+      "message": "The computed layout exceeds the 32 MiB response limit."
+    },
+    "unchangedSnapshotAndNativeBytes": true
+  },
+  "scope": "Measured synthetic workloads in one managed Linux Chromium environment; independent counters are not summed as RSS; no physical-device claim."
+}

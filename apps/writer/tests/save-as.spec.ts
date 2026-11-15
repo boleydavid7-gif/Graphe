@@ -100,6 +100,9 @@ for (const touch of [false, true]) {
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize()!.width);
         expect(bounds.y + bounds.height).toBeLessThanOrEqual(page.viewportSize()!.height);
         expect(bounds.height).toBeLessThan(400);
+        // Decorative entrance transforms must not override modal centering;
+        // the same conflict can push Save copy below an overlay keyboard.
+        expect(Math.abs(bounds.y + bounds.height / 2 - page.viewportSize()!.height / 2)).toBeLessThan(2);
         if (touch) {
           expect(await dialog(page).getByRole('textbox', { name: 'Filename', exact: true })
             .evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);

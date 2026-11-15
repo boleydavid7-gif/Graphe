@@ -93,6 +93,16 @@ skipping/numeric saturation policies cannot silently reinterpret native files.
 Supported code-page decoding is explicit; unknown/undefined text bytes are not
 replaced with plausible text. Unknown rich semantics prevent editable import.
 
+Phase 2 distinguishes exact inactive producer scaffolding from known formatting
+approximations and blocking content. ODT defaults/configuration and selected RTF
+language/layout controls use independent bounded import notices; active DOCX run
+RTL uses natural bidi with disclosed script/direction limitations. A runtime
+meaningful-formatting summary survives notice truncation. Source-aware external
+copy assessments disclose these approximations after native reopening too.
+This does not authorize arbitrary control words, settings or unsupported content.
+Profiles, public producer fixtures and executed results are in
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).
+
 The exact implemented profile and independent-consumer findings belong in the
 verification report. Ordinary third-party documents can include unsupported
 properties even when their visible text appears simple. Preserve originals and

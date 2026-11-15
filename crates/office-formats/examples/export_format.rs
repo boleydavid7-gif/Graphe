@@ -6,7 +6,7 @@
 use std::{error::Error, io::Write};
 
 use office_core::deserialize_writer_file;
-use office_formats::{DocumentFormat, assess_export, export_file};
+use office_formats::{DocumentFormat, assess_file, export_file};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let arguments: Vec<_> = std::env::args_os().skip(1).collect();
@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .ok_or("format must be a canonical UTF-8 extension")?,
     )?;
     let file = deserialize_writer_file(&std::fs::read(&arguments[0])?)?;
-    for warning in assess_export(format, file.document())?.warnings {
+    for warning in assess_file(format, &file)?.warnings {
         eprintln!("{}: {}", warning.code, warning.message);
     }
     if file.original_source().is_some() {

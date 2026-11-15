@@ -4,7 +4,9 @@ import { documentAction, focusEditor, readyPages } from './step7-test-helpers';
 
 const text = 'Reliable local copy — Café e\u0301 👩🏽‍💻';
 const formats = ['writer', 'docx', 'odt', 'rtf', 'txt', 'pdf'] as const;
-const media = { writer: 'application/json', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+// Native bytes are JSON, but the download MIME intentionally stays generic so
+// browsers retain the .writer extension instead of appending .json.
+const media = { writer: 'application/octet-stream', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   odt: 'application/vnd.oasis.opendocument.text', rtf: 'application/rtf', txt: 'text/plain', pdf: 'application/pdf' };
 async function bytes(download: Download) {
   const path = await download.path();

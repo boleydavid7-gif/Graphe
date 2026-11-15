@@ -1,6 +1,8 @@
 //! ODF text packages with an explicit, loss-refusing editable profile.
 
-use crate::{DocumentFormat, FormatDiagnostic, FormatError, ImportOutcome};
+use crate::{
+    DocumentFormat, FormatDiagnostic, FormatError, ImportNotices, ImportOutcome, ImportReport,
+};
 use office_core::{
     Block, CharacterFormat, Document, DocumentMetadata, Id, LineSpacing, NamedStyle, Paragraph,
     ParagraphFormat, Section, SectionProperties, TextRun,
@@ -8,6 +10,7 @@ use office_core::{
 use roxmltree::{Document as XmlDocument, Node};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod compatibility;
 mod export;
 mod package;
 mod properties;
@@ -72,6 +75,7 @@ fn validate_containers(
     document: &XmlDocument<'_>,
     part: &str,
     report: &mut Vec<FormatDiagnostic>,
+    notices: &mut ImportNotices,
 ) -> Result<(), FormatError> {
     attributes(
         document.root_element(),
@@ -108,6 +112,15 @@ fn validate_containers(
         attributes(container, part, &[], report);
         container_text(container)?;
         for child in container.children().filter(Node::is_element) {
+            if container.has_tag_name((OFFICE, "styles")) && compatibility::scaffolding(child) {
+                notices.record(
+                    part,
+                    child.tag_name().name(),
+                    "Inactive ODF authoring defaults are retained in the original file.",
+                    false,
+                );
+                continue;
+            }
             if !allowed.iter().any(|tag| child.has_tag_name(*tag)) {
                 diagnostic(
                     report,
@@ -176,6 +189,8 @@ struct Catalog {
     pages: BTreeMap<String, SectionProperties>,
     masters: BTreeMap<String, String>,
     first_master: Option<String>,
+    section_styles: BTreeSet<String>,
+    drawing_styles: BTreeSet<String>,
 }
 
 impl Catalog {
@@ -206,19 +221,44 @@ impl Catalog {
         document: &XmlDocument<'_>,
         part: &str,
         report: &mut Vec<FormatDiagnostic>,
+        notices: &mut ImportNotices,
     ) -> Result<(), FormatError> {
         for node in document.descendants().filter(Node::is_element) {
             if node.has_tag_name((STYLE, "default-style"))
                 && node.attribute((STYLE, "family")) == Some("paragraph")
             {
                 attributes(node, part, &[(STYLE, "family")], report);
-                let (paragraph, character) = self.read_properties(node, part, report)?;
+                let (paragraph, character) = self.read_properties(node, part, report, notices)?;
                 properties::overlay_paragraph(&mut self.default_paragraph, &paragraph);
                 office_layout::overlay_character(&mut self.default_character, &character);
             } else if node.has_tag_name((STYLE, "style")) {
                 let family = node
                     .attribute((STYLE, "family"))
                     .ok_or_else(|| package::invalid("style has no family"))?;
+                if family == "section" && compatibility::section_style(node) {
+                    let name = node
+                        .attribute((STYLE, "name"))
+                        .ok_or_else(|| package::invalid("section style has no name"))?;
+                    if !self.section_styles.insert(name.into()) {
+                        return Err(package::invalid("duplicate section style"));
+                    }
+                    notices.record(
+                        part,
+                        name,
+                        "Unprotected single-column section defaults are retained in the original.",
+                        false,
+                    );
+                    continue;
+                }
+                if family == "drawing-page" && compatibility::drawing_style(node) {
+                    let name = node
+                        .attribute((STYLE, "name"))
+                        .ok_or_else(|| package::invalid("drawing style has no name"))?;
+                    if !self.drawing_styles.insert(name.into()) {
+                        return Err(package::invalid("duplicate drawing page style"));
+                    }
+                    continue;
+                }
                 if !matches!(family, "paragraph" | "text") {
                     diagnostic(
                         report,
@@ -238,13 +278,14 @@ impl Catalog {
                         (STYLE, "display-name"),
                         (STYLE, "parent-style-name"),
                         (STYLE, "master-page-name"),
+                        (STYLE, "class"),
                     ],
                     report,
                 );
                 let name = node
                     .attribute((STYLE, "name"))
                     .ok_or_else(|| package::invalid("style has no name"))?;
-                let (paragraph, character) = self.read_properties(node, part, report)?;
+                let (paragraph, character) = self.read_properties(node, part, report, notices)?;
                 let definition = StyleDefinition {
                     name: name.into(),
                     display: node
@@ -276,13 +317,14 @@ impl Catalog {
                 }
             } else if node.has_tag_name((STYLE, "page-layout")) {
                 attributes(node, part, &[(STYLE, "name")], report);
+                container_text(node)?;
                 let name = node
                     .attribute((STYLE, "name"))
                     .ok_or_else(|| package::invalid("page layout has no name"))?;
                 let mut properties = SectionProperties::default();
                 for child in node.children().filter(Node::is_element) {
                     if child.has_tag_name((STYLE, "page-layout-properties")) {
-                        properties = properties::geometry(child, part, report)?;
+                        properties = properties::geometry(child, part, report, notices)?;
                     } else if !((child.has_tag_name((STYLE, "header-style"))
                         || child.has_tag_name((STYLE, "footer-style")))
                         && child.children().all(|n| {
@@ -302,6 +344,7 @@ impl Catalog {
                     return Err(package::invalid("duplicate page layout"));
                 }
             } else if node.has_tag_name((STYLE, "master-page")) {
+                container_text(node)?;
                 attributes(
                     node,
                     part,
@@ -309,9 +352,17 @@ impl Catalog {
                         (STYLE, "name"),
                         (STYLE, "display-name"),
                         (STYLE, "page-layout-name"),
+                        (compatibility::DRAW, "style-name"),
                     ],
                     report,
                 );
+                if let Some(name) = node.attribute((compatibility::DRAW, "style-name"))
+                    && !self.drawing_styles.contains(name)
+                {
+                    return Err(package::invalid(
+                        "unresolved or unsupported master drawing style",
+                    ));
+                }
                 let name = node
                     .attribute((STYLE, "name"))
                     .ok_or_else(|| package::invalid("master page has no name"))?;
@@ -343,6 +394,7 @@ impl Catalog {
         node: Node<'_, '_>,
         part: &str,
         report: &mut Vec<FormatDiagnostic>,
+        notices: &mut ImportNotices,
     ) -> Result<(ParagraphFormat, CharacterFormat), FormatError> {
         let mut paragraph = ParagraphFormat::default();
         let mut character = CharacterFormat::default();
@@ -353,9 +405,9 @@ impl Catalog {
                 return Err(package::invalid("duplicate style property element"));
             }
             if child.has_tag_name((STYLE, "paragraph-properties")) {
-                paragraph = properties::paragraph(child, part, report)?;
+                paragraph = properties::paragraph(child, part, report, notices)?;
             } else if child.has_tag_name((STYLE, "text-properties")) {
-                character = properties::character(child, part, &self.fonts, report)?;
+                character = properties::character(child, part, &self.fonts, report, notices)?;
             } else {
                 diagnostic(
                     report,
@@ -404,10 +456,21 @@ impl Catalog {
     }
 }
 
-pub(crate) fn import_document(
+pub(crate) fn import_document_with_warnings(
     bytes: &[u8],
     document_id: Id,
     filename: &str,
+) -> Result<ImportReport, FormatError> {
+    let mut notices = ImportNotices::default();
+    let outcome = import_document(bytes, document_id, filename, &mut notices)?;
+    Ok(notices.finish(outcome))
+}
+
+fn import_document(
+    bytes: &[u8],
+    document_id: Id,
+    filename: &str,
+    notices: &mut ImportNotices,
 ) -> Result<ImportOutcome, FormatError> {
     let parts = package::read(bytes)?;
     let manifest = package::xml(
@@ -431,14 +494,14 @@ pub(crate) fn import_document(
             .ok_or_else(|| package::invalid("missing content.xml"))?,
     )?;
     validate_root(&content, "document-content")?;
-    validate_containers(&content, "content.xml", &mut report)?;
+    validate_containers(&content, "content.xml", &mut report, notices)?;
     let styles = parts
         .get("styles.xml")
         .map(|b| package::xml("styles.xml", b))
         .transpose()?;
     if let Some(styles) = &styles {
         validate_root(styles, "document-styles")?;
-        validate_containers(styles, "styles.xml", &mut report)?;
+        validate_containers(styles, "styles.xml", &mut report, notices)?;
     }
     let meta = parts
         .get("meta.xml")
@@ -446,7 +509,7 @@ pub(crate) fn import_document(
         .transpose()?;
     if let Some(meta) = &meta {
         validate_root(meta, "document-meta")?;
-        validate_containers(meta, "meta.xml", &mut report)?;
+        validate_containers(meta, "meta.xml", &mut report, notices)?;
     }
     let mut catalog = Catalog::default();
     catalog.default_paragraph.line_spacing = Some(LineSpacing::Multiple { value: 240 });
@@ -457,9 +520,9 @@ pub(crate) fn import_document(
     }
     catalog.read_fonts(&content)?;
     if let Some(styles) = &styles {
-        catalog.read(styles, "styles.xml", &mut report)?;
+        catalog.read(styles, "styles.xml", &mut report, notices)?;
     }
-    catalog.read(&content, "content.xml", &mut report)?;
+    catalog.read(&content, "content.xml", &mut report, notices)?;
     for style in catalog.styles.values() {
         catalog.chain(&style.family, &style.name)?;
     }
@@ -502,6 +565,13 @@ pub(crate) fn import_document(
                         .filter(Node::is_text)
                         .filter_map(|child| child.text())
                         .collect();
+                } else if compatibility::generated_metadata(node) {
+                    notices.record(
+                        "meta.xml",
+                        node.tag_name().name(),
+                        "Generated application metadata is retained in the original file.",
+                        false,
+                    );
                 } else {
                     diagnostic(
                         &mut report,
@@ -518,7 +588,8 @@ pub(crate) fn import_document(
         if !matches!(
             name.as_str(),
             "mimetype" | "META-INF/manifest.xml" | "content.xml" | "styles.xml" | "meta.xml"
-        ) {
+        ) && !compatibility::package_part(name, &parts, &manifest, notices)?
+        {
             diagnostic(
                 &mut report,
                 "unsupported_part",
@@ -770,7 +841,17 @@ impl TextParser<'_> {
                 if !current.is_empty() {
                     result.push(self.section(std::mem::take(&mut current), geometry.take())?);
                 }
-                attributes(child, "content.xml", &[(TEXT, "name")], self.report);
+                attributes(
+                    child,
+                    "content.xml",
+                    &[(TEXT, "name"), (TEXT, "style-name")],
+                    self.report,
+                );
+                if let Some(style) = child.attribute((TEXT, "style-name"))
+                    && !self.catalog.section_styles.contains(style)
+                {
+                    return Err(package::invalid("unresolved or unsupported section style"));
+                }
                 container_text(child)?;
                 let mut blocks = Vec::new();
                 let mut section_geometry = self.catalog.geometry(None)?;
@@ -809,6 +890,8 @@ impl TextParser<'_> {
                     geometry = Some(next);
                 }
                 current.push(Block::Paragraph(p));
+            } else if compatibility::sequence_declarations(child) {
+                // Actual sequence fields remain unsupported in runs().
             } else {
                 diagnostic(
                     self.report,

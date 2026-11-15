@@ -5,7 +5,56 @@ presence does not imply every construct in it is editable. Hand-authored fixture
 from the adapter tests are deliberately small; external-producer files below are
 not sanitized into the Writer profile.
 
+## Known RTF formatting normalization profile
+
+`rtf-known-formatting.rtf` is a hand-authored regression input containing named
+styles, primary and alternate font names, language settings, widow/orphan and
+hyphenation preferences, a kerning threshold, mixed bold/italic/underline,
+combining Unicode and an emoji. SHA-256:
+`aace5f44592c76c5fc114862e22fd146ac9eb989bc0438325cc2ed7d4687cade`.
+
+Its known unsupported formatting is normalized with explicit import notices;
+the complete supported content is editable and the exact original remains in
+native Writer saves. Converted copies may differ in fallback fonts, proofing,
+pagination, hyphenation, kerning and automatic next-paragraph style behavior.
+It is not an externally generated LibreOffice or Microsoft Word fixture.
+
+The classification follows Microsoft's [RTF 1.9.1 specification](https://officeprotocoldoc.z19.web.core.windows.net/files/Archive_References/%5BMSFT-RTF%5D.pdf),
+linked from its [normative references](https://learn.microsoft.com/en-us/openspecs/exchange_server_protocols/ms-oxrtfex/3402a589-2578-4a15-99ce-04a91545f327).
+Alternate font labels are distinct from embedded-font payloads. Direction and
+associated-script font controls, actual lists/notes/fields, unknown destinations,
+unsupported byte encodings and malformed structures remain guarded; this
+fixture does not claim support for those features.
+
 ## Independent LibreOffice-produced inputs
+
+### Phase 2 audited ODT resave
+
+`libreoffice-audit-resaved.odt` is the unchanged public synthetic LibreOffice
+resave produced during the November 15 stability audit from Writer's exported
+`tests/fixtures/native/project-notes.writer`, with the audit's Unicode and mixed
+formatting edits. Producer: LibreOfficeDev 26.8.0.0.alpha0, source revision
+`2c87e51eeaa2b413ff4ae097b2705eea1995d8e5`. The audit artifact was copied from
+`/tmp/writer-audit-independent-formats/lo-roundtrip/odt/audit.odt`; it is not a
+private user document and was not sanitized to remove unsupported properties.
+SHA-256: `d64d5bbd26c0eb2f5fa765405286a9c71d7ea2204b45556e02f1028e0db1d763`.
+
+The Phase 2 profile recognizes its exact inactive default/outline/note settings,
+known application configuration, single-column section and package scaffolding.
+Unsupported language/script-font/layout preferences produce explicit notices.
+All six Unicode paragraphs, supported formatting, title and page geometry remain
+editable, with exact originals retained in native saves. This does not establish
+support for all ODT files produced by LibreOffice. The older
+`libreoffice-basic.odt` below still contains additional preferences outside this
+reviewed profile and remains preserved read-only.
+
+`unsupported-active-note.odt` is a hand-modified copy of the public audited ODT,
+with a real footnote and its text added to `content.xml`; the package was rebuilt
+without changing the unrelated semantic parts. It proves inactive note settings
+do not permit dropping actual note content. It must remain preserved read-only.
+SHA-256: `82df43e5c97ada8657f5ac6b7184c9afb70bef2dff4522617d4e665e90096f38`.
+
+### Earlier Step 7.5 inputs
 
 Producer: `LibreOfficeDev 26.8.0.0.alpha0`, source revision
 `2c87e51eeaa2b413ff4ae097b2705eea1995d8e5`, installed Linux test tool.

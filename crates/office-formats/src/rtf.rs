@@ -9,7 +9,9 @@ use office_core::{
 };
 use rclip_rtf::{Codepage, ControlSymbol, Token, Tokenizer};
 
-use crate::{DocumentFormat, FormatDiagnostic, FormatError, ImportOutcome};
+use crate::{
+    DocumentFormat, FormatDiagnostic, FormatError, ImportNotices, ImportOutcome, ImportReport,
+};
 
 mod export;
 pub(crate) use export::export_document;
@@ -229,6 +231,7 @@ struct Parser<'a> {
     paragraph_number: usize,
     paragraph_pending: bool,
     report: Vec<FormatDiagnostic>,
+    notices: ImportNotices,
     skip: usize,
     pending_high: Option<(u16, CharacterFormat)>,
 }
@@ -253,6 +256,7 @@ impl<'a> Parser<'a> {
             paragraph_number: 0,
             paragraph_pending: false,
             report: Vec::new(),
+            notices: ImportNotices::default(),
             skip: 0,
             pending_high: None,
         }
@@ -284,6 +288,24 @@ impl<'a> Parser<'a> {
             "{}:rtf:{kind}:{number}",
             self.id.as_str()
         ))?)
+    }
+
+    fn normalized(&mut self, at: usize, message: impl Into<String>) {
+        let offset = self.items.get(at).map_or(0, |item| item.offset);
+        self.notices
+            .record("rtf", format!("byte:{offset}"), message, true);
+    }
+
+    fn language(&mut self, name: &str, param: Option<i32>, at: usize) -> Result<(), FormatError> {
+        u16::try_from(required(param, name)?)
+            .map_err(|_| invalid("RTF language identifier is out of range."))?;
+        self.normalized(
+            at,
+            format!(
+                "RTF \\{name} language and proofing settings are retained in the original; Writer uses its own Unicode layout and does not preserve these settings in converted copies."
+            ),
+        );
+        Ok(())
     }
 
     fn destination(&self, open: usize) -> (Option<&'a str>, usize, bool) {
@@ -505,8 +527,12 @@ impl<'a> Parser<'a> {
                 }
             }
             "deff" => self.default_font = Some(nonnegative(param, name)?),
+            "adeflang" | "deflang" | "deflangfe" => self.language(name, param, at)?,
             // Producer/display hints do not alter the supported semantic model.
-            "viewkind" | "viewscale" | "viewzk" | "fet" | "fromtext" | "nouicompat" => {}
+            "viewkind" | "viewscale" | "viewzk" | "fromtext" | "nouicompat" => {}
+            // Footnote/endnote mode cannot introduce note content. Actual note
+            // destinations and unrepresented note settings remain blockers.
+            "fet" => {}
             _ => return Ok(false),
         }
         Ok(true)
@@ -520,6 +546,30 @@ impl<'a> Parser<'a> {
         at: usize,
     ) -> Result<bool, FormatError> {
         match name {
+            "lang" | "langfe" | "alang" => self.language(name, param, at)?,
+            "nowidctlpar" | "widctlpar" | "noline" | "hyphpar" | "hyphauto" => {
+                if !matches!(param, None | Some(0 | 1)) {
+                    return Err(invalid(format!(
+                        "RTF \\{name} must be a flag or a zero/one toggle."
+                    )));
+                }
+                self.normalized(
+                    at,
+                    format!(
+                        "RTF \\{name} pagination, line-numbering or hyphenation formatting is retained in the original; Writer uses its own layout and converted copies may differ."
+                    ),
+                );
+            }
+            "kerning" => {
+                let value = required(param, name)?;
+                if !(0..=i32::from(i16::MAX)).contains(&value) {
+                    return Err(invalid("RTF kerning threshold is out of range."));
+                }
+                self.normalized(
+                    at,
+                    "RTF's explicit kerning threshold is retained in the original; Writer uses font shaping defaults and converted copies may differ.",
+                );
+            }
             "b" => state.character.bold = Some(param != Some(0)),
             "i" => state.character.italic = Some(param != Some(0)),
             "ul" => {
@@ -881,6 +931,7 @@ impl<'a> Parser<'a> {
         let mut charset = 0;
         let mut text = String::new();
         let mut terminated = false;
+        let mut alternate_seen = false;
         let mut state = State {
             codepage: inherited.codepage,
             uc: inherited.uc,
@@ -888,6 +939,11 @@ impl<'a> Parser<'a> {
         };
         let mut at = start;
         while at < end {
+            if alternate_seen
+                && !matches!(self.items[at].token, Token::Text(value) if value.chars().all(|scalar| scalar == ';' || scalar.is_ascii_whitespace()))
+            {
+                return Err(invalid("Unexpected data after an RTF alternate font name."));
+            }
             if self.skip > 0 && matches!(self.items[at].token, Token::ControlWord { .. }) {
                 self.skip -= 1;
                 at += 1;
@@ -906,7 +962,21 @@ impl<'a> Parser<'a> {
                     ..
                 } => {}
                 Token::GroupStart => {
-                    self.unsupported(at, "RTF alternate/embedded font metadata is not supported.");
+                    let (destination, first, ignorable) = self.destination(at);
+                    if destination == Some("falt") && ignorable {
+                        if terminated {
+                            return Err(invalid(
+                                "RTF alternate font name must precede the font terminator.",
+                            ));
+                        }
+                        self.alternate_font_name(at, first, &state)?;
+                        alternate_seen = true;
+                    } else {
+                        self.unsupported(
+                            at,
+                            "RTF embedded or unknown font metadata is not supported.",
+                        );
+                    }
                     at = self.items[at].close;
                 }
                 token => {
@@ -944,6 +1014,71 @@ impl<'a> Parser<'a> {
         if self.pending_high.is_some() {
             return Err(invalid("Unpaired Unicode surrogate in RTF font name."));
         }
+        Ok(())
+    }
+
+    fn alternate_font_name(
+        &mut self,
+        open: usize,
+        first: usize,
+        inherited: &State,
+    ) -> Result<(), FormatError> {
+        if !matches!(
+            self.items[first].token,
+            Token::ControlWord { param: None, .. }
+        ) {
+            return Err(invalid("RTF alternate font name cannot have a parameter."));
+        }
+        if self.pending_high.is_some() {
+            return Err(invalid(
+                "Unpaired Unicode surrogate before an alternate font name.",
+            ));
+        }
+        // A font label is a destination, not body text or a new primary font.
+        // Reuse the bounded table-label decoder, including signed UTF-16 and
+        // scoped ANSI fallback. Unknown nesting never becomes an editable label.
+        self.skip = 0;
+        let mut state = inherited.clone();
+        let mut text = String::new();
+        let mut terminated = false;
+        let close = self.items[open].close;
+        let mut at = first + 1;
+        while at < close {
+            if matches!(self.items[at].token, Token::GroupStart) {
+                self.unsupported(
+                    at,
+                    "Nested content in an RTF alternate font name is not supported.",
+                );
+                at = self.items[at].close + 1;
+                self.skip = 0;
+                continue;
+            }
+            self.table_text(
+                self.items[at].token,
+                &mut state,
+                &mut text,
+                &mut terminated,
+                at,
+                false,
+            )?;
+            if text.len() > 256 {
+                return Err(limit());
+            }
+            at += 1;
+        }
+        self.skip = 0;
+        if self.pending_high.is_some() {
+            return Err(invalid(
+                "Unpaired Unicode surrogate in an alternate font name.",
+            ));
+        }
+        if text.trim().is_empty() {
+            return Err(invalid("RTF alternate font name must not be empty."));
+        }
+        self.normalized(
+            open,
+            "An RTF alternate font preference is retained in the original; Writer keeps the primary font and uses its own fallback fonts in converted copies.",
+        );
         Ok(())
     }
 
@@ -1032,6 +1167,7 @@ impl<'a> Parser<'a> {
         inherited: &State,
     ) -> Result<(), FormatError> {
         let mut at = start;
+        let mut next_styles = Vec::new();
         while at < end {
             if !matches!(self.items[at].token, Token::GroupStart) {
                 return Err(invalid("Malformed RTF stylesheet."));
@@ -1101,10 +1237,13 @@ impl<'a> Parser<'a> {
                 continue;
             };
             if next_style.is_some_and(|next| next != index) {
-                self.unsupported(
+                self.normalized(
                     at,
-                    "RTF next-paragraph style behavior is not represented by the current model.",
+                    "RTF automatic next-paragraph style behavior is retained in the original; Writer keeps the existing styles but converted copies do not preserve this editing preference.",
                 );
+            }
+            if let Some(next) = next_style {
+                next_styles.push(next);
             }
             if self.styles.len() >= MAX_TABLE_ENTRIES {
                 return Err(limit());
@@ -1145,6 +1284,14 @@ impl<'a> Parser<'a> {
         self.skip = 0;
         if self.pending_high.is_some() {
             return Err(invalid("Unpaired Unicode surrogate in RTF style name."));
+        }
+        if next_styles
+            .iter()
+            .any(|next| !self.styles.contains_key(next))
+        {
+            return Err(invalid(
+                "RTF next-paragraph style references an undefined style.",
+            ));
         }
         self.cache_style_defaults()
     }
@@ -1375,11 +1522,11 @@ fn is_destination(name: &str) -> bool {
     )
 }
 
-pub(crate) fn import_document(
+pub(crate) fn import_document_with_warnings(
     bytes: &[u8],
     id: Id,
     filename: &str,
-) -> Result<ImportOutcome, FormatError> {
+) -> Result<ImportReport, FormatError> {
     let mut parser = Parser::new(lex(bytes)?, id);
     let end = parser.items[0].close;
     let mut state = State::default();
@@ -1405,11 +1552,12 @@ pub(crate) fn import_document(
         parser.finish_section()?;
     }
     if !parser.report.is_empty() {
-        return Ok(ImportOutcome::Preserved {
+        let outcome = ImportOutcome::Preserved {
             original: crate::original_source(DocumentFormat::Rtf, bytes, filename)?
                 .ok_or_else(|| invalid("RTF source is empty."))?,
             report: parser.report,
-        });
+        };
+        return Ok(parser.notices.finish(outcome));
     }
     let document = Document::from_parts(
         parser.id,
@@ -1419,10 +1567,11 @@ pub(crate) fn import_document(
         parser.sections,
         parser.styles.into_values().collect(),
     )?;
-    Ok(ImportOutcome::Editable(crate::retain_source(
+    let outcome = ImportOutcome::Editable(crate::retain_source(
         DocumentFormat::Rtf,
         document,
         bytes,
         filename,
-    )?))
+    )?);
+    Ok(parser.notices.finish(outcome))
 }

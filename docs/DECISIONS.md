@@ -1039,3 +1039,80 @@ tracks real approximations before bounded notices overflow; no native schema,
 browser transport, dependency or editing-history format changes are needed.
 Existing document-only APIs remain available; source preservation requires a full
 file. This is a bounded compatibility profile, not full OOXML/XSD validation.
+
+## 050: Project Rust selections onto touch handles without browser text reflow
+
+**Decision:** Keep the SVG editor and native input/IME projection. Add Rust
+word-selection and independent endpoint-drag actions to the existing layout
+transport, and render their endpoint rectangles as touch handles. JavaScript
+recognizes gestures and positions controls, without segmenting text or calculating
+document offsets. Keep logical endpoint identities through reversals and bidi.
+
+**Reason:** Native DOM handles cannot follow arbitrary Rust glyph paths. A
+second visible contenteditable flow would compete with engine pagination. The
+existing Rust geometry and pinned word/grapheme implementation already provide
+the required boundaries; no new model, dependency or layout layer is needed.
+
+**Consequences:** Selection does not change native bytes, revisions or history.
+Gestures also guard exact selections, since selection-only changes do not advance
+revisions. Native scrolling/pinch and IME own their respective input; cancellation
+must not become a tap. Async plain-text clipboard cut/paste rechecks live Rust
+identity, revision, selection and composition after browser I/O. Physical-device
+behavior and OS-native handles/loupe are not claimed by browser automation.
+See [PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).
+
+## 051: Classify external formatting separately from unsupported content
+
+**Decision:** Extend the existing adapters with exact, validated producer-setting
+recognition and disclosed known-formatting approximations. Keep independent
+bounded notices and blockers, and track meaningful formatting before notice
+truncation. Source-aware copy assessment reuses the import classification across
+external destinations. Retain exact originals and existing native schemas.
+
+**Reason:** LibreOffice resaves exposed harmless defaults and unsupported run
+formatting being treated as content blockers. Ignoring arbitrary settings or
+post-filtering a bounded report could instead publish an incomplete document.
+RTL direction and associated script formatting are not inert metadata.
+
+**Consequences:** Safe producer files become editable without relaxing protection,
+content, resource or malformed-data checks. Approximate appearance is disclosed;
+an unsupported feature still prevents a partial editable projection. ODT/RTF
+regenerated copies retain supported semantics rather than arbitrary source XML
+or control words. Full native files retain exact recovery sources. No dependency,
+model, storage migration or additional formatting engine is introduced. See
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).
+
+## 052: Retain outlined PDF after cross-reader text-font experiments fail
+
+**Decision:** Keep current outlined PDF and its limitations warning. Do not ship
+the experimental Type 3 text-font path or its extra layout metadata. Archive the
+experiment and evaluate a pinned mature CID/subsetting solution separately.
+
+**Reason:** Exact Unicode mappings, unchanged Rust geometry and valid font syntax
+did not preserve rendering across PDFium, Poppler and MuPDF. Bounded experiments
+exposed color, metrics, caching and reader-order differences. No tested variant
+met the existing visual-fidelity requirement.
+
+**Consequences:** Production APIs, native state, font catalog and dependencies
+stay unchanged. Searchable/selectable PDF remains unfinished. Exact variable-font
+instances and shaped-source provenance are requirements for a follow-up, with
+independent reader tests before acceptance. Tagged PDF/PDF-A are separate work
+and no accessibility/conformance claim is made. See [PHASE2_PDF.md](PHASE2_PDF.md).
+
+## 053: Stream validated library summaries without copying document bodies
+
+**Decision:** Use a read-only cursor and existing record validation for metadata
+listing. Preserve byte copies in load/save, all corruption warnings, sorting and
+transaction completion. Keep the existing database and save/revision/etag policy.
+
+**Reason:** Actual interleaved Chromium measurements show reduced binary-buffer
+retention and listing latency. Cursor iteration alone with the old byte copies
+was worse; both parts of the change are justified by measurement. A metadata
+database migration is unnecessary for this correction.
+
+**Consequences:** Large libraries avoid eager retention of every full result and
+redundant owned copies. Each value is still read; native caching/GC can retain
+multiple buffers, and small libraries may be slightly slower. Separate large-
+document tests expose full-layout/transport/SVG costs; do not replace the engine
+or add speculative caches as part of the storage fix. See
+[PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).

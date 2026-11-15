@@ -47,6 +47,31 @@ original paragraphs and text. Tests verify native source-byte retention and
 reopening exported current content. Ordinary auxiliary parts do not produce
 false relationship findings; unrepresented content remains blocked.
 
+`phase2-libreoffice-unicode.docx` is the actual same-format LibreOfficeDev
+26.8.0.0.alpha0 resave from the November 15 stability audit. Its input was
+Writer's export of the public `tests/fixtures/native/project-notes.writer`
+sample after appending ` Audit edit é 👩🏽‍💻 العربية नमस्ते שלום.` through the
+Rust/WASM editing API. No private uploaded document was used. It was generated
+with the same LibreOffice revision identified above, using:
+
+```sh
+soffice -env:UserInstallation=file:///tmp/writer-audit-lo-profile --headless --convert-to docx --outdir /tmp/writer-audit-independent-formats/lo-roundtrip/docx /tmp/writer-audit-independent-formats/audit.docx
+```
+
+The checked-in ZIP bytes are unchanged from that producer output. LibreOffice
+adds two direct `w:rtl=true` runs, containing Arabic and Hebrew. These previously
+made an otherwise supported document read-only. RTL is meaningful direction and
+script formatting, not inert metadata: the approved known-formatting policy now
+permits an explicit approximation to Unicode bidi, retaining exact source bytes
+and warning about punctuation, spacing and inherited/mixed-script appearance.
+Direct RTL complex-script font, bold, italic and size values are preferred when
+present. Separate inherited script cascades are not represented. Tests assert
+the complete Unicode text, editing/undo/redo, native source retention,
+source-aware copy warnings and reimported supported formatting. Paragraph bidi,
+hidden text, protection, revisions and unknown markup remain guarded. These
+tests establish preserved logical content and supported formatting, not exact
+Word/LibreOffice visual equivalence.
+
 ## Synthetic boundary fixtures
 
 Run `python3 tests/fixtures/docx/relationships/generate.py` from the repository
@@ -113,6 +138,11 @@ record the earlier strict profile rather than their current classification.
   normalized, while content/security and unknown semantics remain guarded.
 - [Official OOXML primer](https://download.microsoft.com/download/e/1/4/e14fb96f-83b8-4a2a-84db-7fa8acbe061a/Office%20Open%20XML%20Part%203%20-%20Primer.pdf):
   relationship roles, themes and script-specific properties require semantic checks.
+- [Run right-to-left text](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.righttolefttext?view=openxml-3.0.1)
+  and [Word interoperability notes](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/aef3c9a6-5d6c-434b-90b7-85e761fd8e62):
+  `w:rtl` selects complex-script appearance and selectively changes weak/neutral
+  bidi classes. Natural Unicode bidi is an acknowledged approximation; inserting
+  blanket direction-control characters would instead change document text.
 
 Recognition requires the exact known relationship URI and source role, an
 internal target, matching content type and XML root, and an unambiguous singleton.
@@ -136,6 +166,7 @@ SHA-256 identifies the actual bytes tested; it is not a provenance guarantee.
 | `misplaced-main-app-properties.docx` | 5328 | `2da360d4e677e55865bef9cb967b8fa4a3ffe6a83e19070a6ce9210fda19d6d1` |
 | `misplaced-root-font-table.docx` | 5314 | `bdfbb3e5972b683b73619cbb9f46f9f60d64311945fb6581a14f52e898aa1bf1` |
 | `normalizable-wordweb-profile.docx` | 9383 | `1929030d11761c9ba77f8284146050fba6cac0540b61b293d2af3cf2215c4c7d` |
+| `phase2-libreoffice-unicode.docx` | 5550 | `b463373d9926585c7c8432c26d671e969ddfd9bc07f5b59f6ed86524ad7db85c` |
 | `supported-authoring-metadata.docx` | 5423 | `a1cc78c62b40d67b18bd6086c3ac960da85ff14e693f49eff16479578898e927` |
 | `supported-auxiliary-parts.docx` | 5311 | `fff8adf7e42aa8019ff2e991608cbcb25d1887180ee08d7a7a3a85db1cb5eac8` |
 | `supported-root-thumbnail.docx` | 5536 | `6a819474a8b7e066c4f06f9115d793b3efdbc8a994b00906af263d375644a62d` |

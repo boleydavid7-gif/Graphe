@@ -25,12 +25,12 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-storage.spec.ts', '**/document-menu.spec.ts', '**/save-as.spec.ts'],
+      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-storage.spec.ts', '**/document-menu.spec.ts', '**/save-as.spec.ts', '**/audit-*.spec.ts', '**/reliability-audit-storage.spec.ts', '**/phase2-compatibility.spec.ts', '**/phase2-library.spec.ts', '**/lamplight-embedding.spec.ts', '**/main-ui-integration.spec.ts'],
       use: { ...devices['Desktop Firefox'] },
     },
     {
       name: 'webkit',
-      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-*.spec.ts', '**/document-menu.spec.ts', '**/save-as.spec.ts'],
+      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-*.spec.ts', '**/document-menu.spec.ts', '**/save-as.spec.ts', '**/audit-*.spec.ts', '**/phase2-compatibility.spec.ts', '**/phase2-library.spec.ts', '**/lamplight-embedding.spec.ts', '**/main-ui-integration.spec.ts'],
       use: { ...devices['Desktop Safari'] },
     },
   ],
