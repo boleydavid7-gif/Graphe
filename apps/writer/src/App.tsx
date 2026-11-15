@@ -954,8 +954,11 @@ export default function App() {
             <AlignmentIcon alignment={alignment} />
           </button>)}
       </fieldset>}
-      {activeTab === 'write' && <button className="more-formatting" aria-label="More formatting" aria-expanded={moreFormatting}
-        onClick={() => setMoreFormatting((value) => !value)}><WriterIcon name="more" /></button>}
+      {activeTab === 'write' && <button className="more-formatting"
+        aria-label={moreFormatting ? 'Hide text formatting' : 'Show text formatting'}
+        title={moreFormatting ? 'Hide font and alignment controls' : 'Show font and alignment controls'}
+        aria-expanded={moreFormatting}
+        onClick={() => setMoreFormatting((value) => !value)}><WriterIcon name="text-format" /></button>}
       {activeTab === 'insert' && <div className="format-group insert-controls" role="group" aria-label="Insert text structure">
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_paragraph' })}>Paragraph <kbd>Enter</kbd></button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_line_break' })}>Line break <kbd>Shift Enter</kbd></button>
