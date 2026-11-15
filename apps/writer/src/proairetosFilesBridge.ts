@@ -3,7 +3,7 @@
 const HOSTS = new Set(['https://proairetos.com', 'https://research-and-development-proairetos.boleydavid7.workers.dev']);
 const MAX_BYTES = 10 * 1024 * 1024;
 let connectedHost: string | null = null;
-const pending = new Map<string, { resolve: (value: boolean) => void; reject: (reason: Error) => void }>();
+const pending = new Map<string, { resolve: (value: string) => void; reject: (reason: Error) => void }>();
 const supported = ['writer', 'docx', 'odt', 'rtf', 'txt', 'pdf'];
 const MIME: Record<string, string> = {
   writer: 'application/json', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -23,7 +23,7 @@ export function installProairetosFilesBridge(): () => void {
     const waiting = pending.get(id);
     if (!waiting) return;
     pending.delete(id);
-    if (event.data.ok === true) waiting.resolve(true);
+    if (event.data.ok === true && typeof event.data.fileId === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(event.data.fileId)) waiting.resolve(event.data.fileId);
     else waiting.reject(new Error(typeof event.data.message === 'string' ? event.data.message : 'Save was cancelled.'));
   };
   window.addEventListener('message', receive);
@@ -37,7 +37,7 @@ export function installProairetosFilesBridge(): () => void {
 
 export function canSaveToProairetos(): boolean { return connectedHost !== null && window.parent !== window; }
 
-export function saveToProairetos(name: string, format: string, data: Uint8Array): Promise<boolean> {
+export function saveToProairetos(name: string, format: string, data: Uint8Array, fileId?: string): Promise<string> {
   if (!connectedHost || !supported.includes(format) || !data.byteLength || data.byteLength > MAX_BYTES)
     return Promise.reject(new Error('ProairetOS Files is unavailable or the document exceeds 10 MB.'));
   if (pending.size) return Promise.reject(new Error('A Files save is already in progress.'));
@@ -46,7 +46,7 @@ export function saveToProairetos(name: string, format: string, data: Uint8Array)
   return new Promise((resolve, reject) => {
     pending.set(requestId, { resolve, reject });
     window.parent.postMessage({
-      type: 'writer:files-save-request', version: 1, requestId, name, mime: MIME[format], data: bytes,
+      type: 'writer:files-save-request', version: 1, requestId, name, mime: MIME[format], data: bytes, ...(fileId ? { fileId } : {}),
     }, connectedHost!, [bytes]);
   });
 }
