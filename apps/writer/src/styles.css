@@ -1518,3 +1518,11 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 }
 /* Main's equal-column indicator supersedes the previous measured inline line. */
 .editor-tab-options > .editor-tab-indicator { opacity: 1; }
+
+
+/* Suite identity: preserve Graphe at left and show the ProairetOS Office wordmark at right. */
+.office-brand{display:flex;align-items:baseline;white-space:nowrap;flex:none;font-size:15px;font-weight:600;letter-spacing:-.035em;color:var(--writer-text-strong,#f2eee7);line-height:1}
+.office-brand__os{color:#d7a45b}
+.office-brand__suite{font-weight:400;letter-spacing:-.02em}
+@media(max-width:1100px){.top-bar{gap:12px;padding-inline:14px}.office-brand{font-size:12px}}
+@media(max-width:760px){.office-brand{font-size:11px}.office-brand__suite{font-size:10px}.identity{gap:7px}}
