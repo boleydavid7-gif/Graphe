@@ -151,6 +151,15 @@ and explicit approvals govern the task's scope.
   never guess legacy encodings or replace invalid Unicode silently. PDF export
   renders Rust page geometry, not browser print layout. Disclose vector-outline
   export's search/selection/accessibility limitations before download.
+- Phase 2's Type 3 PDF experiment failed independent rendering acceptance; keep
+  the verified outlined profile and warning. Do not revive experimental layout
+  metadata or claim searchable/tagged/archival PDF without the new acceptance
+  evidence described in `docs/PHASE2_PDF.md`.
+- Library metadata listing uses measured cursor traversal and shared validation,
+  without the owned body copies required by load/save. Keep completion, corruption,
+  sorting and etag guards. Do not infer one-record total memory or add a database
+  migration/cache from estimates; use the manual tools and recorded measurements
+  in `docs/PHASE2_PERFORMANCE.md`.
 - The planned comprehensive technical, security, DOCX-compatibility and commercial-
   licensing audit remains pending. The owner explicitly requested Step 7.5
   after Step 7; do not interpret that as completion of the audit or permission

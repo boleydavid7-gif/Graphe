@@ -774,6 +774,14 @@ A new record expects no existing etag. A stale tab or same-ID imported document
 cannot silently overwrite another saved version; the user can reopen it or save
 a separate copy with a new document identity.
 
+Phase 2 measures library listing separately from storage writes. The list path
+uses a read-only cursor and the existing record checks without copying complete
+native bodies for metadata. It retains summaries and corruption warnings, sorts
+at cursor exhaustion, and resolves only on transaction completion. Load/save
+retain owned byte copies, and etags/write serialization are unchanged. This
+requires no database migration; a cursor still reads each full value. Measurements,
+limits and regression evidence are in [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).
+
 Local Save captures document bytes and its Rust session/revision before awaiting
 storage. Dirty state clears only if that revision is still current when saving
 finishes. New, Open, Import, and Close guard unsaved replacement. Async open/import

@@ -1006,3 +1006,16 @@ export and its warning. A mature CID/subsetting and exact font-instancing propos
 needs separate review. Tagged PDF and PDF/A remain distinct investigations with
 no compliance claim.
 See [PHASE2_PDF.md](PHASE2_PDF.md).
+
+## Phase 2: measure before optimizing storage and layout
+
+MDN IndexedDB guidance confirms `getAll` structured clones and the transaction
+completion boundary. Actual Chromium measurements found full-body cloning plus
+redundant `decode` copies in metadata listing. Interleaved before/after tests
+justify cursor iteration with the same validation and no metadata-side byte copy;
+load/save ownership, corruption warnings, etags and completion guards remain.
+No database migration or extra dependency is needed. Separate real keyboard
+measurements identify full layout/transport and SVG footprint as important large-
+document limits; existing memoization is preserved and a larger cache/transport
+change requires a concrete review. Reproducible tools, counters and limitations
+are recorded in [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).

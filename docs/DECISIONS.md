@@ -1098,3 +1098,21 @@ stay unchanged. Searchable/selectable PDF remains unfinished. Exact variable-fon
 instances and shaped-source provenance are requirements for a follow-up, with
 independent reader tests before acceptance. Tagged PDF/PDF-A are separate work
 and no accessibility/conformance claim is made. See [PHASE2_PDF.md](PHASE2_PDF.md).
+
+## 053: Stream validated library summaries without copying document bodies
+
+**Decision:** Use a read-only cursor and existing record validation for metadata
+listing. Preserve byte copies in load/save, all corruption warnings, sorting and
+transaction completion. Keep the existing database and save/revision/etag policy.
+
+**Reason:** Actual interleaved Chromium measurements show reduced binary-buffer
+retention and listing latency. Cursor iteration alone with the old byte copies
+was worse; both parts of the change are justified by measurement. A metadata
+database migration is unnecessary for this correction.
+
+**Consequences:** Large libraries avoid eager retention of every full result and
+redundant owned copies. Each value is still read; native caching/GC can retain
+multiple buffers, and small libraries may be slightly slower. Separate large-
+document tests expose full-layout/transport/SVG costs; do not replace the engine
+or add speculative caches as part of the storage fix. See
+[PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).

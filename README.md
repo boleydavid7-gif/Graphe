@@ -25,6 +25,11 @@ The [PDF text investigation](docs/PHASE2_PDF.md) retains outlined production
 export after the experimental text-font path failed independent rendering checks.
 Searchable/selectable PDF and tagged/archival conformance remain unfinished.
 
+[Measured performance work](docs/PHASE2_PERFORMANCE.md) reduces library-list
+buffer retention without changing save protections. Large-document layout,
+snapshot and SVG costs remain explicit limits; reproducible developer probes
+are included for future changes.
+
 PR #17's [stability and file-compatibility audit](docs/WRITER_STABILITY_AUDIT.md)
 records executed format/save workflows, corrective regressions and outstanding
 mobile, external-producer and hosted-CI limits. It is not a general release or
