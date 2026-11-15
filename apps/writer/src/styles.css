@@ -743,3 +743,107 @@ dialog::backdrop { background: rgb(12 9 6 / 54%); }
 .writer-app summary:focus-visible,
 .writer-app a:focus-visible { outline-color: var(--writer-focus); }
 .paged-editor-paper { background: var(--writer-paper); }
+
+/* Writer Lamplight / pass 1: shared chrome, ribbon, menus and dialogs.
+   Semantic colors allow a ProairetOS host theme to flow through all chrome. */
+:root {
+  --writer-chrome-control-height: 34px;
+  --writer-chrome-gap: 6px;
+  --writer-shadow-ribbon: 0 3px 8px rgb(0 0 0 / 15%), 0 12px 26px rgb(0 0 0 / 20%);
+  --writer-shadow-overlay: 0 8px 20px rgb(0 0 0 / 20%), 0 22px 48px rgb(0 0 0 / 26%);
+}
+.top-bar,
+.editor-tabs,
+.status-bar { color: var(--writer-text); }
+.top-bar { background: var(--writer-surface); border-bottom-color: var(--writer-border-subtle); }
+.editor-tabs { background: var(--writer-shell); }
+.identity { color: var(--writer-text-strong); }
+.title-area { border-left-color: var(--writer-border); }
+.document-title:hover:not(:disabled),
+.document-title:focus { background: var(--writer-control); border-color: var(--writer-border-control); }
+.file-actions .desktop-action { color: var(--writer-text-muted); }
+.save-state { color: var(--writer-text-muted); }
+.editor-tabs > button { color: var(--writer-text-muted); }
+.editor-tabs > button:hover:not(:disabled) { color: var(--writer-text-strong); background: var(--writer-control-hover); }
+.editor-tabs > button[aria-pressed='true'] { color: var(--writer-accent); }
+.editor-tab-indicator { background: var(--writer-accent); box-shadow: 0 1px 6px color-mix(in srgb, var(--writer-accent) 22%, transparent); }
+.formatting-bar {
+  gap: 10px;
+  border-color: var(--writer-border);
+  background: var(--writer-surface);
+  box-shadow: var(--writer-shadow-ribbon);
+}
+.formatting-bar:focus-within { border-color: var(--writer-border-control); }
+.history-controls,
+.font-selectors,
+.character-controls { border-right-color: var(--writer-border); }
+.history-controls > button,
+.format-button,
+.file-actions > button,
+.zoom-controls button {
+  min-height: var(--writer-chrome-control-height);
+  border-radius: var(--writer-radius-sm);
+}
+.format-button { min-width: var(--writer-chrome-control-height); }
+.format-group select,
+.zoom-controls select,
+.layout-preview-controls select,
+.save-as-fields > input,
+.save-as-fields > select,
+.find-input {
+  border-color: var(--writer-border-control);
+  background: var(--writer-control);
+  color: var(--writer-text-control);
+}
+.format-button[aria-pressed='true'] {
+  background: var(--writer-control-selected);
+  color: var(--writer-accent);
+  border-color: var(--writer-border-control);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--writer-accent) 12%, transparent);
+}
+.format-button[aria-pressed='mixed'] {
+  background: var(--writer-control-selected);
+  border-color: var(--writer-border-control);
+}
+.document-menu-panel {
+  background: var(--writer-surface-menu);
+  border-color: var(--writer-border);
+  box-shadow: var(--writer-shadow-overlay);
+  padding: 8px;
+  gap: 2px;
+}
+.document-menu-panel > button,
+.document-menu-panel > a {
+  min-height: 36px;
+  border-radius: var(--writer-radius-sm);
+}
+.document-menu-panel > button:hover:not(:disabled),
+.library-entry:hover:not(:disabled) {
+  background: var(--writer-control-hover);
+}
+.menu-caption { color: var(--writer-text-muted); }
+dialog {
+  background: var(--writer-surface-raised);
+  color: var(--writer-text);
+  border-color: var(--writer-border);
+  box-shadow: var(--writer-shadow-overlay);
+}
+dialog .dialog-actions { border-color: var(--writer-border); }
+.status-bar { background: var(--writer-surface); border-top-color: var(--writer-border-subtle); }
+@media (hover: hover) and (pointer: fine) {
+  .formatting-bar:hover { border-color: var(--writer-border-control); box-shadow: var(--writer-shadow-ribbon); }
+  .format-button:hover:not(:disabled),
+  .history-controls > button:hover:not(:disabled),
+  .file-actions > button:hover:not(:disabled) { background: var(--writer-control-hover); }
+}
+@media (max-width: 620px) {
+  .top-bar { border-bottom-color: var(--writer-border-subtle); }
+  .formatting-bar { gap: 8px; background: var(--writer-surface); box-shadow: var(--writer-shadow-ribbon); }
+  .formatting-bar:focus-within { box-shadow: var(--writer-shadow-ribbon); }
+  .document-menu-panel { max-width: calc(100vw - 18px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-tab-indicator,
+  .document-menu-panel,
+  dialog[open] { animation: none !important; transition: none !important; }
+}
