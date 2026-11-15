@@ -639,15 +639,18 @@ impl LayoutEngine {
                     }
                 }
             }
-            if line_index == 0 {
-                if let Some(marker) = marker {
-                    let size = formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.;
-                    self.shape_list_marker(
-                        marker, &mut shaped, size, output, cache, glyph_count, paragraph,
-                    )?;
-                }
-            }
             result.push(shaped);
+        }
+        // Release the shaping layout before acquiring the context again for
+        // decorative marker glyphs; both use the same pinned Rust font catalog.
+        drop(layout);
+        if let Some(marker) = marker {
+            if let Some(first_line) = result.first_mut() {
+                let size = formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.;
+                self.shape_list_marker(
+                    marker, first_line, size, output, cache, glyph_count, paragraph,
+                )?;
+            }
         }
         Ok(result)
     }
