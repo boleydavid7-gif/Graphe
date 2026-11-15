@@ -73,6 +73,11 @@ and explicit approvals govern the task's scope.
   that every formatting value fit the native model exactly. Content, protection,
   revision, malformed-structure and unknown-markup guards remain strict; an
   independent warning budget must never hide a blocking finding.
+- Phase 2's bounded ODT/RTF normalization follows that same original-preservation
+  policy. Classify exact known settings before blocker budgeting, retain a
+  meaningful-loss summary before notice truncation, and use full-file copy
+  assessment across external destinations. Unknown/protected/content-bearing
+  constructs remain guarded. See `docs/PHASE2_COMPATIBILITY.md`.
 - Recognize inert DOCX auxiliary data by exact relationship URI/source role,
   content type and inspected payload, never by filename alone. Preserve it in
   the original. Known theme/script formatting and layout preferences may be

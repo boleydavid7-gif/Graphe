@@ -76,6 +76,15 @@ Native source validation now dispatches each known format to its adapter instead
 of assuming every original is DOCX. Full native APIs still preserve exact source
 bytes independently from editing history.
 
+Phase 2 extends known-formatting normalization to validated producer settings in
+the ODT/RTF adapters and forced DOCX run direction. Each adapter classifies these
+before bounded blocking reports; non-blocking notices have an independent budget.
+A runtime meaningful-formatting summary is set before truncation and source-aware
+copy assessment applies it across external destinations. It is not a persisted
+document field. Original bytes, strict unsupported-content/protection guards and
+complete-projection requirements remain unchanged. See
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md) for supported approximations.
+
 TXT uses explicit Unicode encoding/BOM rules and documented paragraph-newline
 normalization. ODT uses bounded ZIP/XML libraries already in the workspace; RTF
 uses a low-level tokenizer with strict native-file semantics. PDF serializes the

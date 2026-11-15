@@ -977,3 +977,17 @@ that changed selections at the same revision cannot receive old cuts or pastes.
 No new library, licensing choice, schema or integration protocol is introduced.
 Detailed contracts, results and device limits are in
 [PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).
+
+## Phase 2: external producer compatibility
+
+Revisited the actual public LibreOffice resaves from the audit, alongside the
+existing adapters and original/source-aware copy paths. Official OOXML, ODF 1.3
+and RTF 1.9.1 specifications distinguish inactive authoring scaffolding from
+formatting and unsupported content. Active run RTL and script appearance are
+meaningful approximations, not metadata. Normalize known formatting with notices;
+retain strict structural, protection, hidden-content and unknown-markup checks.
+Independent notice/blocker budgets and a pre-truncation meaningful-loss summary
+prevent ordinary settings from concealing later unsafe content. No additional
+parser, editor engine or core format-specific structure is justified. Sources,
+accepted boundaries and actual verification are in
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).

@@ -1060,3 +1060,24 @@ must not become a tap. Async plain-text clipboard cut/paste rechecks live Rust
 identity, revision, selection and composition after browser I/O. Physical-device
 behavior and OS-native handles/loupe are not claimed by browser automation.
 See [PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).
+
+## 051: Classify external formatting separately from unsupported content
+
+**Decision:** Extend the existing adapters with exact, validated producer-setting
+recognition and disclosed known-formatting approximations. Keep independent
+bounded notices and blockers, and track meaningful formatting before notice
+truncation. Source-aware copy assessment reuses the import classification across
+external destinations. Retain exact originals and existing native schemas.
+
+**Reason:** LibreOffice resaves exposed harmless defaults and unsupported run
+formatting being treated as content blockers. Ignoring arbitrary settings or
+post-filtering a bounded report could instead publish an incomplete document.
+RTL direction and associated script formatting are not inert metadata.
+
+**Consequences:** Safe producer files become editable without relaxing protection,
+content, resource or malformed-data checks. Approximate appearance is disclosed;
+an unsupported feature still prevents a partial editable projection. ODT/RTF
+regenerated copies retain supported semantics rather than arbitrary source XML
+or control words. Full native files retain exact recovery sources. No dependency,
+model, storage migration or additional formatting engine is introduced. See
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).

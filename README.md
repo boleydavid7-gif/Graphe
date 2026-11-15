@@ -15,6 +15,12 @@ selection, draggable endpoints, scrolling/zoom handling and guarded clipboard
 controls on a separate development branch. Browser automation passes; physical
 iOS/Android/PWA validation remains outstanding. This is not a release approval.
 
+Phase 2's [external compatibility corrections](docs/PHASE2_COMPATIBILITY.md)
+classify validated DOCX/ODT/RTF formatting separately from unsupported content.
+Exact originals and native identity remain preserved; known approximations are
+disclosed on import and external copies. This is a bounded profile improvement,
+not a claim that all documents from those applications are editable.
+
 PR #17's [stability and file-compatibility audit](docs/WRITER_STABILITY_AUDIT.md)
 records executed format/save workflows, corrective regressions and outstanding
 mobile, external-producer and hosted-CI limits. It is not a general release or
