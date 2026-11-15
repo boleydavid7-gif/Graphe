@@ -1,4 +1,4 @@
-/** Versioned, same-origin theme handoff for Writer embedded in ProairetOS.
+/** Versioned, trusted-origin theme handoff for Writer embedded in ProairetOS.
  * The OS owns Lamplight's scheme generation. Writer only consumes semantic tokens.
  * Standalone Writer retains the CSS fallback palette.
  */
@@ -18,12 +18,13 @@ const TOKEN_MAP = {
 type TokenName = keyof typeof TOKEN_MAP;
 const HEX = /^#[0-9a-f]{6}$/i;
 const NAMES = Object.keys(TOKEN_MAP) as TokenName[];
+const TRUSTED_PARENTS = new Set(['https://proairetos.com', 'https://research-and-development-proairetos.boleydavid7.workers.dev']);
 
 export function installLamplightBridge(): () => void {
   if (window.parent === window) return () => {};
   // Never accept theme messages from another origin or from unrelated frames.
   const receive = (event: MessageEvent) => {
-    if (event.source !== window.parent || event.origin !== window.location.origin) return;
+    if (event.source !== window.parent || !TRUSTED_PARENTS.has(event.origin)) return;
     const data = event.data;
     if (!data || data.type !== 'proairetos:lamplight' || data.version !== 1 || data.app !== 'writer') return;
     if (data.mode !== 'light' && data.mode !== 'dark') return;
@@ -44,6 +45,9 @@ export function installLamplightBridge(): () => void {
     // Document paper and content intentionally remain independent of shell colors.
   };
   window.addEventListener('message', receive);
-  window.parent.postMessage({ type: 'writer:lamplight-ready', version: 1 }, window.location.origin);
+  // Send the ready handshake only to the exact trusted embedding origin.
+  let parentOrigin: string | null = null;
+  try { const origin = new URL(document.referrer).origin; if (TRUSTED_PARENTS.has(origin)) parentOrigin = origin; } catch { /* No referrer: wait for the trusted parent's theme message. */ }
+  if (parentOrigin) window.parent.postMessage({ type: 'writer:lamplight-ready', version: 1 }, parentOrigin);
   return () => window.removeEventListener('message', receive);
 }
