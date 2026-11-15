@@ -1003,3 +1003,96 @@ dialog .dialog-actions { border-color: var(--writer-border); }
 img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 35px; flex-shrink: 0; }
 .closed-document img.writer-lantern { width: 64px; height: 68px; }
 @media (max-width: 620px) { img.writer-lantern { width: 29px; height: 33px; } }
+
+/* Mobile document-first refinement: keep editing tools reachable without
+   consuming unnecessary vertical space. Do not modify page/caret geometry. */
+@media (max-width: 620px) {
+  .top-bar {
+    min-height: 0;
+    padding: 6px 12px 5px;
+    row-gap: 0;
+    column-gap: 8px;
+  }
+  .identity { gap: 8px; font-size: 19px; line-height: 1.2; }
+  img.writer-lantern { width: 27px; height: 29px; }
+  .file-actions { gap: 2px; }
+  .file-actions > button,
+  .document-menu > summary { min-width: 40px; min-height: 40px; }
+  .title-area {
+    min-height: 33px;
+    gap: 8px;
+    padding: 0 0 2px;
+  }
+  .document-title {
+    margin-left: 0;
+    padding: 4px 2px;
+    font-size: 15px;
+    line-height: 1.3;
+  }
+  .mobile-save-state {
+    max-width: 112px;
+    font-size: 10px;
+    text-align: right;
+  }
+  .editor-tabs {
+    gap: 0;
+    min-height: 39px;
+    padding-inline: 5px;
+  }
+  .editor-tabs > button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 39px;
+    padding: 6px 3px;
+    font-size: 12px;
+  }
+  .formatting-bar {
+    min-height: 0;
+    margin: 4px 7px 0;
+    padding: 5px 7px;
+    gap: 5px;
+    border-radius: var(--writer-radius-sm, 6px);
+    box-shadow: none;
+  }
+  .formatting-bar:focus-within { box-shadow: none; }
+  .history-controls { gap: 1px; padding-right: 5px; }
+  .format-button,
+  .history-controls > button {
+    min-width: 36px;
+    min-height: 36px;
+    height: 36px;
+  }
+  .format-group { gap: 4px; }
+  .font-selectors,
+  .character-controls { padding-right: 6px; }
+  .format-group select { min-height: 36px; height: 36px; }
+  .workspace {
+    padding: 10px 7px 22px;
+    scroll-padding-top: 8px;
+  }
+  .mobile-document-actions {
+    padding: 3px 9px calc(3px + env(safe-area-inset-bottom, 0px));
+    gap: 2px;
+  }
+  .mobile-document-actions > button {
+    min-width: 0;
+    min-height: 42px;
+    flex: 1 1 0;
+    padding: 3px 4px;
+    gap: 2px;
+  }
+  .mobile-document-actions svg { width: 19px; height: 19px; }
+  .status-bar { padding-block: 4px; }
+}
+/* When the editor's software keyboard is visible, give the document space
+   and remove the redundant bottom actions; main formatting stays accessible. */
+@media (max-width: 620px) {
+  .writer-app:has(.paged-editor :focus-visible) .mobile-document-actions,
+  .writer-app:has(.paged-editor textarea:focus) .mobile-document-actions,
+  .writer-app:has(.paged-editor [contenteditable]:focus) .mobile-document-actions {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .formatting-bar > :not(.history-controls) { animation: none; }
+}
