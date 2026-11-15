@@ -39,7 +39,7 @@ a { color: inherit; text-underline-offset: 3px; }
 .document-menu { position: relative; }
 .document-menu > summary { display: grid; place-items: center; list-style: none; width: 35px; height: 35px; border-radius: 4px; }
 .document-menu > summary::-webkit-details-marker { display: none; }
-.document-menu-panel { display: flex; flex-direction: column; position: absolute; z-index: 30; right: 0; top: 43px; min-width: 220px; padding: 7px; background: #332b23; border: 1px solid #65533f; border-radius: 5px; box-shadow: 0 12px 32px #0006; }
+.document-menu-panel { display: flex; flex-direction: column; position: absolute; z-index: 30; right: 0; top: 43px; min-width: 220px; max-height: min(var(--document-menu-height, 100dvh), calc(100dvh - 64px - env(safe-area-inset-bottom, 0px))); overflow-y: auto; overscroll-behavior: contain; padding: 7px; background: #332b23; border: 1px solid #65533f; border-radius: 5px; box-shadow: 0 12px 32px #0006; }
 .document-menu-panel > button { justify-content: flex-start; min-height: 36px; padding: 7px 10px; }
 .document-menu-panel > a { font-size: 11px; padding: 10px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 5px; }
 .menu-caption { font-size: 10px; color: var(--muted); padding: 6px 10px 8px; text-transform: uppercase; letter-spacing: .7px; }

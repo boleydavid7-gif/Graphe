@@ -1008,6 +1008,18 @@ so keyboard/rotation cannot inflate its minimum height or alter Rust pagination.
 Physical Safari/PWA keyboard behavior is not established by emulation. See
 [workflow verification](WRITER_RELIABILITY.md).
 
+The document menu remains a native disclosure containing ordinary buttons/links.
+Its lifetime does not depend on null-target blur, since pointer activation need
+not focus a button. Outside pointer, Escape and known outside keyboard focus
+dismiss it. Commands focus the visible summary before opening dialogs; no delayed
+activation or new command layer is introduced. Native dialogs close in layout
+cleanup while connected. Successful session replacement closes owned dialogs
+topmost first before capturing its focus origin, preserving immediate typing
+after unsaved decisions and asynchronous Open. The existing panel scrolls within
+CSS and VisualViewport bounds, including keyboard pan/resize, so lower commands
+do not require moving the overflow-hidden application. All destinations and
+disabled states are mapped in [menu verification](WRITER_MENU_RELIABILITY.md).
+
 Find is a bounded Rust literal/case-sensitive paragraph search, returning
 origin-bound selections expanded to complete core graphemes without changing
 text. Named-style assignment reuses the existing core operation; View summaries

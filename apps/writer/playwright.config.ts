@@ -25,12 +25,12 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-storage.spec.ts'],
+      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-storage.spec.ts', '**/document-menu.spec.ts'],
       use: { ...devices['Desktop Firefox'] },
     },
     {
       name: 'webkit',
-      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-*.spec.ts'],
+      testMatch: ['**/step7-compat.spec.ts', '**/step75.spec.ts', '**/docx-relationships.spec.ts', '**/reliability-*.spec.ts', '**/document-menu.spec.ts'],
       use: { ...devices['Desktop Safari'] },
     },
   ],

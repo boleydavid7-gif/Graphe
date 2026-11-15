@@ -21,7 +21,7 @@ function Dialog({ title, children, onClose, busy = false }: {
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const label = useId();
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current;
     dialog?.showModal();
     return () => dialog?.close();
@@ -357,13 +357,35 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const menu = documentMenu.current;
+    const panel = menu?.querySelector<HTMLElement>('.document-menu-panel');
+    const visual = window.visualViewport;
     function closeMenu(event: PointerEvent) {
       if (event.target instanceof Node && !documentMenu.current?.contains(event.target)) {
         documentMenu.current?.removeAttribute('open');
       }
     }
+    function fitMenu() {
+      if (!menu?.open || !panel) return;
+      const anchor = menu.getBoundingClientRect();
+      const visibleTop = visual?.offsetTop ?? 0;
+      const bottom = visibleTop + (visual?.height ?? window.innerHeight);
+      const top = Math.max(anchor.bottom + 8, visibleTop + 8);
+      panel.style.top = `${top - anchor.top}px`;
+      panel.style.setProperty('--document-menu-height', `${Math.max(0, bottom - top - 8)}px`);
+    }
     document.addEventListener('pointerdown', closeMenu);
-    return () => document.removeEventListener('pointerdown', closeMenu);
+    menu?.addEventListener('toggle', fitMenu);
+    window.addEventListener('resize', fitMenu);
+    visual?.addEventListener('resize', fitMenu);
+    visual?.addEventListener('scroll', fitMenu);
+    return () => {
+      document.removeEventListener('pointerdown', closeMenu);
+      menu?.removeEventListener('toggle', fitMenu);
+      window.removeEventListener('resize', fitMenu);
+      visual?.removeEventListener('resize', fitMenu);
+      visual?.removeEventListener('scroll', fitMenu);
+    };
   }, []);
 
   function compositionChanged(active: boolean) {
@@ -397,6 +419,8 @@ export default function App() {
 
   function documentAction(action: () => void) {
     documentMenu.current?.removeAttribute('open');
+    // Native dialogs must return to a visible opener, not a now-hidden item.
+    documentMenu.current?.querySelector('summary')?.focus({ preventScroll: true });
     action();
   }
 
@@ -417,6 +441,11 @@ export default function App() {
   }
 
   function replaceSession(next: WriterView, source: SaveAssociation | null, info: string) {
+    // Complete native return focus before capturing the replacement's origin.
+    // Busy state may already have blurred a disabled dialog button; close owned
+    // stacked dialogs from the top, rather than relying on the active element.
+    const dialogs = documentMenu.current?.closest('.writer-app')?.querySelectorAll<HTMLDialogElement>('dialog[open]');
+    Array.from(dialogs ?? []).reverse().forEach((dialog) => dialog.close());
     replacementFocus.current = { previous: document.activeElement };
     setSavedLocally(source !== null);
     updateView(next, false);
@@ -738,7 +767,10 @@ export default function App() {
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => void saveDocument()}><WriterIcon name="save" /><span className="desktop-label">Save</span></button>
         <details className="document-menu" ref={documentMenu} onBlur={(event) => {
-          if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+          // Safari can blur the summary without focusing the tapped button.
+          // Closing on that ambiguous null target removes it before click.
+          // Outside pointerdown and known outside keyboard focus still dismiss.
+          if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) {
             documentMenu.current?.removeAttribute('open');
           }
         }} onKeyDown={(event) => {

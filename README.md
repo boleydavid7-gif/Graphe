@@ -94,6 +94,10 @@ focus. Prepared exports provide explicit download/open links while preserving
 the local save status. Physical iOS keyboard and installed-app behavior still
 require device verification; mobile Chromium checks do not establish that.
 
+The focused [document-menu correction](docs/WRITER_MENU_RELIABILITY.md) traces
+every existing three-dot command and fixes swallowed activation, clipped options
+and dialog return focus. It preserves the same Rust, format and local-save APIs.
+
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
 unicode-segmentation library supplies Unicode grapheme boundaries. Native storage

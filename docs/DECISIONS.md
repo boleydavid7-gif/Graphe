@@ -981,3 +981,22 @@ Keyboard presentation adjustments do not change document layout; inset padding
 is bounded to prevent viewport feedback. No schema, adapter, dependency or undo
 engine changes. Device verification remains required; see
 [WRITER_RELIABILITY.md](WRITER_RELIABILITY.md).
+
+## 047: Keep menu activation independent of pointer focus
+
+**Decision:** Retain the native document disclosure and existing commands. Ignore
+null-target blur; dismiss on outside pointer, Escape or known outside keyboard
+focus. Before invoking a command, focus the visible summary so native dialogs
+can return there. Close dialogs in layout cleanup before DOM removal; successful
+session replacement closes its owned dialog stack before capturing return focus.
+Constrain the existing scrollable panel to the visible viewport.
+
+**Reason:** Safari can activate a button without focusing it. Closing on that
+blur swallows its click; an unbounded panel also hides commands in short windows.
+Changing every command or adding a custom menu library would obscure the shared
+cause. There were no unfinished menu actions to replace.
+
+**Consequences:** No delayed clicks, forced focus on every pointerdown, new menu
+semantics, dependency or document-engine change. Existing consent, composition,
+history, conflict and source-preservation guards remain. Browser/device testing
+limits are explicit in [WRITER_MENU_RELIABILITY.md](WRITER_MENU_RELIABILITY.md).
