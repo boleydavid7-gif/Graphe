@@ -24,7 +24,7 @@ export function installProairetosFilesBridge(): () => void {
       const payload = event.data as Partial<FilesOpenPayload>;
       if (typeof payload.fileId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(payload.fileId)
         || typeof payload.name !== 'string' || payload.name.length > 120
-        || !/\\.(writer|docx|odt|rtf|txt)$/i.test(payload.name)
+        || !/\.(writer|docx|odt|rtf|txt)$/i.test(payload.name)
         || typeof payload.mime !== 'string' || !(payload.data instanceof ArrayBuffer)
         || payload.data.byteLength === 0 || payload.data.byteLength > 5 * 1024 * 1024) return;
       window.dispatchEvent(new CustomEvent('proairetos:files-open', { detail: payload }));
