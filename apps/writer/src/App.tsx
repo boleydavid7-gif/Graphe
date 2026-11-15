@@ -767,11 +767,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', shortcut);
   });
 
+  const mobileFormattingPointer = useRef(false);
   function format(input: WriterCommand, refocus = true) {
     const next = command(input);
     // Focus synchronously; a deferred callback could steal focus from the next
     // keyboard control. The surface restores the new Rust selection on update.
-    if (refocus && next) surface.current?.focus();
+    // A mobile toolbar tap can blur the hidden IME input before click fires.
+    // Rust retains the selection; forcing focus from that click reopens the
+    // software keyboard and can shift the viewport on iOS and Android.
+    // Keep the existing desktop keyboard/mouse behavior.
+    if (refocus && next && !mobileFormattingPointer.current) surface.current?.focus();
   }
 
   const unavailable = !view || !documentOpen || busy || composing;
@@ -840,7 +845,10 @@ export default function App() {
         {saveLabel}
       </span>
     </nav>
-    <div id="writer-formatting" ref={ribbonRef} className={`formatting-bar${moreFormatting ? ' show-more-formatting' : ''}`} aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls`}>
+    <div id="writer-formatting" ref={ribbonRef} className={`formatting-bar${moreFormatting ? ' show-more-formatting' : ''}`}
+      onPointerDownCapture={(event) => { mobileFormattingPointer.current = event.pointerType === 'touch' || event.pointerType === 'pen'; }}
+      onKeyDownCapture={() => { mobileFormattingPointer.current = false; }}
+      aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls`}>
       <div className="history-controls" role="group" aria-label="History">
         <button aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={unavailable || !view?.canUndo}
           onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'undo' })}><WriterIcon name="undo" /></button>
@@ -952,7 +960,8 @@ export default function App() {
             onClose={togglePagePreview} />}</>
           : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
-    {inspectorOpen && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector">
+    {inspectorOpen && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector"
+      onPointerDownCapture={() => { mobileFormattingPointer.current = false; }}>
       <div className="writer-inspector-heading">
         <div><span className="writer-inspector-eyebrow">Writer</span><h2>Formatting</h2></div>
         <button aria-label="Close formatting inspector" onClick={() => setInspectorOpen(false)}>×</button>
