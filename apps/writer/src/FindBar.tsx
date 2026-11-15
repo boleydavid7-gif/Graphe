@@ -50,7 +50,7 @@ export function FindBar({ view, onFind, onCommand, onClose, onFocusDocument, onR
 
   function replaceCurrent() {
     const match = matches[index];
-    if (!state.result || !match || state.result.truncated) return;
+    if (!state.result || !match) return;
     // The actual edit uses exactly the selection and revision supplied by Rust.
     const next = onCommand({ type: 'replace_text', text: replacement,
       selection: match.selection, expectedRevision: state.result.revision });
@@ -73,7 +73,7 @@ export function FindBar({ view, onFind, onCommand, onClose, onFocusDocument, onR
 
   function close() { onClose(); onFocusDocument(); }
 
-  return <form className="find-bar" role="search" aria-label="Find and replace in document" onSubmit={(event) => {
+  return <form className="find-bar" role="search" aria-label="Find in document" onSubmit={(event) => {
     event.preventDefault(); move(1);
   }} onKeyDown={(event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
@@ -101,7 +101,7 @@ export function FindBar({ view, onFind, onCommand, onClose, onFocusDocument, onR
         onKeyDown={(event) => {
           if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); replaceCurrent(); }
         }} />
-      <button type="button" disabled={index < 0 || !matches.length || !!state.error || !!state.result?.truncated}
+      <button type="button" disabled={index < 0 || !matches.length || !!state.error}
         onClick={replaceCurrent}>Replace</button>
       <button type="button" disabled={!query || !matches.length || !!state.error || !!state.result?.truncated}
         onClick={replaceAll}>Replace all</button>
