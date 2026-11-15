@@ -168,6 +168,7 @@ export default function App() {
   const [unsavedDialog, setUnsavedDialog] = useState(false);
   const [saveConflict, setSaveConflict] = useState(false);
   const [exportDisclosure, setExportDisclosure] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [saveAs, setSaveAs] = useState<SaveAsState | null>(null);
   const [preservedImport, setPreservedImport] = useState<PreservedImport | null>(null);
   const [pagePreview, setPagePreview] = useState(false);
@@ -881,10 +882,7 @@ export default function App() {
             {view?.originalSource && <button disabled={unavailable} onClick={() => documentAction(downloadOriginal)}>Download original</button>}
             <button disabled={unavailable} onClick={() => documentAction(togglePagePreview)} aria-pressed={pagePreview}>Page preview</button>
             <button disabled={unavailable} onClick={() => documentAction(closeDocument)}>Close</button>
-            <span className="menu-caption">About Graphe · Licenses</span>
-            <a href={grapheLicenseUrl} target="_blank" rel="noreferrer">Graphe license</a>
-            <a href={fontLicensesUrl} target="_blank" rel="noreferrer">Font licenses</a>
-            <a href={formatLicensesUrl} target="_blank" rel="noreferrer">Format library notices</a>
+            <button type="button" onClick={() => { documentMenu.current?.removeAttribute("open"); setAboutOpen(true); }}>About Graphe</button>
           </div>
         </details>
       </nav>
@@ -1133,6 +1131,26 @@ export default function App() {
         <button type="submit" className="primary-button" disabled={busy || !saveAs.assessment}
           aria-describedby={saveAs.assessment?.warnings.length ? 'save-copy-warning' : undefined}>Save copy</button></div>
       </form>
+    </Dialog>}
+    {aboutOpen && <Dialog title="About Graphe" onClose={() => setAboutOpen(false)} className="about-graphe-dialog">
+      <div className="about-graphe-intro">
+        <strong>Graphe</strong>
+        <span>Version 0.1.0</span>
+        <p>A free word processor from Proairetos.</p>
+      </div>
+      <section className="about-graphe-section" aria-label="Copyright and ownership">
+        <h3>Copyright and ownership</h3>
+        <p>© 2026 David Boley. All rights reserved.</p>
+        <p>Graphe is proprietary software distributed under the Proairetos brand. It is free to use for personal and commercial work. Your documents and original content remain yours.</p>
+      </section>
+      <section className="about-graphe-section" aria-label="Licenses and notices">
+        <h3>Licenses and notices</h3>
+        <a href={grapheLicenseUrl} target="_blank" rel="noopener noreferrer">Graphe software license</a>
+        <a href={fontLicensesUrl} target="_blank" rel="noopener noreferrer">Bundled font licenses</a>
+        <a href={formatLicensesUrl} target="_blank" rel="noopener noreferrer">Third-party format library notices</a>
+        <p>Third-party components retain their respective licenses.</p>
+      </section>
+      <div className="dialog-actions"><button className="primary-button" onClick={() => setAboutOpen(false)}>Done</button></div>
     </Dialog>}
     {exportDisclosure && <Dialog title="Export Writer file" onClose={() => setExportDisclosure(false)}>
       <p>This Writer file includes the preserved original {view?.originalSource ? formatName(view.originalSource.format) : 'document'}, {view?.originalSource?.filename}.</p>
