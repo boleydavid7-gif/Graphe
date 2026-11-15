@@ -1567,3 +1567,23 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
   .status-bar .page-status { white-space: nowrap; }
   .status-bar .zoom-controls { margin-left: auto; }
 }
+
+
+/* Find & Replace: one compact additional row, keeping controls reachable on phones. */
+.find-replace-toggle { color: var(--writer-accent); white-space: nowrap; }
+.find-replace-toggle[aria-expanded='true'] { background: var(--writer-control-selected); }
+.find-replace-row { display: flex; align-items: center; flex: 1 1 100%; gap: 8px; min-width: 0; }
+.find-replace-row > label { color: var(--writer-text-muted); font-size: 11px; white-space: nowrap; }
+.find-replace-input { flex: 1 1 220px; width: auto; max-width: 430px; min-width: 100px; }
+.find-replace-row > button { border: 1px solid var(--writer-border-control); white-space: nowrap; min-height: 34px; }
+.find-replace-note { color: var(--writer-text-muted); font-size: 11px; }
+@media (max-width: 620px) {
+  .find-bar { padding: 7px 10px; gap: 5px; }
+  .find-bar > .find-input { flex: 1 1 140px; width: auto; min-width: 0; font-size: 16px; }
+  .find-bar > button { min-height: 36px; }
+  .find-summary { flex-shrink: 0; }
+  .find-replace-row { flex-wrap: wrap; gap: 5px; }
+  .find-replace-row > label { flex: 0 0 100%; }
+  .find-replace-input { flex: 1 1 105px; font-size: 16px; }
+  .find-replace-row > button { flex: 0 0 auto; min-height: 38px; }
+}

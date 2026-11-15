@@ -317,6 +317,7 @@ impl BrowserEngine {
             Command::ReplaceText {
                 text, selection, ..
             } => self.replace_text(&text, selection),
+            Command::ReplaceAll { query, text, .. } => self.replace_all(&query, &text),
             Command::InsertParagraph { selection, .. } => self.replace_text("\n", selection),
             Command::InsertLineBreak { selection, .. } => self.insert_line_break(selection),
             Command::Delete {

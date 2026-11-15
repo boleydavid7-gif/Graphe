@@ -449,6 +449,24 @@ test('fixed zoom scrolls the Rust caret horizontally into a narrow editing viewp
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('Find and Replace edits the selected match and replaces the rest in one undo step', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await start(page);
+  await focusEditor(page);
+  await page.keyboard.insertText('red red red');
+  await page.getByRole('button', { name: 'Find', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Find text', exact: true }).fill('red');
+  await page.getByRole('button', { name: 'Replace…' }).click();
+  await page.getByRole('textbox', { name: 'Replace with', exact: true }).fill('blue');
+  await page.getByRole('button', { name: 'Next match', exact: true }).click();
+  await page.getByRole('button', { name: 'Replace', exact: true }).click();
+  await expect(input(page)).toHaveText('blue red red');
+  await page.getByRole('button', { name: 'Replace all', exact: true }).click();
+  await expect(input(page)).toHaveText('blue blue blue');
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(input(page)).toHaveText('blue red red');
+});
+
 test('Find reveals an offscreen Rust selection while keeping the query field focused', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await start(page);

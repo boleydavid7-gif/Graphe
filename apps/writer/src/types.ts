@@ -100,6 +100,7 @@ export type WriterCommand =
   | { readonly type: 'set_selection'; readonly selection: WriterSelection | null;
       readonly affinity?: 'leading' | 'trailing'; readonly expectedRevision?: string }
   | ({ readonly type: 'replace_text'; readonly text: string } & EditOrigin)
+  | { readonly type: 'replace_all'; readonly query: string; readonly text: string; readonly expectedRevision?: string }
   | ({ readonly type: 'insert_paragraph' } & EditOrigin)
   | ({ readonly type: 'insert_line_break' } & EditOrigin)
   | ({ readonly type: 'delete'; readonly direction: 'backward' | 'forward' } & EditOrigin)

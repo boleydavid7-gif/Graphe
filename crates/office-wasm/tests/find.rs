@@ -87,3 +87,61 @@ fn query_does_not_normalize_unicode_or_invent_paragraph_separator_matches() {
         assert!(result["matches"].as_array().unwrap().is_empty());
     }
 }
+
+
+#[test]
+fn replace_all_is_atomic_across_paragraphs_and_one_undo_step() {
+    let mut engine = BrowserEngine::new("replace-all").unwrap();
+    let original = command(&mut engine, json!({"type":"replace_text","text":"red red\nred"}));
+    let after = command(&mut engine, json!({
+        "type":"replace_all", "query":"red", "text":"blue",
+        "expectedRevision": original["revision"]
+    }));
+    let texts: Vec<String> = after["paragraphs"].as_array().unwrap().iter()
+        .map(|paragraph| paragraph["runs"].as_array().unwrap().iter()
+            .map(|run| run["text"].as_str().unwrap()).collect::<String>()).collect();
+    assert_eq!(texts, vec!["blue blue", "blue"]);
+    assert_ne!(after["revision"], original["revision"]);
+    let undone = command(&mut engine, json!({"type":"undo"}));
+    let original_text: Vec<String> = undone["paragraphs"].as_array().unwrap().iter()
+        .map(|paragraph| paragraph["runs"].as_array().unwrap().iter()
+            .map(|run| run["text"].as_str().unwrap()).collect::<String>()).collect();
+    assert_eq!(original_text, vec!["red red", "red"]);
+    command(&mut engine, json!({"type":"redo"}));
+    let red: Value = serde_json::from_str(&engine.find_text("red").unwrap()).unwrap();
+    assert!(red["matches"].as_array().unwrap().is_empty());
+    let blue: Value = serde_json::from_str(&engine.find_text("blue").unwrap()).unwrap();
+    assert_eq!(blue["matches"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn replace_all_handles_overlapping_literal_hits_and_full_graphemes() {
+    let mut engine = BrowserEngine::new("replace-complex").unwrap();
+    command(&mut engine, json!({"type":"replace_text","text":"aaaa Ae\u{301} 👩🏽‍💻"}));
+    command(&mut engine, json!({"type":"replace_all","query":"aa","text":"b"}));
+    assert!(engine.snapshot().contains("bb Ae"));
+    command(&mut engine, json!({"type":"replace_all","query":"\u{301}","text":"X"}));
+    assert!(engine.snapshot().contains("AX"));
+    command(&mut engine, json!({"type":"replace_all","query":"💻","text":"Y"}));
+    assert!(engine.snapshot().contains("Y"));
+    assert!(!engine.snapshot().contains("👩🏽‍💻"));
+}
+
+#[test]
+fn replace_all_rejects_stale_truncated_and_multiline_edits_without_changes() {
+    let mut engine = BrowserEngine::new("replace-guard").unwrap();
+    let before = command(&mut engine, json!({"type":"replace_text","text":"x ".repeat(1100)}));
+    let bytes = engine.export_document().unwrap();
+    let snapshot = engine.snapshot();
+    for attempted in [
+        json!({"type":"replace_all","query":"x","text":"y","expectedRevision":"stale"}),
+        json!({"type":"replace_all","query":"x","text":"y","expectedRevision":before["revision"]}),
+        json!({"type":"replace_all","query":"x","text":"a\nb"}),
+        json!({"type":"replace_all","query":"","text":"y"}),
+    ] {
+        let result: Value = serde_json::from_str(&engine.dispatch(&attempted.to_string())).unwrap();
+        assert_eq!(result["ok"], false, "{attempted}");
+        assert_eq!(engine.snapshot(), snapshot);
+        assert_eq!(engine.export_document().unwrap(), bytes);
+    }
+}
