@@ -1,4 +1,4 @@
-use office_core::Alignment;
+use office_core::{Alignment, ListKind};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +71,11 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    SetList {
+        list: Option<ListKind>,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     AssignStyle {
         style_id: Option<String>,
         selection: Option<BrowserSelection>,
@@ -127,6 +132,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::FormatParagraph {
+                expected_revision, ..
+            }
+            | Self::SetList {
                 expected_revision, ..
             }
             | Self::AssignStyle {
@@ -195,6 +203,7 @@ pub(crate) struct ParagraphView {
     pub section_id: String,
     pub style_id: Option<String>,
     pub runs: Vec<RunView>,
+    pub list: Option<ListKind>,
     pub format: ParagraphFormatView,
 }
 
@@ -238,6 +247,8 @@ pub(crate) struct FormatSummary {
     pub alignment: Option<Alignment>,
     pub style_id: Option<String>,
     pub style_mixed: bool,
+    pub list: Option<ListKind>,
+    pub list_mixed: bool,
 }
 
 #[derive(Debug, Serialize)]
