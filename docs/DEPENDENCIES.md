@@ -1,7 +1,7 @@
 # Writer dependency review
 
 Reviewed on 2026-11-14. This inventory records upstream dependency licenses;
-the Office engine's own license remains undecided. No Office engine or existing
+Graphe's proprietary software notice is in the repository root LICENSE. No Office engine or existing
 rich-text editor is embedded. The npm lockfile and Cargo.lock pin the resolved
 graphs, including platform-specific optional packages.
 
