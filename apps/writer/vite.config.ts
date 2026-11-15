@@ -3,9 +3,6 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
-  // The Writer Worker is mounted under /writer on proairetos.com.
-  // Match Cloudflare's static asset base path so JS/CSS/WASM stay under /writer/.
-  base: '/writer/',
   build: { target: 'es2022' },
   preview: {
     headers: {
