@@ -102,7 +102,13 @@ export class WriterStorage {
       throw new StorageError('closed', 'The local document library was closed. Reload Writer to reconnect.');
     }
     if (!this.connection) {
-      this.connection = this.open();
+      const opening = this.open();
+      this.connection = opening;
+      // Opening may fail transiently. Keep automatic retry policy in the save
+      // controller, but allow the next explicit operation to make a fresh try.
+      void opening.catch(() => {
+        if (this.connection === opening) this.connection = undefined;
+      });
     }
     const database = await this.connection;
     if (this.closed) {
@@ -112,7 +118,7 @@ export class WriterStorage {
   }
 
   private open(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
+    const opening: Promise<IDBDatabase> = new Promise((resolve, reject) => {
       if (!globalThis.indexedDB) {
         reject(new StorageError('unavailable', 'This browser does not provide local document storage. You can still export .writer files.'));
         return;
@@ -146,10 +152,16 @@ export class WriterStorage {
           database.close();
           this.closed = true;
         };
-        database.onclose = () => { this.closed = true; };
+        database.onclose = () => {
+          // An abnormal platform close invalidates this connection, not the
+          // live document or its etag. Explicit close/version changes remain
+          // terminal; a later Save can reconnect after an unexpected close.
+          if (this.connection === opening) this.connection = undefined;
+        };
         resolve(database);
       };
     });
+    return opening;
   }
 
   /** List metadata and explicit record warnings without rewriting native bytes. */

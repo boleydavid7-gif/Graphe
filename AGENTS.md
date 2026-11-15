@@ -49,9 +49,10 @@ and explicit approvals govern the task's scope.
 - Step 7 was merged through PR #12 at `dab4db7`; Step 7.5 was merged through
   PR #13 at `3f447c4` with the owner's explicit approval. Preserve its file
   formats, research, regression tests and disclosed verification limits.
-  The current focused DOCX relationship correction is on
-  `fix/docx-harmless-relationships`: create a review PR, but do not merge it or
-  deploy. Do not change Cloudflare or begin unrelated feature work.
+  The focused DOCX correction was merged through PR #14 at `8ed5144`.
+  The current save/export/mobile reliability correction is on
+  `fix/writer-save-export-mobile-reliability`: create a review PR, but do not
+  merge or deploy. Do not change Cloudflare or begin unrelated feature work.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -107,6 +108,13 @@ and explicit approvals govern the task's scope.
   explicit acknowledgement of losses. Downloading an external copy does not
   mark the local native save current or replace its etag. Native exports retain
   sources, which may include deleted text; external copies do not retain them.
+- Keep a prepared export's Blob URL valid for a fresh native download/open link;
+  release it on replacement, dismissal or unmount. A browser download request
+  cannot prove a file reached disk. Never equate export with a committed local save.
+- Mobile focus must occur synchronously in a completed trusted tap, including
+  compatibility click. Stale layout must retain the Rust selection, not prevent
+  focus. Scroll/cancel must not summon input. VisualViewport adjustments only
+  reveal Rust geometry; bound keyboard padding within the workspace allocation.
 - TXT decoding uses strict UTF-8 (optional BOM) or explicitly BOM-marked UTF-16;
   never guess legacy encodings or replace invalid Unicode silently. PDF export
   renders Rust page geometry, not browser print layout. Disclose vector-outline

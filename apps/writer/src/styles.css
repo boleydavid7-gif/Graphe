@@ -71,13 +71,17 @@ a { color: inherit; text-underline-offset: 3px; }
 kbd { font: inherit; font-size: 10px; color: var(--muted); margin-left: 5px; }
 .workspace { flex: 1; min-width: 0; min-height: 0; overflow: auto; padding: 23px 24px 36px; background: #302a24; scrollbar-color: #675b4d #302a24; }
 .import-notice { flex-shrink: 0; max-height: 35dvh; overflow: auto; padding: 9px 24px; border-bottom: 1px solid #6d5835; background: #3c3224; color: #eee5d6; font-size: 12px; line-height: 1.45; }
+.prepared-export { display: flex; flex-shrink: 0; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 8px 24px; border-bottom: 1px solid #6d5835; background: #332b21; color: #eee5d6; font-size: 12px; }
+.prepared-export p { flex: 1 1 240px; margin: 0; overflow-wrap: anywhere; }
+.prepared-export p span { display: block; color: var(--muted); }
+.prepared-export a { color: var(--accent); white-space: nowrap; }
 .import-notice p { margin: 0; }
 .import-notice summary { margin-top: 4px; color: var(--accent); }
 .import-notice ul { margin: 8px 0; padding-left: 20px; }
 .import-notice li { margin: 6px 0; overflow-wrap: anywhere; }
 .import-notice li > strong, .import-notice li > span { display: block; }
 .paged-editing-view { min-width: 0; width: 100%; }
-.paged-editor { min-width: 0; outline: none; }
+.paged-editor { min-width: 0; outline: none; padding-bottom: var(--writer-keyboard-inset, 0px); }
 .paged-editor-pages { display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 1px 1px 12px; min-width: 0; }
 .paged-editor-page { position: relative; flex: none; margin: 0; }
 .paged-editor-paper { position: relative; background: #fff; outline: 1px solid #ddd7ce; box-shadow: 0 3px 9px #0002, 0 15px 35px #0003; }

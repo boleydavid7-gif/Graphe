@@ -256,6 +256,35 @@ describe('WriterSaveController', () => {
     expect(h.commits[0]?.association.sessionId).toBe('session-b');
   });
 
+  it('honors explicit Save of a pristine replacement after an older lane reaches its second attempt', async () => {
+    const local = controlledStorage();
+    const h = harness(local);
+    h.edit('r2');
+    const old = h.controller.flush();
+    await ticks();
+    h.edit('r3');
+    await vi.advanceTimersByTimeAsync(750);
+    local.finish(0, 'old-first-token');
+    await ticks();
+    expect(local.save).toHaveBeenCalledTimes(2);
+
+    h.set({ sessionId: 'session-b', documentId: 'document-b', revision: 'r1',
+      title: '', bytes: new TextEncoder().encode('pristine replacement') }, false);
+    h.controller.reset(null);
+    expect(h.controller.state.dirty).toBe(false);
+    const current = h.controller.flush();
+    local.finish(1, 'old-second-token');
+    await ticks();
+    await ticks();
+    expect(local.save).toHaveBeenCalledTimes(3);
+    expect(local.pending[2]).toMatchObject({ expected: null, document: { id: 'document-b',
+      bytes: new TextEncoder().encode('pristine replacement') } });
+    local.finish(2, 'current-token');
+    expect(await old).toBe(false);
+    expect(await current).toBe(true);
+    expect(h.controller.state).toMatchObject({ phase: 'saved', dirty: false, savedLocally: true });
+  });
+
   it('an obsolete failed save cannot pause or report an error on a newly opened document', async () => {
     const local = controlledStorage();
     const h = harness(local);

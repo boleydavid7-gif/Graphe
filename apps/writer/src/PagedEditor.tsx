@@ -151,6 +151,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   const namespace = useId().replace(/[^A-Za-z0-9_-]/g, '');
   const frame = useRef<number | undefined>(undefined);
   const viewportFrame = useRef<number | undefined>(undefined);
+  const completedTouchTap = useRef(false);
   const dragFrame = useRef<number | undefined>(undefined);
   const drag = useRef<Drag | null>(null);
   const composingRef = useRef(false);
@@ -189,7 +190,18 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   const scrollContainer = useCallback((): HTMLElement | null => root.current?.closest<HTMLElement>('.workspace') ?? null, []);
   const bounds = useCallback(() => {
     const scroll = scrollContainer();
-    return scroll ? scroll.getBoundingClientRect() : new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    const rect = scroll?.getBoundingClientRect() ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+    const visual = window.visualViewport;
+    const left = visual?.offsetLeft ?? 0;
+    const top = visual?.offsetTop ?? 0;
+    const right = left + (visual?.width ?? window.innerWidth);
+    const bottom = top + (visual?.height ?? window.innerHeight);
+    const x = Math.max(rect.left, left);
+    const y = Math.max(rect.top, top);
+    const width = Math.min(rect.right, right) - x;
+    const height = Math.min(rect.bottom, bottom) - y;
+    return width > 0 && height > 0 ? new DOMRect(x, y, width, height)
+      : new DOMRect(left, top, right - left, bottom - top);
   }, [scrollContainer]);
 
   const reportInfo = useCallback((status: PageInfo['status'], snapshot?: LayoutView) => {
@@ -230,6 +242,18 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }, []);
 
   const positionInput = useCallback((reveal = false) => {
+    const scroll = scrollContainer();
+    if (scroll) {
+      const visual = window.visualViewport;
+      // The inherited inset pads the inner page content, not this flex item.
+      // It adds scroll room without inflating the workspace on keyboard/rotation.
+      const inset = visual ? Math.min(scroll.clientHeight,
+        Math.max(0, scroll.getBoundingClientRect().bottom - visual.offsetTop - visual.height)) : 0;
+      const value = `${inset}px`;
+      if (scroll.style.getPropertyValue('--writer-keyboard-inset') !== value) {
+        scroll.style.setProperty('--writer-keyboard-inset', value);
+      }
+    }
     const value = current.current;
     const selection = value.selection?.geometry;
     const snapshot = value.snapshot;
@@ -267,8 +291,8 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
       }
     }
     const resolved = screenCaret(snapshot, selection.focus) ?? caret;
-    proxy.current.style.left = `${Math.max(0, Math.min(window.innerWidth - 2, resolved.left))}px`;
-    proxy.current.style.top = `${Math.max(0, Math.min(window.innerHeight - 20, resolved.top))}px`;
+    proxy.current.style.left = `${Math.max(viewport.left, Math.min(viewport.right - 2, resolved.left))}px`;
+    proxy.current.style.top = `${Math.max(viewport.top, Math.min(viewport.bottom - 20, resolved.top))}px`;
     // A constant-size native input avoids a large font's candidate window
     // being pushed down by invisible proxy content. The visible caret keeps
     // its complete Rust-measured height independently.
@@ -343,24 +367,32 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }, [display, props.zoom, props.disabled, positionInput]);
 
   useEffect(() => {
+    let reveal = false;
     const updateViewport = () => {
       if (viewportFrame.current !== undefined) return;
       viewportFrame.current = requestAnimationFrame(() => {
         viewportFrame.current = undefined;
-        positionInput();
+        const shouldReveal = reveal;
+        reveal = false;
+        positionInput(shouldReveal);
       });
     };
+    const visualChanged = () => { reveal = true; updateViewport(); };
     window.addEventListener('scroll', updateViewport, true);
     window.addEventListener('resize', updateViewport);
-    window.visualViewport?.addEventListener('resize', updateViewport);
-    const observed = scrollContainer() ?? root.current;
+    window.visualViewport?.addEventListener('resize', visualChanged);
+    window.visualViewport?.addEventListener('scroll', visualChanged);
+    const scroll = scrollContainer();
+    const observed = scroll ?? root.current;
     const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateViewport);
     if (observed) resizeObserver?.observe(observed);
     return () => {
       window.removeEventListener('scroll', updateViewport, true);
       window.removeEventListener('resize', updateViewport);
-      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('resize', visualChanged);
+      window.visualViewport?.removeEventListener('scroll', visualChanged);
       resizeObserver?.disconnect();
+      scroll?.style.removeProperty('--writer-keyboard-inset');
       if (viewportFrame.current !== undefined) cancelAnimationFrame(viewportFrame.current);
       if (dragFrame.current !== undefined) cancelAnimationFrame(dragFrame.current);
     };
@@ -413,6 +445,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }, [bounds, hit, scrollContainer]);
 
   function pointerDown(event: ReactPointerEvent<SVGSVGElement>): void {
+    completedTouchTap.current = false;
     if (event.button !== 0 || props.disabled || composing) return;
     if (!props.view.paragraphs.length && event.pointerType !== 'touch') {
       // Empty native files have no paragraph identity/caret until the first
@@ -445,11 +478,11 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     const active = drag.current;
     if (!active || active.pointerId !== event.pointerId) return;
     if (active.touch && Math.hypot(event.clientX - active.startX, event.clientY - active.startY) < 12) {
-      if (!latest.current.view.paragraphs.length) input.current?.focus();
-      else {
-        const next = hit(event.clientX, event.clientY, event.shiftKey);
-        if (next) input.current?.focus();
-      }
+      completedTouchTap.current = true;
+      if (latest.current.view.paragraphs.length) hit(event.clientX, event.clientY, event.shiftKey);
+      // A stale layout must not swallow a tap or invent a new position. Focus
+      // synchronously and retain the latest Rust selection when hit testing fails.
+      input.current?.focus();
     }
     drag.current = null;
     if (dragFrame.current !== undefined) cancelAnimationFrame(dragFrame.current);
@@ -458,6 +491,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }
 
   function pointerCancel(event: ReactPointerEvent<SVGSVGElement>): void {
+    completedTouchTap.current = false;
     if (drag.current?.pointerId !== event.pointerId) return;
     drag.current = null;
     if (dragFrame.current !== undefined) cancelAnimationFrame(dragFrame.current);
@@ -518,7 +552,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
       {inputSurface(false)}
     </> : <>
       <div ref={proxy} className="paged-editor-input" style={{ position: 'fixed', left: 0, top: 0, width: 2,
-        height: 20, overflow: 'hidden', clipPath: 'inset(50%)', pointerEvents: 'none' }}>
+        height: 20, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }}>
         {inputSurface(true)}
       </div>
       {display.status === 'error' ? <div className="paged-editor-error" role="alert">
@@ -547,6 +581,14 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                   viewBox={`0 0 ${page.width} ${page.height}`} width="100%" height="100%" aria-hidden="true" focusable="false"
                   data-layout-page={page.number} data-layout-width={page.width} data-layout-height={page.height}
                   onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerCancel}
+                  onClick={(event) => {
+                    if (!completedTouchTap.current || latest.current.disabled || composingRef.current) return;
+                    completedTouchTap.current = false;
+                    event.preventDefault();
+                    // Compatibility mouse events may have blurred the proxy
+                    // after pointerup. Complete focus in this same tap gesture.
+                    input.current?.focus();
+                  }}
                   style={{ touchAction: 'pan-y', userSelect: 'none', cursor: 'text' }}>
                   {selection?.rectangles.filter((rectangle) => rectangle.pageNumber === page.number).map((rectangle, index) =>
                     <rect key={`selection-${index}`} className="paged-editor-selection" {...rectangle.rect} data-editor-selection="true" />)}

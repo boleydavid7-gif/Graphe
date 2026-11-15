@@ -258,6 +258,16 @@ describe('WriterStorage', () => {
     await expect(storage().list()).rejects.toMatchObject({ code: 'unavailable' });
   });
 
+  it('allows an explicit retry after a transient database-open failure', async () => {
+    const library = storage();
+    vi.spyOn(factory, 'open').mockImplementationOnce(() => {
+      throw new DOMException('Temporary database failure', 'UnknownError');
+    });
+    await expect(library.list()).rejects.toMatchObject({ code: 'io' });
+    const saved = await library.save(document(), null);
+    expect(await library.load(saved.id)).toEqual(saved);
+  });
+
   it('reports blocked startup and closes a connection that opens after rejection', async () => {
     const database = await rawOpen();
     const close = vi.spyOn(database, 'close');

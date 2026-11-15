@@ -959,3 +959,25 @@ without a second parse. No native schema, dependency or layout-engine change is
 needed. Regenerated exports disclose losses; full originals remain recoverable.
 This is a bounded compatibility profile, not complete Word fidelity. See
 [DOCX_NORMALIZATION.md](DOCX_NORMALIZATION.md) for evidence and safeguards.
+
+## 046: Recover local saves and retain explicit browser export handoffs
+
+**Decision:** Preserve the existing Rust session, IndexedDB etag lane and reviewed
+conversion APIs. Allow transient database reconnection and a replacement epoch's
+explicit Save to run after its predecessor's bounded drain. Retain one immutable
+prepared export with native download/open links. Focus paged input synchronously
+on completed touch gestures and reveal existing Rust geometry using VisualViewport.
+
+**Reason:** Cached failed connections made retry ineffective; a new blank Save
+could be swallowed by the old session's final write. Detached anchors and a
+one-second Blob lifetime offered no dependable retry for browser file handoff.
+Compatibility events and stale layout could swallow mobile focus. Browser APIs
+cannot prove successful file delivery or a physical software keyboard's appearance.
+
+**Consequences:** Failed saves keep unsaved memory and existing etags. Exports do
+not mark local state saved; copy links disclose snapshot age and release memory
+on replacement/dismissal/unmount. Modal shortcuts preserve conversion consent.
+Keyboard presentation adjustments do not change document layout; inset padding
+is bounded to prevent viewport feedback. No schema, adapter, dependency or undo
+engine changes. Device verification remains required; see
+[WRITER_RELIABILITY.md](WRITER_RELIABILITY.md).
