@@ -50,9 +50,12 @@ and explicit approvals govern the task's scope.
   PR #13 at `3f447c4` with the owner's explicit approval. Preserve its file
   formats, research, regression tests and disclosed verification limits.
   The focused DOCX correction was merged through PR #14 at `8ed5144`.
-  The current save/export/mobile reliability correction is on
-  `fix/writer-save-export-mobile-reliability`: create a review PR, but do not
-  merge or deploy. Do not change Cloudflare or begin unrelated feature work.
+  The save/export/mobile reliability correction was merged through PR #15 at
+  `22dfe38`. Preserve its safeguards and disclosed device-testing limits.
+  The current focused document-menu correction is on
+  `fix/writer-document-menu-actions`; the owner explicitly authorizes merging
+  this fix after verification. This does not authorize deployment commands,
+  Cloudflare changes, unrelated features or future merges.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -115,6 +118,11 @@ and explicit approvals govern the task's scope.
   compatibility click. Stale layout must retain the Rust selection, not prevent
   focus. Scroll/cancel must not summon input. VisualViewport adjustments only
   reveal Rust geometry; bound keyboard padding within the workspace allocation.
+- Do not close a disclosure menu on ambiguous null-target blur: Safari may
+  decline to focus a pointer-activated button, and closing before click swallows
+  the command. Preserve outside-pointer, Escape and known-outside keyboard
+  dismissal. Dialog actions must have a visible return-focus target. Keep menu
+  options reachable by scrolling within the visible viewport.
 - TXT decoding uses strict UTF-8 (optional BOM) or explicitly BOM-marked UTF-16;
   never guess legacy encodings or replace invalid Unicode silently. PDF export
   renders Rust page geometry, not browser print layout. Disclose vector-outline

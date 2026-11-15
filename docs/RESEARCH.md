@@ -821,3 +821,47 @@ No new dependency or licensing decision. Native download/open links are a modest
 fallback for blocked automatic handoff, not a claim of OS-level success. Exact
 results, initial test-harness corrections and untested physical iOS/PWA behavior
 are recorded in [WRITER_RELIABILITY.md](WRITER_RELIABILITY.md).
+
+## Document-menu activation and reachability
+
+Question: why can every implemented menu command appear inactive while direct
+toolbar and keyboard actions work? Audited both three-dot controls, every App
+handler, Rust/format/storage destination, disabled state and real-browser tests.
+
+Sources:
+
+- [MDN button clicking and focus](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/button#clicking_and_focus)
+  documents Safari's intentional non-focusing pointer activation;
+  [WebKit issue 22261](https://bugs.webkit.org/show_bug.cgi?id=22261) provides
+  historical implementation context. Do not equate focus with activation.
+- [FocusEvent.relatedTarget](https://developer.mozilla.org/en-US/docs/Web/API/FocusEvent/relatedTarget)
+  can be null when no element receives focus. The old `onBlur` treated that as
+  evidence of an outside click, hiding the item before its real click arrived.
+- [Native details disclosure](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/details)
+  already supplies summary activation and ordinary keyboard traversal.
+- [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport)
+  describes visible bounds differing from layout bounds during keyboard display
+  and pan. Limit and scroll the existing panel within those bounds.
+- [React layout-effect cleanup](https://react.dev/reference/react/useLayoutEffect)
+  runs before DOM removal. Pair native dialog open/close there so cancellation
+  returns focus while the dialog is still connected; successful replacement
+  completes native return focus before recording its own focus origin.
+
+Reproduced the swallowed command with trusted Chromium mouse/touch plus a
+controlled null-target focus transition. The same Save As action showed no modal
+before the fix and one afterward, with no uncaught JavaScript error. Also
+confirmed clipped lower options in short windows. These are critical interaction
+defects; none of the existing command implementations was a stub. Prior tests
+did not exercise this focus policy, and programmatic `scrollIntoView` could mask
+an overflow-hidden ancestor by moving the whole application.
+End-to-end testing additionally reproduced Open cancellation leaving focus on
+the body: the old passive cleanup closed an already-removed native dialog.
+
+Retain the native disclosure and existing handlers: ignore ambiguous blur, retain
+outside-pointer/Escape/known-outside keyboard dismissal, focus the visible summary
+before a command opens a dialog, and scroll the panel rather than the application.
+No custom ARIA menu, delayed activation, new dependency or editing layer is needed.
+Verify both native attribution links and every command, along with the mobile
+formatting overflow, disabled composition states and normal editing after export.
+See [WRITER_MENU_RELIABILITY.md](WRITER_MENU_RELIABILITY.md) for the action map,
+executed tests and unverified physical Safari/PWA behavior.
