@@ -1,4 +1,4 @@
-import { canSaveToProairetos, saveToProairetos, type FilesOpenPayload } from './proairetosFilesBridge';
+import { announceFilesReady, canSaveToProairetos, saveToProairetos, type FilesOpenPayload } from './proairetosFilesBridge';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import type { EditorSurfaceHandle } from './EditorSurface';
@@ -609,6 +609,7 @@ export default function App() {
       importFile(new File([payload.data], payload.name, { type: payload.mime }), payload.fileId);
     };
     window.addEventListener('proairetos:files-open', open);
+    announceFilesReady();
     return () => window.removeEventListener('proairetos:files-open', open);
   });
 
