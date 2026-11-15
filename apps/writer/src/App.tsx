@@ -71,7 +71,8 @@ function fileFormat(file: File): DocumentFormat {
   const byExtension = FILE_FORMATS.find((item) => item.format === extension);
   if (byExtension) return byExtension.format;
   const mediaType = file.type.toLowerCase().split(';')[0];
-  // Generic binary MIME is deliberately not used to guess Writer on import.\n  const byMediaType = FILE_FORMATS.find((item) => item.format !== 'writer' && item.mediaType.split(';')[0] === mediaType);
+  // Generic binary MIME is deliberately not used to guess Writer on import.
+  const byMediaType = FILE_FORMATS.find((item) => item.format !== 'writer' && item.mediaType.split(';')[0] === mediaType);
   if (byMediaType) return byMediaType.format;
   if (mediaType === 'text/rtf') return 'rtf';
   throw new Error('Choose a .writer, .docx, .odt, .rtf or .txt file. TXT supports UTF-8 or BOM-marked UTF-16. PDF is available for export only.');
@@ -100,7 +101,8 @@ function requestDownload(url: string, filename: string) {
 }
 
 function safeFilename(title: string, extension: string): string {
-  const base = (title.trim() || 'Untitled document').replace(/\\.(writer|writer\\.json|docx|odt|rtf|txt|pdf)$/i, '');\n  const name = [...(base || 'Untitled document')]
+  const base = (title.trim() || 'Untitled document').replace(/\.(writer\.json|writer|docx|odt|rtf|txt|pdf)$/i, '');
+  const name = [...(base || 'Untitled document')]
     .map((character) => {
       const code = character.codePointAt(0) ?? 0;
       return code < 32 || (code >= 0x7f && code <= 0x9f) || '\\/:*?"<>|'.includes(character) ? '_' : character;
