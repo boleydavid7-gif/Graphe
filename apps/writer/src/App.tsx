@@ -860,10 +860,7 @@ export default function App() {
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
           onChange={(event) => command({ type: 'set_title', title: event.target.value })} />
-        <div className="mobile-document-meta">
-          <span className="mobile-save-state" aria-live="polite">{saveLabel}</span>
-          {wordCountLabel && <output className="mobile-word-count" aria-label="Word count" aria-live="off">{wordCountLabel}</output>}
-        </div>
+        <span className="mobile-save-state" aria-live="polite">{saveLabel}</span>
       </div>
       <nav className="file-actions" aria-label="Document actions">
         <button className="desktop-action" disabled={!view || busy || composing} onClick={newDocument}><WriterIcon name="new" /><span>New</span></button>
