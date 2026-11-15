@@ -808,9 +808,12 @@ export default function App() {
       </nav>
     </header>
     <nav className="editor-tabs" aria-label="Editor sections">
-      {(['write', 'insert', 'layout', 'review'] as const).map((tab) => <button key={tab}
-        aria-pressed={activeTab === tab} aria-controls="writer-formatting" onClick={() => setActiveTab(tab)}>
-        {tab.charAt(0).toUpperCase() + tab.slice(1)}</button>)}
+      <div className={`editor-tab-options editor-tab-options--${activeTab}`}>
+        <span className="editor-tab-indicator" aria-hidden="true" />
+        {(['write', 'insert', 'layout', 'review'] as const).map((tab) => <button key={tab}
+          aria-pressed={activeTab === tab} aria-controls="writer-formatting" onClick={() => setActiveTab(tab)}>
+          {tab.charAt(0).toUpperCase() + tab.slice(1)}</button>)}
+      </div>
       <span className={`save-state${dirty ? ' is-unsaved' : ''}`} aria-live="polite">
         {saveLabel}
       </span>

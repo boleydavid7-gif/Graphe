@@ -455,3 +455,43 @@ dialog p { font-size: 13px; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) {
   .writer-app button, .writer-app select, .writer-app summary { transition:none !important; }
 }
+
+
+/* One traveling Lamplight indicator, rather than four independently appearing lines.
+   Equal tab columns make the line position deterministic at every viewport width. */
+.editor-tab-options {
+  --writer-tab-index: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 0 1 auto;
+  width: min(100%, 376px);
+  min-width: 0;
+}
+.editor-tab-options--insert { --writer-tab-index: 1; }
+.editor-tab-options--layout { --writer-tab-index: 2; }
+.editor-tab-options--review { --writer-tab-index: 3; }
+.editor-tabs .editor-tab-options > button {
+  min-width: 0;
+  z-index: 1;
+}
+.editor-tabs .editor-tab-options > button[aria-pressed='true']::after { display: none; }
+.editor-tab-indicator {
+  position: absolute;
+  pointer-events: none;
+  bottom: 0;
+  left: 0;
+  width: 25%;
+  height: 2px;
+  background: var(--accent);
+  transform: translateX(calc(var(--writer-tab-index) * 100%));
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .editor-tab-indicator {
+    transition: transform 480ms cubic-bezier(.22,1.4,.36,1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-tab-indicator { transition: none; }
+}
