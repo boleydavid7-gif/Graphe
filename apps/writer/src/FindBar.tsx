@@ -10,12 +10,16 @@ interface FindBarProps {
   readonly onRevealSelection?: (view: WriterView) => void;
 }
 
-/** Literal search results are Rust snapshots; only query/navigation UI lives here. */
+/** Literal search and replacement are Rust-owned. React only navigates native selections. */
 export function FindBar({ view, onFind, onCommand, onClose, onFocusDocument, onRevealSelection }: FindBarProps) {
   const [query, setQuery] = useState('');
+  const [replacement, setReplacement] = useState('');
+  const [replaceVisible, setReplaceVisible] = useState(false);
   const [navigation, setNavigation] = useState({ key: '', index: -1 });
-  const input = useRef<HTMLInputElement>(null);
+  const queryInput = useRef<HTMLInputElement>(null);
+  const replaceInput = useRef<HTMLInputElement>(null);
   const description = useId();
+  const replaceId = useId();
   const key = JSON.stringify([query, view.sessionId, view.documentId, view.revision]);
   const state = useMemo(() => {
     try {
@@ -44,18 +48,41 @@ export function FindBar({ view, onFind, onCommand, onClose, onFocusDocument, onR
     }
   }
 
+  function replaceCurrent() {
+    const match = matches[index];
+    if (!state.result || !match || state.result.truncated) return;
+    // The actual edit uses exactly the selection and revision supplied by Rust.
+    const next = onCommand({ type: 'replace_text', text: replacement,
+      selection: match.selection, expectedRevision: state.result.revision });
+    if (next && next.documentId === state.result.documentId && next.sessionId === state.result.sessionId) {
+      setNavigation({ key: '', index: -1 });
+      onRevealSelection?.(next);
+    }
+  }
+
+  function replaceAll() {
+    if (!query || !state.result || !matches.length || state.result.truncated) return;
+    // Atomic Rust transaction: all replacements succeed or none are published.
+    const next = onCommand({ type: 'replace_all', query, text: replacement,
+      expectedRevision: state.result.revision });
+    if (next && next.documentId === state.result.documentId && next.sessionId === state.result.sessionId) {
+      setNavigation({ key: '', index: -1 });
+      onRevealSelection?.(next);
+    }
+  }
+
   function close() { onClose(); onFocusDocument(); }
 
-  return <form className="find-bar" role="search" aria-label="Find in document" onSubmit={(event) => {
+  return <form className="find-bar" role="search" aria-label="Find and replace in document" onSubmit={(event) => {
     event.preventDefault(); move(1);
   }} onKeyDown={(event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
     if (event.key === 'Enter' && event.shiftKey) { event.preventDefault(); move(-1); }
   }}>
     <label className="visually-hidden" htmlFor={description}>Find text</label>
-    <input id={description} ref={input} className="find-input" data-writer-find-input aria-label="Find text" placeholder="Find in document" autoFocus
-      value={query} maxLength={256} aria-describedby={`${description}-help`}
-      onChange={(event) => setQuery(event.target.value)} />
+    <input id={description} ref={queryInput} className="find-input" data-writer-find-input aria-label="Find text"
+      placeholder="Find in document" autoFocus value={query} maxLength={256}
+      aria-describedby={`${description}-help`} onChange={(event) => setQuery(event.target.value)} />
     <span className="find-summary" role="status" aria-live="polite">{!query ? 'Exact text'
       : state.error ? 'Find unavailable'
       : matches.length === 0 ? 'No matches'
@@ -63,8 +90,24 @@ export function FindBar({ view, onFind, onCommand, onClose, onFocusDocument, onR
     <button type="button" aria-label="Previous match" title="Previous match (Shift Enter)" disabled={!matches.length}
       onClick={() => move(-1)}>↑</button>
     <button type="submit" aria-label="Next match" title="Next match (Enter)" disabled={!matches.length}>↓</button>
+    <button type="button" className="find-replace-toggle" aria-controls={replaceId} aria-expanded={replaceVisible}
+      onClick={() => setReplaceVisible((visible) => !visible)}>{replaceVisible ? 'Hide replace' : 'Replace…'}</button>
     <button type="button" aria-label="Close find" onClick={close}>×</button>
-    <span id={`${description}-help`} className="visually-hidden">Case-sensitive exact text within paragraphs. Matches select complete Unicode graphemes. Enter selects the next match; Escape returns to the document.</span>
+    {replaceVisible && <div id={replaceId} className="find-replace-row">
+      <label htmlFor={`${replaceId}-input`}>Replace with</label>
+      <input id={`${replaceId}-input`} className="find-input find-replace-input" ref={replaceInput}
+        aria-label="Replace with" maxLength={256} value={replacement}
+        onChange={(event) => setReplacement(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); replaceCurrent(); }
+        }} />
+      <button type="button" disabled={index < 0 || !matches.length || !!state.error || !!state.result?.truncated}
+        onClick={replaceCurrent}>Replace</button>
+      <button type="button" disabled={!query || !matches.length || !!state.error || !!state.result?.truncated}
+        onClick={replaceAll}>Replace all</button>
+      {state.result?.truncated && <span className="find-replace-note">Narrow the search to replace matches safely.</span>}
+    </div>}
+    <span id={`${description}-help`} className="visually-hidden">Case-sensitive literal text within paragraphs. Matches select complete Unicode graphemes. Enter selects the next match; Escape returns to the document. Replace edits the selected match; Replace all makes one undoable document edit.</span>
     {state.error && <span className="find-error" role="alert">{state.error}</span>}
   </form>;
 }
