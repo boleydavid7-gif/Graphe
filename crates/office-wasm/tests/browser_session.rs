@@ -717,3 +717,43 @@ fn selected_text_of_absent_or_collapsed_selection_is_empty_without_materializing
     assert_eq!(engine.snapshot(), snapshot);
     assert_eq!(engine.export_document().unwrap(), empty);
 }
+
+
+#[test]
+fn word_count_tracks_committed_multiword_typing_formatting_and_history() {
+    let mut engine = BrowserEngine::new("live-word-count").unwrap();
+    assert_eq!(view(&engine)["wordCount"], 0);
+
+    let first = execute(&mut engine, json!({"type":"replace_text","text":"one"}));
+    assert_eq!(first["wordCount"], 1);
+
+    let second = execute(&mut engine, json!({"type":"replace_text","text":" two"}));
+    assert_eq!(text(&second), vec!["one two"]);
+    assert_eq!(second["wordCount"], 2);
+
+    let third = execute(&mut engine, json!({"type":"replace_text","text":" three"}));
+    assert_eq!(text(&third), vec!["one two three"]);
+    assert_eq!(third["wordCount"], 3);
+
+    // Splitting a word across styled runs must not count two words.
+    let paragraph_id = third["paragraphs"][0]["id"].as_str().unwrap();
+    let selected = execute(&mut engine, json!({"type":"set_selection",
+        "selection":selection(paragraph_id,0,2)}));
+    assert_eq!(selected["wordCount"], 3);
+    let formatted = execute(&mut engine, json!({"type":"format_character","bold":true}));
+    assert_eq!(formatted["wordCount"], 3);
+    assert_eq!(text(&formatted), vec!["one two three"]);
+
+    let paragraph_end = execute(&mut engine, json!({"type":"set_selection",
+        "selection":selection(paragraph_id,13,13)}));
+    assert_eq!(paragraph_end["wordCount"], 3);
+    let newline = execute(&mut engine, json!({"type":"replace_text","text":"\nfour five"}));
+    assert_eq!(text(&newline), vec!["one two three", "four five"]);
+    assert_eq!(newline["wordCount"], 5);
+    assert_eq!(view(&engine)["wordCount"], 5);
+
+    let undo = execute(&mut engine, json!({"type":"undo"}));
+    assert_eq!(undo["wordCount"], 3);
+    let redo = execute(&mut engine, json!({"type":"redo"}));
+    assert_eq!(redo["wordCount"], 5);
+}

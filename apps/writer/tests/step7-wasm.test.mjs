@@ -43,6 +43,17 @@ function open(instance, file) {
   return response.view;
 }
 
+test('actual WASM count increments past one for committed words and survives undo', (context) => {
+  const instance = engine(context);
+  assert.equal(view(instance).wordCount, 0);
+  assert.equal(dispatch(instance, { type: 'replace_text', text: 'one' }).wordCount, 1);
+  assert.equal(dispatch(instance, { type: 'replace_text', text: ' two' }).wordCount, 2);
+  assert.equal(dispatch(instance, { type: 'replace_text', text: ' three' }).wordCount, 3);
+  assert.equal(dispatch(instance, { type: 'replace_text', text: '\nfour five' }).wordCount, 5);
+  assert.equal(view(instance).wordCount, 5);
+  assert.equal(dispatch(instance, { type: 'undo' }).wordCount, 3);
+});
+
 test('actual WASM hit testing maps drawn core boundaries and changes only the Rust selection', (context) => {
   const instance = engine(context);
   const initial = dispatch(instance, { type: 'replace_text', text: 'Ae\u0301👩🏽‍💻Z' });

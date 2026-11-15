@@ -14,7 +14,7 @@ mod wire;
 
 use office_core::{
     Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, Paragraph, Section,
-    Transaction, WriterFile, deserialize_writer_file, serialize_document, serialize_writer_file,
+    TextCoordinates, Transaction, WriterFile, deserialize_writer_file, serialize_document, serialize_writer_file,
 };
 use office_docx::{CompatibilityReport, DocxImportOutcome};
 use serde::Serialize;
@@ -480,16 +480,16 @@ impl BrowserEngine {
         let document = self.session.document();
         let paragraphs = view::paragraphs(document);
         let format = self.format_summary(&paragraphs);
-        let word_count = paragraphs
+        // Count the authoritative, committed document text, not the UI's
+        // formatted paragraph projection. This keeps status snapshots tied to
+        // the exact core document (including edits spanning formatting runs).
+        let word_count = document
+            .sections()
             .iter()
-            .map(|paragraph| {
-                paragraph
-                    .runs
-                    .iter()
-                    .map(|run| run.text.as_str())
-                    .collect::<String>()
-                    .unicode_words()
-                    .count()
+            .flat_map(|section| section.blocks())
+            .map(|block| {
+                let Block::Paragraph(paragraph) = block;
+                TextCoordinates::new(paragraph).text().unicode_words().count()
             })
             .sum();
         View {
