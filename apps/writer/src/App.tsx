@@ -677,6 +677,8 @@ export default function App() {
     }
   }
 
+  const [proairetosFileId, setProairetosFileId] = useState<string | null>(null);
+
   async function saveCopyInProairetos() {
     const current = saveAs;
     if (!engine.current || !current?.assessment || !documentOpen || composing || busy) return;
@@ -684,7 +686,8 @@ export default function App() {
     try {
       const bytes = engine.current.exportFormat(current.format, current.assessment.warnings.length > 0, current.assessment);
       const filename = safeFilename(current.filename.replace(/\\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
-      await saveToProairetos(filename, current.format, bytes);
+      const savedId = await saveToProairetos(filename, current.format, bytes, proairetosFileId ?? undefined);
+      setProairetosFileId(savedId);
       closeSaveAs();
       setNotice(filename + ' saved in ProairetOS Files / Documents.');
     } catch (failure) {
