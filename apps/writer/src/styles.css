@@ -53,7 +53,7 @@ a { color: inherit; text-underline-offset: 3px; }
 .writer-app { height: 100dvh; min-height: 320px; display: flex; flex-direction: column; overflow: hidden; }
 .top-bar { display: flex; align-items: center; min-height: 54px; gap: 25px; padding: 7px 28px; background: var(--surface); border-bottom: 1px solid var(--writer-border-subtle); flex-shrink: 0; }
 .identity { display: flex; align-items: center; gap: 13px; color: var(--writer-text-strong); font-size: 23px; font-weight: 600; letter-spacing: -.6px; flex-shrink: 0; }
-.writer-lantern { width: 29px; height: 35px; color: var(--accent); stroke-width: 1.35; }
+.writer-lantern { width: 34px; height: 34px; object-fit: contain; }
 .title-area { flex: 1; min-width: 80px; border-left: 1px solid var(--line); padding-left: 21px; }
 .document-title { width: min(100%, 400px); padding: 5px 7px; border: 1px solid transparent; border-radius: 3px; background: transparent; font-size: 14px; }
 .document-title:hover:not(:disabled), .document-title:focus { border-color: #6d5c47; background: #362e26; }
@@ -175,7 +175,7 @@ kbd { font: inherit; font-size: 10px; color: var(--muted); margin-left: 5px; }
 .layout-page-figure figcaption { text-align: center; margin-top: 10px; font-size: 11px; color: var(--muted); }
 .startup-message, .closed-document { margin: 70px auto; max-width: 440px; line-height: 1.7; text-align: center; }
 .closed-document h1, .startup-message h1 { font-family: Georgia, serif; font-size: 25px; font-weight: 400; color: #f2dfbb; }
-.closed-document .writer-lantern { height: 50px; width: 40px; }
+.closed-document .writer-lantern { height: 42px; width: 42px; }
 .closed-document p, .startup-message p { font-size: 14px; color: var(--muted); }
 .closed-document button { margin: 5px; border: 1px solid #8b724f; }
 dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); border: 1px solid #766045; border-radius: 6px; background: var(--writer-surface-menu); color: #f0e8dc; padding: 22px 25px; box-shadow: 0 16px 80px #0007; }
@@ -214,7 +214,7 @@ dialog p { font-size: 13px; line-height: 1.6; }
 @media (max-width: 620px) {
   .top-bar { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 8px 15px 5px; }
   .identity { font-size: 23px; gap: 10px; }
-  .writer-lantern { width: 25px; height: 33px; }
+  .writer-lantern { width: 30px; height: 30px; }
   .title-area { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; grid-row: 2; border: 0; padding: 2px 0 1px; }
   .mobile-save-state { display: block; max-width: 105px; font-size: 9px; line-height: 1.3; color: var(--muted); }
   .document-title { min-width: 0; flex: 1; font-size: 17px; font-weight: 550; margin-left: -5px; width: 100%; padding: 5px; }
