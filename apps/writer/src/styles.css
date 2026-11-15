@@ -517,3 +517,26 @@ dialog p { font-size: 13px; line-height: 1.6; }
 @media (max-width: 620px) {
   .editor-tabs .editor-tab-options { width: 100%; }
 }
+
+
+/* Keep the mobile ribbon and paper at a stable vertical position when changing
+   Write / Insert / Layout / Review. Expanded formatting may grow intentionally. */
+@media (max-width: 620px) {
+  .editor-tabs { height: 40px; min-height: 40px; }
+  .editor-tabs .editor-tab-options { height: 100%; align-self: stretch; }
+  .editor-tabs .editor-tab-options > button { height: 100%; }
+  .editor-tabs .editor-tab-indicator { bottom: 0; }
+  .formatting-bar:not(.show-more-formatting) {
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .formatting-bar:not(.show-more-formatting)::-webkit-scrollbar { display: none; }
+  .formatting-bar:not(.show-more-formatting) > * { flex-shrink: 0; }
+  .formatting-bar.show-more-formatting { height: auto; max-height: none; }
+}
