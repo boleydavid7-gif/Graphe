@@ -1,4 +1,4 @@
-/** Versioned, same-origin theme handoff for Writer embedded in ProairetOS.
+/** Versioned, trusted-origin theme handoff for Writer embedded in ProairetOS.
  * The OS owns Lamplight's scheme generation. Writer only consumes semantic tokens.
  * Standalone Writer retains the CSS fallback palette.
  */
@@ -23,7 +23,7 @@ export function installLamplightBridge(): () => void {
   if (window.parent === window) return () => {};
   // Never accept theme messages from another origin or from unrelated frames.
   const receive = (event: MessageEvent) => {
-    if (event.source !== window.parent || event.origin !== window.location.origin) return;
+    if (event.source !== window.parent || event.origin !== 'https://proairetos.com') return;
     const data = event.data;
     if (!data || data.type !== 'proairetos:lamplight' || data.version !== 1 || data.app !== 'writer') return;
     if (data.mode !== 'light' && data.mode !== 'dark') return;
@@ -44,6 +44,6 @@ export function installLamplightBridge(): () => void {
     // Document paper and content intentionally remain independent of shell colors.
   };
   window.addEventListener('message', receive);
-  window.parent.postMessage({ type: 'writer:lamplight-ready', version: 1 }, window.location.origin);
+  window.parent.postMessage({ type: 'writer:lamplight-ready', version: 1 }, 'https://proairetos.com');
   return () => window.removeEventListener('message', receive);
 }
