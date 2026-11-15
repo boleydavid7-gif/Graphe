@@ -247,7 +247,14 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
       const visual = window.visualViewport;
       // The inherited inset pads the inner page content, not this flex item.
       // It adds scroll room without inflating the workspace on keyboard/rotation.
-      const inset = visual ? Math.min(scroll.clientHeight,
+      // Both Android Chrome and iOS Safari can resize the visual viewport
+      // independently of the layout viewport. Reserve keyboard room only
+      // while the native editing proxy is focused: browser chrome collapsing
+      // must not create a permanent empty strip under the document.
+      const editing = !!input.current && (
+        root.current?.contains(document.activeElement) ?? false
+      );
+      const inset = editing && visual ? Math.min(scroll.clientHeight,
         Math.max(0, scroll.getBoundingClientRect().bottom - visual.offsetTop - visual.height)) : 0;
       const value = `${inset}px`;
       if (scroll.style.getPropertyValue('--writer-keyboard-inset') !== value) {
@@ -377,7 +384,19 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
         positionInput(shouldReveal);
       });
     };
-    const visualChanged = () => { reveal = true; updateViewport(); };
+    const visualChanged = () => {
+      // Keep the Rust caret visible as the software keyboard animates on
+      // either mobile platform; the RAF coalesces resize/scroll bursts.
+      reveal = true;
+      updateViewport();
+    };
+    const focusChanged = () => {
+      // Focus can change without a viewport event (hardware keyboard,
+      // Android keyboard dismissal, or switching to a toolbar control).
+      updateViewport();
+    };
+    document.addEventListener('focusin', focusChanged);
+    document.addEventListener('focusout', focusChanged);
     window.addEventListener('scroll', updateViewport, true);
     window.addEventListener('resize', updateViewport);
     window.visualViewport?.addEventListener('resize', visualChanged);
@@ -387,6 +406,8 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(updateViewport);
     if (observed) resizeObserver?.observe(observed);
     return () => {
+      document.removeEventListener('focusin', focusChanged);
+      document.removeEventListener('focusout', focusChanged);
       window.removeEventListener('scroll', updateViewport, true);
       window.removeEventListener('resize', updateViewport);
       window.visualViewport?.removeEventListener('resize', visualChanged);
