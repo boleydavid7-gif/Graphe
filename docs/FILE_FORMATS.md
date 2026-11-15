@@ -164,7 +164,7 @@ establishes reopenability within the profile, not full semantic or Office fideli
 
 ## Licensing and verification
 
-The project license remains undecided; no project `LICENSE` was added. Existing
+Graphe is free to use but proprietary; its copyright and usage notice is in the root [`LICENSE`](../LICENSE). Existing
 low-level libraries are reused where suitable. New dependency choices and
 licenses are recorded in [DEPENDENCIES.md](DEPENDENCIES.md); source/distribution
 notices for the new graph are in `crates/office-formats/THIRD_PARTY_NOTICES.txt`.
