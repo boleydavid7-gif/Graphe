@@ -3,7 +3,7 @@
 use office_core::{
     Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section, TextRun,
 };
-use office_docx::{DocxImportOutcome, export_docx, import_docx};
+use office_docx::{DocxImportOutcome, DocxSource, export_docx, export_docx_with_source, import_docx};
 
 fn document() -> Document {
     let paragraphs = [
@@ -42,4 +42,25 @@ fn word_numbering_is_structural_and_round_trips() {
         Some(ListKind::Bullet),
     ]);
     assert!(imported.report().is_supported());
+}
+
+
+#[test]
+fn source_aware_word_copy_retains_structural_numbering() {
+    let current = document();
+    let bytes = export_docx(&current).unwrap();
+    let source = DocxSource::open(&bytes).unwrap();
+    let copied = export_docx_with_source(&current, &source).unwrap();
+    let imported = import_docx(&copied, Id::new("reopened-copy").unwrap()).unwrap();
+    let DocxImportOutcome::Editable(imported) = imported else {
+        panic!("The regenerated, source-aware Word copy lost list editability");
+    };
+    let lists = imported.document().sections()[0].blocks().iter().map(|block| {
+        let Block::Paragraph(paragraph) = block;
+        paragraph.list()
+    }).collect::<Vec<_>>();
+    assert_eq!(lists, vec![
+        Some(ListKind::Numbered), Some(ListKind::Numbered), None,
+        Some(ListKind::Numbered), Some(ListKind::Bullet),
+    ]);
 }
