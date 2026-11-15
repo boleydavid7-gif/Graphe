@@ -156,6 +156,7 @@ export default function App() {
   const [moreFormatting, setMoreFormatting] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const tabStripRef = useRef<HTMLElement | null>(null);
   const tabIndicatorRef = useRef<HTMLSpanElement | null>(null);
   const ribbonRef = useRef<HTMLDivElement | null>(null);
@@ -900,6 +901,10 @@ export default function App() {
         <button disabled={unavailable} onClick={openFind}><WriterIcon name="search" />Find</button>
         <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
       </div>}
+      <button className="inspector-toggle" aria-controls="writer-inspector" aria-expanded={inspectorOpen}
+        onClick={() => setInspectorOpen((open) => !open)} title="Toggle formatting inspector">
+        {inspectorOpen ? 'Hide details' : 'Details'}
+      </button>
     </div>
     {findOpen && view && documentOpen && <div ref={findPanel} className="find-panel"><FindBar view={view} onFind={findText} onCommand={command}
       onClose={() => setFindOpen(false)} onFocusDocument={() => surface.current?.focus()}
@@ -928,7 +933,7 @@ export default function App() {
         <p>Keep the native Writer file or download the original for full source preservation. New exported copies use the current supported document formatting.</p>
       </details>
     </aside>}
-    <main className="workspace" aria-label="Document workspace">
+    <div className="writer-work-area"><main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Writer could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
         : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command}
@@ -945,6 +950,52 @@ export default function App() {
             onClose={togglePagePreview} />}</>
           : <div className="closed-document"><WriterIcon name="lantern" className="writer-lantern" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
+    {inspectorOpen && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector">
+      <div className="writer-inspector-heading">
+        <div><span className="writer-inspector-eyebrow">Writer</span><h2>Formatting</h2></div>
+        <button aria-label="Close formatting inspector" onClick={() => setInspectorOpen(false)}>×</button>
+      </div>
+      <section className="writer-inspector-section" aria-label="Text formatting">
+        <h3>Text</h3>
+        <label htmlFor="inspector-style">Paragraph style</label>
+        <select id="inspector-style" disabled={unavailable}
+          value={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
+          onChange={(event) => format({ type: 'assign_style', styleId: JSON.parse(event.target.value) as string | null }, false)}>
+          {formatState?.styleMixed && <option value="mixed" disabled>Mixed styles</option>}
+          <option value="null">Paragraph</option>
+          {view?.styles.map((style) => <option key={style.id} value={JSON.stringify(style.id)}>{style.name}</option>)}
+        </select>
+        <label htmlFor="inspector-font-size">Font size</label>
+        <select id="inspector-font-size" disabled={unavailable} value={formatState?.fontSizePt ?? ''}
+          onChange={(event) => format({ type: 'format_character', fontSizePt: Number(event.target.value) }, false)}>
+          <option value="" disabled>Mixed</option>
+          {[...new Set([8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72, ...(formatState?.fontSizePt ? [formatState.fontSizePt] : [])])].sort((a, b) => a - b).map((size) => <option key={size} value={size}>{size} pt</option>)}
+        </select>
+        <div className="writer-inspector-buttons" role="group" aria-label="Text emphasis">
+          {(['bold', 'italic', 'underline'] as const).map((property) => <button key={property}
+            disabled={unavailable} aria-label={property} aria-pressed={formatState?.[property] === null ? 'mixed' : !!formatState?.[property]}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'format_character', [property]: !formatState?.[property] })}>
+            {property === 'bold' ? 'B' : property === 'italic' ? 'I' : 'U'}
+          </button>)}
+        </div>
+      </section>
+      <section className="writer-inspector-section" aria-label="Paragraph formatting">
+        <h3>Paragraph</h3>
+        <div className="writer-inspector-buttons" role="group" aria-label="Alignment">
+          {(['left', 'center', 'right', 'justify'] as const).map((alignment) => <button key={alignment}
+            disabled={unavailable} aria-label={`Align ${alignment}`} aria-pressed={formatState?.alignment === alignment}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'format_paragraph', alignment })}><AlignmentIcon alignment={alignment}/></button>)}
+        </div>
+      </section>
+      <section className="writer-inspector-section">
+        <h3>Page</h3>
+        <p>Page size and margins follow the document. Use Page preview to inspect the layout.</p>
+        <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
+      </section>
+    </aside>}
+    </div>
     <footer className="status-bar">
       <span className="page-status" aria-live="polite">{!documentOpen ? 'No document open'
         : pageInfo.status === 'unavailable' ? 'Pages unavailable'
