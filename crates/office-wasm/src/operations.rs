@@ -254,6 +254,65 @@ impl BrowserEngine {
         self.replace_text_with_break_policy(text, supplied, true)
     }
 
+    /// Replace bounded, non-overlapping literal matches in one core transaction.
+    /// Search and UTF-16/grapheme selection remain Rust-owned. Reject unbounded
+    /// results rather than silently editing only the first 1,000 occurrences.
+    pub(super) fn replace_all(
+        &mut self,
+        query: &str,
+        replacement: &str,
+    ) -> Result<(), EngineError> {
+        if query.is_empty() {
+            return Err(EngineError::new("invalid_replace", "Enter text to find first."));
+        }
+        // The first release replaces within paragraphs only, so this command
+        // never inserts paragraph breaks or changes document structure.
+        if replacement.len() > 1024 || replacement.contains(['\r', '\n']) {
+            return Err(EngineError::new(
+                "invalid_replace",
+                "Replacement text must be a single line of at most 1,024 UTF-8 bytes.",
+            ));
+        }
+        let snapshot = self.find_snapshot(query)?;
+        if snapshot.truncated {
+            return Err(EngineError::new(
+                "too_many_matches",
+                "More than 1,000 matches were found. Narrow the search before replacing all.",
+            ));
+        }
+        // Search returns expanded full-grapheme selections in document order.
+        // Overlapping matches cannot both be replaced: choose the earliest
+        // non-overlapping occurrence, matching conventional replace-all behavior.
+        let mut targets: Vec<BrowserSelection> = Vec::new();
+        for item in snapshot.matches {
+            let selection = item.selection;
+            if targets.last().is_some_and(|previous|
+                previous.focus.paragraph_id == selection.anchor.paragraph_id
+                && selection.anchor.utf16 < previous.focus.utf16
+            ) {
+                continue;
+            }
+            targets.push(selection);
+        }
+        if targets.is_empty() {
+            return Ok(());
+        }
+        let mut prepared = Vec::with_capacity(targets.len());
+        for selection in &targets {
+            prepared.push((selection.clone(), self.typing_format(selection)?));
+        }
+        let after = targets.first().map(|selection| caret(selection.anchor.clone()));
+        let mut transaction = self.session.begin_transaction();
+        // Right-to-left keeps all earlier Rust UTF-16/grapheme offsets stable.
+        for (selection, format) in prepared.into_iter().rev() {
+            let range = edit_selection(&transaction, &selection)?;
+            transaction.replace_text(&range, replacement, format)?;
+        }
+        self.commit_from(transaction, self.selection.clone(), after)?;
+        self.typing = None;
+        Ok(())
+    }
+
     pub(super) fn insert_line_break(
         &mut self,
         supplied: Option<BrowserSelection>,
