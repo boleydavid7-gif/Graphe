@@ -847,3 +847,93 @@ dialog .dialog-actions { border-color: var(--writer-border); }
   .document-menu-panel,
   dialog[open] { animation: none !important; transition: none !important; }
 }
+
+/* Lamplight pass 2 — document-first workspace and mobile editing chrome.
+   Do not transform the editor, paper, SVG or caret: Rust owns their geometry. */
+:root {
+  --writer-paper-shadow: 0 2px 5px rgb(0 0 0 / 10%),
+    0 16px 38px rgb(0 0 0 / 17%),
+    0 32px 68px rgb(0 0 0 / 8%);
+}
+.workspace {
+  background-color: var(--writer-workspace);
+  background-image: repeating-linear-gradient(
+    115deg, rgb(255 242 213 / 0.008) 0 1px, transparent 1px 8px
+  );
+  scrollbar-width: thin;
+  scrollbar-color: var(--writer-border-control) var(--writer-workspace);
+  overscroll-behavior: contain;
+}
+.paged-editing-view,
+.paged-editor,
+.paged-editor-pages,
+.layout-preview-pages { min-width: 0; }
+.paged-editor-pages,
+.layout-preview-pages { align-items: center; }
+.paged-editor-paper,
+.document-page,
+.paged-editor.text-mode > .editor-surface,
+.layout-page-paper {
+  box-shadow: var(--writer-paper-shadow);
+}
+.paged-editor-paper { background: var(--writer-paper); outline-color: var(--writer-paper-border); }
+.paged-editor-page figcaption,
+.layout-page-figure figcaption { color: var(--writer-text-muted); }
+.status-bar {
+  color: var(--writer-text-muted);
+  border-top-color: var(--writer-border-subtle);
+}
+.status-message { color: var(--writer-text-muted); }
+.zoom-controls select {
+  background: var(--writer-control);
+  border-color: var(--writer-border-control);
+}
+@media (min-width: 900px) {
+  .workspace { padding: 36px clamp(28px, 5vw, 88px) 64px; }
+  .paged-editor-pages,
+  .layout-preview-pages { gap: 38px; }
+}
+@media (min-width: 621px) and (max-width: 899px) {
+  .workspace { padding: 26px 20px 42px; }
+  .paged-editor-pages,
+  .layout-preview-pages { gap: 28px; }
+}
+@media (max-width: 620px) {
+  .workspace {
+    padding: 18px 9px calc(26px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-top: 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .paged-editor-pages,
+  .layout-preview-pages { gap: 22px; }
+  .formatting-bar {
+    margin: 6px 9px 0;
+    padding: 7px 8px;
+    gap: 7px;
+    background: var(--writer-surface);
+    border-color: var(--writer-border);
+  }
+  .history-controls { gap: 2px; padding-right: 8px; }
+  .format-button,
+  .history-controls > button { min-width: 36px; min-height: 38px; }
+  .format-group select { min-height: 36px; }
+  .mobile-document-actions {
+    background: var(--writer-surface);
+    border-top-color: var(--writer-border-subtle);
+    gap: 4px;
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-document-actions > button {
+    border-radius: var(--writer-radius-sm);
+    min-height: 44px;
+    transition: background-color var(--writer-motion-fast) var(--writer-motion-curve),
+      color var(--writer-motion-fast) var(--writer-motion-curve);
+  }
+  .mobile-document-actions > button:active:not(:disabled) {
+    background: var(--writer-control-selected);
+  }
+  .status-bar { color: var(--writer-text-muted); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-document-actions > button { transition: none; }
+}
