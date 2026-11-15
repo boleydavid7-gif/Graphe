@@ -1,0 +1,18 @@
+{
+  "name": "Graphe",
+  "short_name": "Graphe",
+  "description": "Graphe by ProairetOS — document writing and editing.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#493026",
+  "theme_color": "#493026",
+  "icons": [
+    {
+      "src": "/graphe-icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
