@@ -1,3 +1,4 @@
+import { canSaveToProairetos, saveToProairetos } from './proairetosFilesBridge';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import type { EditorSurfaceHandle } from './EditorSurface';
@@ -673,6 +674,23 @@ export default function App() {
       setNotice(`${formatName(current.format)} copy ready. This does not replace your local Writer save.`);
     } catch (failure) {
       setSaveAs({ ...current, assessment: null, error: message(failure) });
+    }
+  }
+
+  async function saveCopyInProairetos() {
+    const current = saveAs;
+    if (!engine.current || !current?.assessment || !documentOpen || composing || busy) return;
+    setBusy(true);
+    try {
+      const bytes = engine.current.exportFormat(current.format, current.assessment.warnings.length > 0, current.assessment);
+      const filename = safeFilename(current.filename.replace(/\\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
+      await saveToProairetos(filename, current.format, bytes);
+      closeSaveAs();
+      setNotice(filename + ' saved in ProairetOS Files / Documents.');
+    } catch (failure) {
+      setSaveAs((previous) => previous ? { ...previous, error: message(failure) } : null);
+    } finally {
+      setBusy(false);
     }
   }
 
