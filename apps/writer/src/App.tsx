@@ -156,6 +156,41 @@ export default function App() {
   const [moreFormatting, setMoreFormatting] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
+  const tabStripRef = useRef<HTMLElement | null>(null);
+  const tabIndicatorRef = useRef<HTMLSpanElement | null>(null);
+  const ribbonRef = useRef<HTMLDivElement | null>(null);
+  const previousTabRef = useRef(activeTab);
+  const moveTabIndicator = useCallback(() => {
+    const strip = tabStripRef.current;
+    const indicator = tabIndicatorRef.current;
+    const active = strip?.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+    if (!strip || !indicator || !active) return;
+    indicator.style.width = `${active.offsetWidth - 20}px`;
+    indicator.style.transform = `translateX(${active.offsetLeft + 10}px)`;
+    indicator.style.opacity = '1';
+  }, []);
+  useLayoutEffect(() => {
+    moveTabIndicator();
+    const strip = tabStripRef.current;
+    if (!strip || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(moveTabIndicator);
+    observer.observe(strip);
+    strip.querySelectorAll('button').forEach((button) => observer.observe(button));
+    return () => observer.disconnect();
+  }, [activeTab, moveTabIndicator]);
+  useEffect(() => {
+    if (previousTabRef.current === activeTab) return;
+    previousTabRef.current = activeTab;
+    const ribbon = ribbonRef.current;
+    if (!ribbon || typeof ribbon.animate !== 'function' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const animation = ribbon.animate(
+      [{ opacity: .68, transform: 'translateY(3px)' }, { opacity: 1, transform: 'translateY(0)' }],
+      { duration: 230, easing: 'cubic-bezier(.22, 1, .36, 1)' }
+    );
+    return () => animation.cancel();
+  }, [activeTab]);
+
   const [pageInfo, setPageInfo] = useState<PageInfo>({ pageCount: null, currentPage: null, status: 'loading', zoomPercent: null });
   const editingPageInfo = useRef(pageInfo);
   const previousPreview = useRef(false);
@@ -793,7 +828,8 @@ export default function App() {
         </details>
       </nav>
     </header>
-    <nav className="editor-tabs" aria-label="Editor sections">
+    <nav className="editor-tabs" ref={tabStripRef} aria-label="Editor sections">
+      <span className="editor-tab-indicator" ref={tabIndicatorRef} aria-hidden="true" />
       {(['write', 'insert', 'layout', 'review'] as const).map((tab) => <button key={tab}
         aria-pressed={activeTab === tab} aria-controls="writer-formatting" onClick={() => setActiveTab(tab)}>
         {tab.charAt(0).toUpperCase() + tab.slice(1)}</button>)}
@@ -801,7 +837,7 @@ export default function App() {
         {saveLabel}
       </span>
     </nav>
-    <div id="writer-formatting" className={`formatting-bar${moreFormatting ? ' show-more-formatting' : ''}`} aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls`}>
+    <div id="writer-formatting" ref={ribbonRef} className={`formatting-bar${moreFormatting ? ' show-more-formatting' : ''}`} aria-label={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} controls`}>
       <div className="history-controls" role="group" aria-label="History">
         <button aria-label="Undo" title="Undo (Ctrl/⌘ Z)" disabled={unavailable || !view?.canUndo}
           onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'undo' })}><WriterIcon name="undo" /></button>
