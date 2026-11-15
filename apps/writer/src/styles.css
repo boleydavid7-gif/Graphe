@@ -305,3 +305,78 @@ dialog[open] {
   .document-menu-panel, dialog[open] { animation: none; }
   button, summary, .document-title, .library-entry, select, input { transition: none !important; }
 }
+
+/* Second pass: clear hierarchy, crisp controls and touch-friendly mobile layout. */
+.top-bar { gap: 20px; }
+.identity { letter-spacing: -.75px; }
+.document-title { transition: background-color 170ms ease, border-color 170ms ease; }
+.editor-tabs { border-bottom: 1px solid rgb(255 239 206 / 6%); }
+.editor-tabs > button { font-weight: 500; letter-spacing: .01em; }
+.editor-tabs > button[aria-pressed='true'] { font-weight: 650; }
+.formatting-bar { border-color: #514234; }
+.format-group select, .zoom-controls select {
+  border-color: #655341;
+}
+.format-group select:hover:not(:disabled), .zoom-controls select:hover:not(:disabled) {
+  border-color: #9a805c;
+}
+.document-menu-panel {
+  padding: 6px;
+  border-color: #786047;
+}
+.document-menu-panel > button {
+  border-radius: 3px;
+  text-align: left;
+  font-size: 13px;
+}
+.status-bar {
+  border-top-color: #514337;
+  letter-spacing: .005em;
+}
+dialog {
+  border-color: #78634a;
+  padding: 22px 24px;
+}
+.dialog-heading { padding-bottom: 4px; }
+.dialog-heading h2 { letter-spacing: -.45px; }
+.dialog-actions .primary-button { min-height: 38px; }
+.save-as-fields > input:focus, .save-as-fields > select:focus {
+  border-color: var(--accent);
+}
+@media (max-width: 620px) {
+  .top-bar { padding: 9px 15px 7px; row-gap: 3px; }
+  .document-title { font-size: 16px; }
+  .file-actions > button, .document-menu > summary { min-width: 40px; min-height: 40px; }
+  .editor-tabs { padding-inline: 7px; }
+  .editor-tabs > button { min-height: 43px; }
+  .formatting-bar { margin: 6px 9px 0; padding: 6px 8px; gap: 7px; }
+  .format-button, .history-controls > button { min-height: 36px; }
+  .workspace { padding: 16px 10px 28px; }
+  .paged-editor-pages, .layout-preview-pages { gap: 20px; }
+  .status-bar { padding-inline: 12px; }
+  .mobile-document-actions > button { min-height: 44px; }
+  .document-menu-panel {
+    right: 0;
+    width: min(280px, calc(100vw - 24px));
+    min-width: 0;
+    padding: 7px;
+  }
+  .document-menu-panel > button { min-height: 44px; font-size: 14px; }
+  dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom, 0px));
+    padding: 18px 17px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .dialog-heading h2 { font-size: 18px; }
+  .save-as-fields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    margin-block: 16px;
+  }
+  .save-as-fields > label:not(:first-child) { margin-top: 7px; }
+  .save-as-fields > input, .save-as-fields > select { min-height: 44px; font-size: 16px; }
+  .dialog-actions { gap: 9px; }
+  .dialog-actions > button { min-height: 44px; }
+}
