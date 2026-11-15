@@ -641,9 +641,8 @@ impl LayoutEngine {
             }
             result.push(shaped);
         }
-        // Release the shaping layout before acquiring the context again for
-        // decorative marker glyphs; both use the same pinned Rust font catalog.
-        drop(layout);
+        // Line geometry is fully owned before making the second pinned-font
+        // layout for the decorative marker; native text offsets stay unchanged.
         if let Some(marker) = marker {
             if let Some(first_line) = result.first_mut() {
                 let size = formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.;
