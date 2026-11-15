@@ -78,6 +78,8 @@ export interface WriterView {
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   readonly wordCount: number;
+  /** Runtime approximation notices, derived again from the retained source on reopen. */
+  readonly importWarnings?: CompatibilityReport;
   /** Immutable retained input, separate from current content and undo history. */
   readonly originalSource: {
     readonly format: string;

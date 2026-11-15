@@ -13,6 +13,8 @@ const formatted = await readFile(new URL('supported-formatting.docx', fixtureRoo
 const unsupported = await readFile(new URL('writer-source-preservation.docx', fixtureRoot));
 const carriageReturn = await readFile(new URL('unsupported-carriage-return.docx', fixtureRoot));
 const partialSpacing = await readFile(new URL('unsupported-partial-line-spacing.docx', fixtureRoot));
+const protection = await readFile(new URL('relationships/unsupported-active-document-protection.docx', fixtureRoot));
+const tracking = await readFile(new URL('relationships/unsupported-active-track-revisions.docx', fixtureRoot));
 const decoder = new TextDecoder();
 
 function engine(context) {
@@ -67,7 +69,7 @@ test('actual WASM rejects unsupported/corrupted DOCX without replacing content, 
   command(instance, { type: 'set_title', title: 'Unsaved work' });
   const before = instance.snapshot();
   const bytes = instance.export_document();
-  for (const [input, code] of [[unsupported, 'unsupported_docx'], [carriageReturn, 'unsupported_docx'], [partialSpacing, 'unsupported_docx'], [new Uint8Array([1, 2, 3]), 'invalid_docx']]) {
+  for (const [input, code] of [[unsupported, 'unsupported_docx'], [carriageReturn, 'unsupported_docx'], [protection, 'unsupported_docx'], [tracking, 'unsupported_docx'], [new Uint8Array([1, 2, 3]), 'invalid_docx']]) {
     const result = JSON.parse(instance.import_docx(input, 'next.docx'));
     assert.equal(result.ok, false);
     assert.equal(result.error.code, code);
@@ -78,6 +80,20 @@ test('actual WASM rejects unsupported/corrupted DOCX without replacing content, 
   }
   command(instance, { type: 'undo' });
   assert.equal(snapshot(instance).title, '');
+});
+
+test('actual WASM imports standard automatic partial line spacing with a normalization notice', (context) => {
+  const value = engine(context);
+  const imported = accept(value.import_docx(partialSpacing, 'partial-spacing.docx'));
+  assert.ok(imported.importWarnings.diagnostics.some((notice) => notice.kind === 'normalized_formatting'));
+  assert.deepEqual(native(value).document.sections[0].blocks[0].content.format.line_spacing,
+    { kind: 'multiple', value: 300 });
+  assert.deepEqual(value.export_original(), new Uint8Array(partialSpacing));
+  const bytes = value.export_document();
+  const reopened = engine(context);
+  const restored = accept(reopened.open_document(bytes));
+  assert.deepEqual(restored.importWarnings, imported.importWarnings);
+  assert.deepEqual(reopened.export_document(), bytes);
 });
 
 test('actual WASM Word export contains edited content while native files retain the disclosed original', (context) => {

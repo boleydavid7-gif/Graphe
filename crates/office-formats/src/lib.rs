@@ -172,6 +172,21 @@ pub enum ImportOutcome {
     },
 }
 
+/// A single parsed import outcome and its non-blocking formatting notices.
+///
+/// Notices are runtime conversion information, not a second document model or
+/// fields in the native Writer envelope. Unsupported content still produces
+/// [`ImportOutcome::Preserved`] rather than a partial editable projection.
+#[derive(Debug)]
+pub struct ImportReport {
+    /// Complete editable file or intact preserved source.
+    pub outcome: ImportOutcome,
+    /// At most 128 concrete formatting approximation notices.
+    pub warnings: Vec<FormatDiagnostic>,
+    /// Additional notices omitted independently from blocking diagnostics.
+    pub omitted_warnings: usize,
+}
+
 /// Explicit conversion losses and fidelity limitations requiring acknowledgement.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExportReport {
@@ -186,6 +201,20 @@ pub fn import_document(
     document_id: Id,
     filename: &str,
 ) -> Result<ImportOutcome, FormatError> {
+    Ok(import_document_with_warnings(format, bytes, document_id, filename)?.outcome)
+}
+
+/// Imports once and returns non-blocking notices alongside the existing outcome.
+///
+/// User-facing callers should present these notices after preserving the full
+/// native file and original. The legacy [`import_document`] API retains its
+/// return type; it performs this same import without exposing the notice report.
+pub fn import_document_with_warnings(
+    format: DocumentFormat,
+    bytes: &[u8],
+    document_id: Id,
+    filename: &str,
+) -> Result<ImportReport, FormatError> {
     let limit = if format == DocumentFormat::Writer {
         office_core::MAX_WRITER_FILE_BYTES
     } else {
@@ -203,7 +232,9 @@ pub fn import_document(
             "Import document identifiers are limited to 1,024 UTF-8 bytes.",
         ));
     }
-    match format {
+    let mut warnings = Vec::new();
+    let mut omitted_warnings = 0;
+    let outcome = match format {
         DocumentFormat::Writer => Ok(ImportOutcome::Editable(
             office_core::deserialize_writer_file(bytes)?,
         )),
@@ -211,6 +242,16 @@ pub fn import_document(
             .map_err(|e| FormatError::new("invalid_docx", e.to_string()))?
         {
             office_docx::DocxImportOutcome::Editable(imported) => {
+                let report = imported.report();
+                warnings.extend(report.normalizations.iter().map(|notice| {
+                    FormatDiagnostic::new(
+                        notice.kind.code(),
+                        notice.part.clone(),
+                        notice.path.clone(),
+                        notice.message.clone(),
+                    )
+                }));
+                omitted_warnings = report.omitted_normalizations;
                 let (document, _) = imported.into_parts();
                 Ok(ImportOutcome::Editable(retain_source(
                     format, document, bytes, filename,
@@ -236,7 +277,12 @@ pub fn import_document(
             "export_only",
             "PDF is export only; open an editable document format.",
         )),
-    }
+    }?;
+    Ok(ImportReport {
+        outcome,
+        warnings,
+        omitted_warnings,
+    })
 }
 
 /// Describes expected conversion losses before external-format saving.

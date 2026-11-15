@@ -284,7 +284,7 @@ fn reports_are_bounded_without_losing_the_read_only_decision() {
     let repeated = modified(BASIC, "document.xml", |text| {
         text.replace(
             "</w:p>",
-            &format!("{}</w:p>", "<w:bookmarkStart/>".repeat(200)),
+            &format!("{}</w:p>", "<w:unimplementedContent/>".repeat(200)),
         )
     });
     match import_docx(&repeated, Id::new("many-issues").unwrap()).unwrap() {
@@ -498,17 +498,20 @@ fn invalid_whitespace_declarations_are_errors_even_when_inherited() {
 }
 
 #[test]
-fn an_empty_body_cannot_discard_explicit_defaults_for_future_typing() {
+fn empty_body_defaults_are_disclosed_as_future_typing_normalization_and_retained_in_original() {
     let replace_body = |text: String| {
         let start = text.find("<w:body>").unwrap();
         let end = text.find("</w:body>").unwrap() + "</w:body>".len();
         format!("{}<w:body/>{}", &text[..start], &text[end..])
     };
     let with_defaults = modified(FORMATTING, "documents/main.xml", replace_body);
-    assert!(matches!(
-        import_docx(&with_defaults, Id::new("empty-with-defaults").unwrap()).unwrap(),
-        DocxImportOutcome::Preserved { .. }
-    ));
+    let normalized = editable(&with_defaults);
+    assert!(normalized.document().sections().is_empty());
+    assert_eq!(normalized.original().original_bytes(), with_defaults);
+    assert!(normalized.report().is_supported());
+    assert!(normalized.report().normalizations.iter().any(|notice| {
+        notice.kind == CompatibilityIssueKind::NormalizedFormatting && notice.path == "body"
+    }));
     let without_defaults = modified(BASIC, "document.xml", replace_body);
     let imported = editable(&without_defaults);
     assert!(imported.document().sections().is_empty());

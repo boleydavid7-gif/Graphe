@@ -261,3 +261,55 @@ for source_name, target_name in (
     strict_root = [dict(node.attrib) for node in E.fromstring(converted.pop(ROOT_RELS))]
     strict_main = [dict(node.attrib) for node in E.fromstring(converted.pop(MAIN_RELS))]
     write_package(target_name, converted, strict_types, strict_root, strict_main)
+
+# Synthetic Word-for-web-like formatting, authored independently of the private
+# user sample. Only public MIT SDK settings/styles/font/view parts are reused.
+p, t, r, m = candidate()
+with zipfile.ZipFile(HERE / "microsoft-sdk-plain.docx") as microsoft:
+    for part in ("word/styles.xml", "word/settings.xml", "word/fontTable.xml", "word/webSettings.xml"):
+        p[part] = microsoft.read(part)
+p["word/settings.xml"] = p["word/settings.xml"].replace(
+    b"<w:defaultTabStop", b'<w:trackRevisions w:val="false"/><w:defaultTabStop', 1
+)
+paragraphs = []
+for index in range(1, 10):
+    properties = '<w:pPr><w:pStyle w:val="Normal"/></w:pPr>' if index == 1 else ""
+    if index == 8:
+        properties = '<w:pPr><w:spacing w:before="240" w:beforeAutospacing="off" w:after="240" w:afterAutospacing="off"/></w:pPr>'
+    run_format = '<w:rFonts w:ascii="Arimo" w:hAnsi="Arimo" w:eastAsia="Arimo" w:cs="Arimo"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:noProof w:val="0"/><w:lang w:val="en-US"/>'
+    if index == 1:
+        run_format += '<w:b/><w:bCs/><w:caps w:val="0"/><w:smallCaps w:val="0"/><w:color w:val="000000" w:themeColor="text1" w:themeTint="FF" w:themeShade="FF"/>'
+    first_text = f'Paragraph {index} — Café ' if index > 1 else 'A synthetic writing sample.'
+    runs = f'<w:r><w:rPr>{run_format}</w:rPr><w:t xml:space="preserve">{first_text}</w:t></w:r>'
+    if index > 1:
+        runs += f'<w:r><w:rPr>{run_format}<w:i/><w:iCs/></w:rPr><w:t>é 👩🏽‍💻</w:t></w:r>'
+    paragraphs.append(f'<w:p w14:paraId="{index:08X}" w14:textId="{index + 16:08X}">{properties}{runs}</w:p>')
+p["word/document.xml"] = xml(
+    f'<w:document xmlns:w="{W}" xmlns:w14="{W14}" xmlns:mc="{MC}" mc:Ignorable="w14"><w:body>'
+    + ''.join(paragraphs)
+    + '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/><w:cols w:space="720"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body></w:document>'
+)
+write_package("normalizable-wordweb-profile.docx", p, t, r, m)
+profile = deepcopy((p, t, r, m))
+for name in ("unsupported-active-document-protection", "unsupported-active-track-revisions"):
+    protected_parts, protected_types, protected_root, protected_main = deepcopy(profile)
+    if name == "unsupported-active-track-revisions":
+        protected_parts["word/settings.xml"] = protected_parts["word/settings.xml"].replace(
+            b'<w:trackRevisions w:val="false"/>', b'<w:trackRevisions w:val="true"/>', 1
+        )
+    else:
+        protected_parts["word/settings.xml"] = protected_parts["word/settings.xml"].replace(
+            b'</w:settings>', b'<w:documentProtection w:edit="readOnly" w:enforcement="1"/></w:settings>', 1
+        )
+    write_package(name + ".docx", protected_parts, protected_types, protected_root, protected_main)
+
+p, t, r, m = candidate()
+flood = ''.join(
+    f'<w:p><w:r><w:rPr><w:lang w:val="en-US"/></w:rPr><w:t>Warning sample {index}</w:t></w:r></w:p>'
+    for index in range(160)
+)
+p["word/document.xml"] = xml(
+    f'<w:document xmlns:w="{W}"><w:body>' + flood
+    + '<w:p><w:ins w:id="1" w:author="Synthetic"><w:r><w:t>Tracked content</w:t></w:r></w:ins></w:p></w:body></w:document>'
+)
+write_package("unsupported-normalization-flood.docx", p, t, r, m)

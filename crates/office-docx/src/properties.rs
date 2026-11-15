@@ -8,6 +8,8 @@ use office_core::{
 };
 use roxmltree::Node;
 
+const WORD_2010: &str = "http://schemas.microsoft.com/office/word/2010/wordml";
+
 use crate::conversion::{
     CompatibilityIssueKind as Issue, CompatibilityReport, ConversionError, invalid,
 };
@@ -25,8 +27,30 @@ pub(crate) fn parse_character(
     part: &str,
     report: &mut CompatibilityReport,
 ) -> Result<CharacterFormat, ConversionError> {
+    parse_character_properties(node, namespace, part, report, false).map(|(format, _)| format)
+}
+
+/// Extracts a validated run-style reference for the importer to resolve before
+/// publishing text. Styles/defaults do not accept this run-only property.
+pub(crate) fn parse_run_character(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(CharacterFormat, Option<String>), ConversionError> {
+    parse_character_properties(node, namespace, part, report, true)
+}
+
+fn parse_character_properties(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+    allow_run_style: bool,
+) -> Result<(CharacterFormat, Option<String>), ConversionError> {
     attributes(node, namespace, &[], part, report);
     let mut format = CharacterFormat::default();
+    let mut style = None;
     let mut bold_cs = None;
     let mut italic_cs = None;
     let mut size_cs = None;
@@ -36,6 +60,11 @@ pub(crate) fn parse_character(
             continue;
         }
         match property.tag_name().name() {
+            "rStyle" if allow_run_style => {
+                attributes(property, namespace, &["val"], part, report);
+                leaf(property, part, report)?;
+                style = Some(required(property, namespace, "val", part)?.to_owned());
+            }
             "b" => format.bold = Some(on_off(property, namespace, part, report)?),
             "i" => format.italic = Some(on_off(property, namespace, part, report)?),
             "bCs" => bold_cs = Some(on_off(property, namespace, part, report)?),
@@ -60,42 +89,41 @@ pub(crate) fn parse_character(
                     "none" => Some(Underline::None),
                     "single" => Some(Underline::Single),
                     "double" => Some(Underline::Double),
-                    _ => {
-                        unsupported_value(property, part, report, "underline treatment");
-                        None
+                    "wavyDouble" => {
+                        normalized(
+                            property,
+                            part,
+                            report,
+                            "Double-wave underlining is normalized to double underline; the original treatment is retained.",
+                        );
+                        Some(Underline::Double)
                     }
+                    "words" | "thick" | "dotted" | "dottedHeavy" | "dash" | "dashedHeavy"
+                    | "dashLong" | "dashLongHeavy" | "dotDash" | "dashDotHeavy" | "dotDotDash"
+                    | "dashDotDotHeavy" | "wave" | "wavyHeavy" => {
+                        normalized(
+                            property,
+                            part,
+                            report,
+                            "This underline treatment is normalized to single underline; the original treatment is retained.",
+                        );
+                        Some(Underline::Single)
+                    }
+                    _ => return Err(invalid(part, "unknown underline treatment")),
                 };
             }
-            "color" => {
-                attributes(property, namespace, &["val"], part, report);
-                leaf(property, part, report)?;
-                let value = required(property, namespace, "val", part)?;
-                format.color = if value == "auto" {
-                    Some(TextColor::Auto {})
-                } else if value.len() == 6 && value.bytes().all(|b| b.is_ascii_hexdigit()) {
-                    let component = |start| {
-                        u8::from_str_radix(&value[start..start + 2], 16)
-                            .expect("six ASCII hex digits checked")
-                    };
-                    Some(TextColor::Rgb {
-                        red: component(0),
-                        green: component(2),
-                        blue: component(4),
-                    })
-                } else {
-                    return Err(invalid(
-                        part,
-                        "color must be auto or six hexadecimal digits",
-                    ));
-                };
+            "color" => format.color = color(property, namespace, part, report)?,
+            _ => {
+                if !normalize_character_property(property, namespace, part, report)? {
+                    unsupported_element(property, part, report);
+                }
             }
-            _ => unsupported_element(property, part, report),
         }
     }
-    same_script_value("bCs", bold_cs, format.bold, part, report);
-    same_script_value("iCs", italic_cs, format.italic, part, report);
-    same_script_value("szCs", size_cs, format.font_size, part, report);
-    Ok(format)
+    format.bold = normalized_script_value("bCs", bold_cs, format.bold, part, report);
+    format.italic = normalized_script_value("iCs", italic_cs, format.italic, part, report);
+    format.font_size = normalized_script_value("szCs", size_cs, format.font_size, part, report);
+    Ok((format, style))
 }
 
 pub(crate) fn parse_paragraph(
@@ -129,6 +157,19 @@ pub(crate) fn parse_paragraph(
                     "center" => Some(Alignment::Center),
                     "right" => Some(Alignment::Right),
                     "both" => Some(Alignment::Justify),
+                    "start" | "end" => {
+                        normalized(
+                            property,
+                            part,
+                            report,
+                            "Logical start/end alignment is normalized to left/right in Writer's horizontal paragraph flow; the source retains the original alignment.",
+                        );
+                        Some(if required(property, namespace, "val", part)? == "start" {
+                            Alignment::Left
+                        } else {
+                            Alignment::Right
+                        })
+                    }
                     _ => {
                         unsupported_value(property, part, report, "paragraph alignment");
                         None
@@ -136,6 +177,7 @@ pub(crate) fn parse_paragraph(
                 };
             }
             "spacing" => spacing(property, namespace, part, report, &mut result.format)?,
+            "pBdr" => paragraph_borders(property, namespace, part, report)?,
             "ind" => {
                 result.format.indentation = Some(indentation(property, namespace, part, report)?);
             }
@@ -144,6 +186,67 @@ pub(crate) fn parse_paragraph(
             }
             "sectPr" => {
                 result.section = Some(parse_section(property, namespace, part, report)?);
+            }
+            "rPr" => {
+                // Paragraph-mark formatting is not text. Parse it through the same
+                // guards before retaining its source-only future-typing intent.
+                let _ = parse_character(property, namespace, part, report)?;
+                normalized(
+                    property,
+                    part,
+                    report,
+                    "Paragraph-mark formatting uses Writer's current paragraph defaults.",
+                );
+            }
+            "keepNext"
+            | "keepLines"
+            | "widowControl"
+            | "contextualSpacing"
+            | "suppressAutoHyphens"
+            | "suppressLineNumbers"
+            | "snapToGrid"
+            | "adjustRightInd"
+            | "autoSpaceDE"
+            | "autoSpaceDN"
+            | "wordWrap"
+            | "overflowPunct"
+            | "topLinePunct"
+            | "kinsoku" => {
+                let _ = on_off(property, namespace, part, report)?;
+                normalized(
+                    property,
+                    part,
+                    report,
+                    "Paragraph pagination and typography preferences use Writer defaults.",
+                );
+            }
+            "bidi" => {
+                if on_off(property, namespace, part, report)? {
+                    unsupported_value(
+                        property,
+                        part,
+                        report,
+                        "forced right-to-left paragraph direction",
+                    );
+                }
+            }
+            "outlineLvl" => {
+                numeric_leaf(property, namespace, part, report, false)?;
+                if required(property, namespace, "val", part)?
+                    .parse::<u32>()
+                    .is_ok_and(|v| v > 9)
+                {
+                    return Err(invalid(
+                        part,
+                        "paragraph outline level must be between zero and nine",
+                    ));
+                }
+                normalized(
+                    property,
+                    part,
+                    report,
+                    "Outline level remains in the original; Writer edits the paragraph as ordinary text.",
+                );
             }
             _ => unsupported_element(property, part, report),
         }
@@ -170,8 +273,38 @@ pub(crate) fn parse_section(
             "type" => {
                 attributes(property, namespace, &["val"], part, report);
                 leaf(property, part, report)?;
-                if property.attribute((namespace, "val")).unwrap_or("nextPage") != "nextPage" {
-                    unsupported_value(property, part, report, "section break type");
+                match property.attribute((namespace, "val")).unwrap_or("nextPage") {
+                    "nextPage" => {}
+                    "nextColumn" | "continuous" | "evenPage" | "oddPage" => normalized(
+                        property,
+                        part,
+                        report,
+                        "The section break is normalized to Writer's next-page section flow; original section-break preferences are retained.",
+                    ),
+                    _ => return Err(invalid(part, "unknown section break type")),
+                }
+            }
+            "cols" => single_column(property, namespace, part, report)?,
+            "docGrid" => document_grid(property, namespace, part, report)?,
+            "pgNumType" => page_numbering(property, namespace, part, report)?,
+            "formProt" => {
+                if on_off(property, namespace, part, report)? {
+                    unsupported_value(property, part, report, "protected form section");
+                }
+            }
+            "textDirection" => {
+                attributes(property, namespace, &["val"], part, report);
+                leaf(property, part, report)?;
+                match required(property, namespace, "val", part)? {
+                    "lrTb" => {}
+                    "tbRl" | "btLr" | "lrTbV" | "tbRlV" | "tbLrV" | "tb" | "rl" | "lr" | "tbV"
+                    | "rlV" | "lrV" => normalized(
+                        property,
+                        part,
+                        report,
+                        "Vertical or rotated text flow is normalized to Writer's horizontal flow in source XML text order; original flow formatting is retained.",
+                    ),
+                    _ => return Err(invalid(part, "unknown text flow direction")),
                 }
             }
             _ => unsupported_element(property, part, report),
@@ -186,52 +319,574 @@ fn fonts(
     part: &str,
     report: &mut CompatibilityReport,
 ) -> Result<Option<String>, ConversionError> {
-    let names = ["ascii", "hAnsi", "eastAsia", "cs"];
-    attributes(node, namespace, &names, part, report);
+    let names = ["ascii", "hAnsi", "cs", "eastAsia"];
+    let themes = ["asciiTheme", "hAnsiTheme", "cstheme", "eastAsiaTheme"];
+    attributes(
+        node,
+        namespace,
+        &[
+            "ascii",
+            "hAnsi",
+            "cs",
+            "eastAsia",
+            "asciiTheme",
+            "hAnsiTheme",
+            "cstheme",
+            "eastAsiaTheme",
+            "hint",
+        ],
+        part,
+        report,
+    );
     leaf(node, part, report)?;
     let values: Vec<_> = names
         .iter()
         .filter_map(|name| node.attribute((namespace, *name)))
         .collect();
-    let Some(first) = values.first() else {
-        return Ok(None);
-    };
-    if first.trim().is_empty() || values.iter().any(|value| value != first) {
-        unsupported_value(
+    if values.iter().any(|name| name.trim().is_empty()) {
+        return Err(invalid(part, "font names cannot be blank"));
+    }
+    let mut has_theme = false;
+    for name in themes {
+        if let Some(value) = node.attribute((namespace, name)) {
+            has_theme = true;
+            if !matches!(
+                value,
+                "majorAscii"
+                    | "majorHAnsi"
+                    | "majorEastAsia"
+                    | "majorBidi"
+                    | "minorAscii"
+                    | "minorHAnsi"
+                    | "minorEastAsia"
+                    | "minorBidi"
+            ) {
+                return Err(invalid(part, "unknown theme font slot"));
+            }
+        }
+    }
+    if let Some(hint) = node.attribute((namespace, "hint")) {
+        if !matches!(hint, "default" | "eastAsia" | "cs") {
+            return Err(invalid(part, "unknown script font hint"));
+        }
+        normalized(
             node,
             part,
             report,
-            "nonuniform or blank script-specific font families",
+            "Script font hints use Writer's Unicode shaping and fallback policy.",
         );
-        return Ok(None);
     }
-    // Missing script families can inherit a different family. A universal native
-    // family is faithful only when every script slot is explicitly uniform.
-    if values.len() != names.len() {
-        unsupported_value(
+    if has_theme
+        || (!values.is_empty()
+            && (values.len() != names.len() || values.iter().any(|value| value != &values[0])))
+    {
+        normalized(
             node,
             part,
             report,
-            "partially specified script-specific font families",
+            "Script/theme fonts are normalized to the first explicit ASCII, high-ANSI, complex-script or East Asian family, or inherited Writer defaults when no concrete family exists. Appearance may differ; original formatting is preserved in the source.",
         );
     }
-    Ok(Some((*first).into()))
+    // Full inherited properties are cached and may later be copied into many
+    // runs. Bound the chosen family before allocating it so a small source
+    // cannot amplify one huge attribute into gigabytes of inherited strings.
+    if values.first().is_some_and(|value| value.len() > 1024) {
+        normalized(
+            node,
+            part,
+            report,
+            "A font-family name exceeding the 1,024-byte import limit uses inherited Writer defaults. Its exact value remains in the original source.",
+        );
+        return Ok(None);
+    }
+    Ok(values.first().map(|value| (*value).into()))
 }
 
-fn same_script_value<T: PartialEq>(
+fn normalized_script_value<T: PartialEq>(
     name: &str,
     complex: Option<T>,
     ordinary: Option<T>,
     part: &str,
     report: &mut CompatibilityReport,
-) {
+) -> Option<T> {
     if (complex.is_some() || ordinary.is_some()) && complex != ordinary {
-        report.push(
-            Issue::UnsupportedValue,
+        report.normalize(part, format!("rPr/{name}"), "Script-specific formatting is normalized to the ordinary value, or the complex-script value when ordinary formatting is absent. The original retains every script-specific value.");
+    }
+    ordinary.or(complex)
+}
+
+fn color(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<Option<TextColor>, ConversionError> {
+    attributes(
+        node,
+        namespace,
+        &["val", "themeColor", "themeTint", "themeShade"],
+        part,
+        report,
+    );
+    leaf(node, part, report)?;
+    let theme = node.attribute((namespace, "themeColor"));
+    if let Some(theme) = theme
+        && !theme_color_slot(theme)
+    {
+        return Err(invalid(part, "unknown theme color slot"));
+    }
+    for name in ["themeTint", "themeShade"] {
+        if let Some(value) = node.attribute((namespace, name))
+            && (value.len() != 2 || !value.bytes().all(|b| b.is_ascii_hexdigit()))
+        {
+            return Err(invalid(
+                part,
+                "theme tint and shade require one hexadecimal byte",
+            ));
+        }
+    }
+    if theme.is_some()
+        || node.attribute((namespace, "themeTint")).is_some()
+        || node.attribute((namespace, "themeShade")).is_some()
+    {
+        normalized(
+            node,
             part,
-            format!("rPr/{name}"),
-            "Complex-script formatting differs from the universal native property.",
+            report,
+            "Theme color/tint/shade uses the cached explicit color, or inherited Writer color when absent; theme changes are not reproduced. The source preserves the original theme formatting.",
         );
+    }
+    let Some(value) = node.attribute((namespace, "val")) else {
+        if theme.is_some() {
+            return Ok(None);
+        }
+        return Err(invalid(
+            part,
+            "color requires an explicit value or theme slot",
+        ));
+    };
+    if value == "auto" {
+        return Ok(Some(TextColor::Auto {}));
+    }
+    if value.len() != 6 || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(invalid(
+            part,
+            "color must be auto or six hexadecimal digits",
+        ));
+    }
+    let component = |start| {
+        u8::from_str_radix(&value[start..start + 2], 16).expect("six ASCII hex digits checked")
+    };
+    Ok(Some(TextColor::Rgb {
+        red: component(0),
+        green: component(2),
+        blue: component(4),
+    }))
+}
+
+fn theme_color_slot(value: &str) -> bool {
+    matches!(
+        value,
+        "dark1"
+            | "light1"
+            | "dark2"
+            | "light2"
+            | "accent1"
+            | "accent2"
+            | "accent3"
+            | "accent4"
+            | "accent5"
+            | "accent6"
+            | "hyperlink"
+            | "followedHyperlink"
+            | "none"
+            | "background1"
+            | "text1"
+            | "background2"
+            | "text2"
+    )
+}
+
+fn paragraph_borders(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attributes(node, namespace, &[], part, report);
+    let mut seen = BTreeSet::new();
+    for border in property_children(node, namespace, part, report)? {
+        if !matches!(
+            border.tag_name().name(),
+            "top" | "left" | "bottom" | "right" | "between" | "bar"
+        ) {
+            unsupported_element(border, part, report);
+            continue;
+        }
+        if !unique(border, &mut seen, part, report) {
+            continue;
+        }
+        attributes(
+            border,
+            namespace,
+            &[
+                "val",
+                "sz",
+                "space",
+                "color",
+                "themeColor",
+                "themeTint",
+                "themeShade",
+                "frame",
+                "shadow",
+            ],
+            part,
+            report,
+        );
+        leaf(border, part, report)?;
+        if !matches!(
+            required(border, namespace, "val", part)?,
+            "nil"
+                | "none"
+                | "single"
+                | "thick"
+                | "double"
+                | "dotted"
+                | "dashed"
+                | "dotDash"
+                | "dotDotDash"
+                | "triple"
+                | "thinThickSmallGap"
+                | "thickThinSmallGap"
+                | "thinThickThinSmallGap"
+                | "thinThickMediumGap"
+                | "thickThinMediumGap"
+                | "thinThickThinMediumGap"
+                | "thinThickLargeGap"
+                | "thickThinLargeGap"
+                | "thinThickThinLargeGap"
+                | "wave"
+                | "doubleWave"
+                | "dashSmallGap"
+                | "dashDotStroked"
+                | "threeDEmboss"
+                | "threeDEngrave"
+                | "outset"
+                | "inset"
+        ) {
+            unsupported_value(border, part, report, "paragraph border treatment");
+        }
+        for name in ["sz", "space"] {
+            if let Some(value) = border.attribute((namespace, name))
+                && value.parse::<u32>().is_err()
+            {
+                return Err(invalid(part, "malformed paragraph border measurement"));
+            }
+        }
+        for name in ["frame", "shadow"] {
+            if let Some(value) = border.attribute((namespace, name)) {
+                boolean(value, part)?;
+            }
+        }
+        if let Some(value) = border.attribute((namespace, "color"))
+            && value != "auto"
+            && (value.len() != 6 || !value.bytes().all(|b| b.is_ascii_hexdigit()))
+        {
+            return Err(invalid(
+                part,
+                "paragraph border color requires auto or six hexadecimal digits",
+            ));
+        }
+        if let Some(value) = border.attribute((namespace, "themeColor"))
+            && !theme_color_slot(value)
+        {
+            return Err(invalid(part, "unknown paragraph border theme color slot"));
+        }
+        for name in ["themeTint", "themeShade"] {
+            if let Some(value) = border.attribute((namespace, name))
+                && (value.len() != 2 || !value.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(invalid(
+                    part,
+                    "paragraph border theme tint/shade requires one hexadecimal byte",
+                ));
+            }
+        }
+    }
+    normalized(
+        node,
+        part,
+        report,
+        "Paragraph borders are retained in the original and omitted from Writer's editable presentation; text and supported paragraph formatting are unchanged.",
+    );
+    Ok(())
+}
+
+fn normalize_character_property(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<bool, ConversionError> {
+    match node.tag_name().name() {
+        "kern" | "w" => numeric_leaf(node, namespace, part, report, false)?,
+        "spacing" | "position" => numeric_leaf(node, namespace, part, report, true)?,
+        "lang" => {
+            attributes(node, namespace, &["val", "eastAsia", "bidi"], part, report);
+            leaf(node, part, report)?;
+            for value in node
+                .attributes()
+                .filter(|a| a.namespace() == Some(namespace))
+                .map(|a| a.value())
+            {
+                if value.is_empty()
+                    || value.len() > 128
+                    || !value.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+                {
+                    return Err(invalid(part, "invalid language identifier"));
+                }
+            }
+        }
+        "caps" | "smallCaps" | "noProof" | "snapToGrid" | "outline" | "shadow" | "emboss"
+        | "imprint" | "strike" | "dstrike" => {
+            let _ = on_off(node, namespace, part, report)?;
+        }
+        "vanish" | "webHidden" | "rtl" | "specVanish" => {
+            if on_off(node, namespace, part, report)? {
+                unsupported_value(node, part, report, "hidden text or forced run direction");
+            }
+            return Ok(true);
+        }
+        "vertAlign" => {
+            attributes(node, namespace, &["val"], part, report);
+            leaf(node, part, report)?;
+            if !matches!(
+                required(node, namespace, "val", part)?,
+                "baseline" | "superscript" | "subscript"
+            ) {
+                return Err(invalid(part, "unknown vertical alignment"));
+            }
+        }
+        "ligatures" if node.tag_name().namespace() == Some(WORD_2010) => {
+            attributes(node, WORD_2010, &["val"], part, report);
+            leaf(node, part, report)?;
+            if !matches!(
+                required(node, WORD_2010, "val", part)?,
+                "none"
+                    | "standard"
+                    | "contextual"
+                    | "historical"
+                    | "discretional"
+                    | "standardContextual"
+                    | "standardHistorical"
+                    | "contextualHistorical"
+                    | "standardDiscretional"
+                    | "contextualDiscretional"
+                    | "historicalDiscretional"
+                    | "standardContextualHistorical"
+                    | "standardContextualDiscretional"
+                    | "standardHistoricalDiscretional"
+                    | "contextualHistoricalDiscretional"
+                    | "all"
+            ) {
+                return Err(invalid(part, "unknown ligature selection"));
+            }
+        }
+        _ => return Ok(false),
+    }
+    normalized(
+        node,
+        part,
+        report,
+        "This character typography preference uses Writer defaults; the original formatting is retained in the source.",
+    );
+    Ok(true)
+}
+
+fn normalized(node: Node<'_, '_>, part: &str, report: &mut CompatibilityReport, message: &str) {
+    report.normalize(part, node.tag_name().name(), message);
+}
+
+fn numeric_leaf(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+    signed: bool,
+) -> Result<(), ConversionError> {
+    attributes(node, namespace, &["val"], part, report);
+    leaf(node, part, report)?;
+    let value = required(node, namespace, "val", part)?;
+    if if signed {
+        value.parse::<i32>().is_err()
+    } else {
+        value.parse::<u32>().is_err()
+    } {
+        return Err(invalid(part, "malformed typography measurement"));
+    }
+    Ok(())
+}
+
+fn single_column(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attributes(
+        node,
+        namespace,
+        &["space", "num", "equalWidth", "sep"],
+        part,
+        report,
+    );
+    if let Some(value) = node.attribute((namespace, "space")) {
+        nonnegative_twips(node, value, part, report)?;
+    }
+    let count = node
+        .attribute((namespace, "num"))
+        .map(|v| v.parse::<u16>())
+        .transpose()
+        .map_err(|_| invalid(part, "malformed column count"))?
+        .unwrap_or(1);
+    if count == 0 || count > i16::MAX as u16 {
+        return Err(invalid(
+            part,
+            "column count is outside the supported positive short range",
+        ));
+    }
+    let equal = node
+        .attribute((namespace, "equalWidth"))
+        .map(|v| boolean(v, part))
+        .transpose()?
+        .unwrap_or(true);
+    if let Some(value) = node.attribute((namespace, "sep")) {
+        boolean(value, part)?;
+    }
+    let mut columns = 0;
+    for child in property_children(node, namespace, part, report)? {
+        if !child.has_tag_name((namespace, "col")) {
+            unsupported_element(child, part, report);
+            continue;
+        }
+        columns += 1;
+        attributes(child, namespace, &["w", "space"], part, report);
+        leaf(child, part, report)?;
+        positive_twips(child, required(child, namespace, "w", part)?, part, report)?;
+        if let Some(value) = child.attribute((namespace, "space")) {
+            nonnegative_twips(child, value, part, report)?;
+        }
+    }
+    if !equal && columns == 0 {
+        return Err(invalid(
+            part,
+            "unequal columns require explicit column definitions",
+        ));
+    }
+    if count != 1 || columns > 0 || !equal {
+        normalized(
+            node,
+            part,
+            report,
+            "Column formatting is normalized to a single Writer text flow in source XML order. All text and original column definitions are retained.",
+        );
+    }
+    Ok(())
+}
+
+fn document_grid(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attributes(
+        node,
+        namespace,
+        &["type", "linePitch", "charSpace"],
+        part,
+        report,
+    );
+    leaf(node, part, report)?;
+    if let Some(value) = node.attribute((namespace, "type"))
+        && !matches!(value, "default" | "lines" | "linesAndChars" | "snapToChars")
+    {
+        return Err(invalid(part, "unknown document grid type"));
+    }
+    if let Some(value) = node.attribute((namespace, "linePitch")) {
+        nonnegative_twips(node, value, part, report)?;
+    }
+    // LibreOffice writes the signed 32-bit pitch bit pattern as an unsigned
+    // decimal in an inactive default grid. It is retained, never reinterpreted.
+    if let Some(value) = node.attribute((namespace, "charSpace"))
+        && value.parse::<i32>().is_err()
+        && value.parse::<u32>().is_err()
+    {
+        return Err(invalid(part, "malformed document grid character pitch"));
+    }
+    normalized(
+        node,
+        part,
+        report,
+        "Document grid spacing uses Writer's typography and line spacing. The original grid settings are retained.",
+    );
+    Ok(())
+}
+
+fn page_numbering(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attributes(
+        node,
+        namespace,
+        &["fmt", "start", "chapStyle", "chapSep"],
+        part,
+        report,
+    );
+    leaf(node, part, report)?;
+    if let Some(value) = node.attribute((namespace, "fmt"))
+        && !matches!(
+            value,
+            "decimal" | "upperRoman" | "lowerRoman" | "upperLetter" | "lowerLetter" | "none"
+        )
+    {
+        unsupported_value(node, part, report, "page number format");
+    }
+    for name in ["start", "chapStyle"] {
+        if let Some(value) = node.attribute((namespace, name)) {
+            let value = value
+                .parse::<u32>()
+                .map_err(|_| invalid(part, "malformed page numbering value"))?;
+            if name == "chapStyle" && !(1..=9).contains(&value) {
+                return Err(invalid(
+                    part,
+                    "page-number chapter style must be between one and nine",
+                ));
+            }
+        }
+    }
+    if let Some(value) = node.attribute((namespace, "chapSep"))
+        && !matches!(value, "hyphen" | "period" | "colon" | "emDash" | "enDash")
+    {
+        return Err(invalid(part, "unknown page number chapter separator"));
+    }
+    normalized(
+        node,
+        part,
+        report,
+        "Page-number presentation uses Writer's page count; original numbering preferences are retained. Fields still require a supported content mapping.",
+    );
+    Ok(())
+}
+
+fn boolean(value: &str, part: &str) -> Result<bool, ConversionError> {
+    match value {
+        "true" | "1" | "on" => Ok(true),
+        "false" | "0" | "off" => Ok(false),
+        _ => Err(invalid(part, "on/off property has an invalid value")),
     }
 }
 
@@ -245,7 +900,16 @@ fn spacing(
     attributes(
         node,
         namespace,
-        &["before", "after", "line", "lineRule"],
+        &[
+            "before",
+            "after",
+            "line",
+            "lineRule",
+            "beforeAutospacing",
+            "afterAutospacing",
+            "beforeLines",
+            "afterLines",
+        ],
         part,
         report,
     );
@@ -256,26 +920,52 @@ fn spacing(
     if let Some(value) = node.attribute((namespace, "after")) {
         format.spacing_after = nonnegative_twips(node, value, part, report)?;
     }
+    for name in ["beforeAutospacing", "afterAutospacing"] {
+        if let Some(value) = node.attribute((namespace, name))
+            && boolean(value, part)?
+        {
+            normalized(
+                node,
+                part,
+                report,
+                "Automatic paragraph spacing uses explicit spacing or Writer defaults; the source retains its automatic-spacing preference.",
+            );
+        }
+    }
+    for name in ["beforeLines", "afterLines"] {
+        if let Some(value) = node.attribute((namespace, name)) {
+            if value.parse::<u32>().is_err() {
+                return Err(invalid(part, "malformed line-based paragraph spacing"));
+            }
+            normalized(
+                node,
+                part,
+                report,
+                "Line-based paragraph spacing uses explicit twips or Writer defaults; the original line-based value is retained.",
+            );
+        }
+    }
     let rule = node.attribute((namespace, "lineRule"));
+    if rule.is_some_and(|value| !matches!(value, "auto" | "exact" | "atLeast")) {
+        return Err(invalid(part, "unknown line spacing rule"));
+    }
     let Some(value) = node.attribute((namespace, "line")) else {
         if rule.is_some() {
-            unsupported_value(node, part, report, "line rule without a line measurement");
+            normalized(
+                node,
+                part,
+                report,
+                "A line rule without a measurement uses inherited Writer line spacing; the source retains its original rule.",
+            );
         }
         return Ok(());
     };
-    let Some(rule) = rule else {
-        // Do not guess across consumers: LibreOffice inherits an ancestor's
-        // exact/minimum rule here, whereas the standard describes an auto
-        // default. The first editable profile requires the complete pair.
-        positive_u32(node, value, part, report)?;
-        unsupported_value(
-            node,
-            part,
-            report,
-            "line measurement without an explicit line rule",
-        );
-        return Ok(());
-    };
+    let rule = rule.unwrap_or_else(|| {
+        // Consumers differ in how this partial pair inherits. Deliberately choose
+        // auto rather than claiming a faithful interpretation of that ambiguity.
+        normalized(node, part, report, "A line measurement without an explicit rule is normalized to automatic line spacing; consumer-specific inheritance remains in the original.");
+        "auto"
+    });
     format.line_spacing = match rule {
         "auto" => {
             positive_u32(node, value, part, report)?.map(|value| LineSpacing::Multiple { value })
@@ -567,6 +1257,17 @@ fn attributes(
     report: &mut CompatibilityReport,
 ) {
     for attribute in node.attributes() {
+        if node.tag_name().name() == "sectPr"
+            && attribute.namespace() == Some(namespace)
+            && matches!(
+                attribute.name(),
+                "rsidR" | "rsidRPr" | "rsidSect" | "rsidDel"
+            )
+            && attribute.value().len() == 8
+            && attribute.value().bytes().all(|c| c.is_ascii_hexdigit())
+        {
+            continue;
+        }
         if attribute.namespace() != Some(namespace) || !allowed.contains(&attribute.name()) {
             report.push(
                 Issue::UnsupportedAttribute,
@@ -587,7 +1288,9 @@ fn property_children<'a, 'input>(
     let mut result = Vec::new();
     for child in node.children() {
         if child.is_element() {
-            if child.tag_name().namespace() == Some(namespace) {
+            if child.tag_name().namespace() == Some(namespace)
+                || (node.tag_name().name() == "rPr" && child.has_tag_name((WORD_2010, "ligatures")))
+            {
                 result.push(child);
             } else {
                 unsupported_element(child, part, report);
@@ -750,7 +1453,7 @@ mod tests {
     }
 
     #[test]
-    fn partial_or_different_complex_script_properties_are_not_approximated() {
+    fn partial_or_different_complex_script_properties_are_normalized_with_notices() {
         for body in [
             r#"<w:b/>"#,
             r#"<w:bCs/>"#,
@@ -764,7 +1467,9 @@ mod tests {
             r#"<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Noto Sans Arabic"/>"#,
             r#"<w:rFonts w:asciiTheme="minorHAnsi"/>"#,
         ] {
-            assert!(!character(body).unwrap().1.is_supported(), "{body}");
+            let (_, report) = character(body).unwrap();
+            assert!(report.is_supported(), "{body}");
+            assert!(!report.normalizations.is_empty(), "{body}");
         }
     }
 
@@ -791,8 +1496,8 @@ mod tests {
             r#"<w:vanish/>"#,
             r#"<w:b w:future="1"/><w:bCs/>"#,
             r#"<w:b/><w:b/><w:bCs/>"#,
-            r#"<w:u w:val="words"/>"#,
-            r#"<w:color w:val="auto" w:themeColor="accent1"/>"#,
+            r#"<w:u w:val="single" w:future="1"/>"#,
+            r#"<w:color w:val="auto" w:unknownThemeColor="accent1"/>"#,
             r#"<x:feature xmlns:x="urn:future"/>"#,
         ] {
             assert!(!character(body).unwrap().1.is_supported(), "{body}");
@@ -844,22 +1549,27 @@ mod tests {
     }
 
     #[test]
-    fn partial_line_spacing_pairs_are_read_only_without_assuming_inheritance() {
+    fn partial_line_spacing_pairs_are_normalized_explicitly_without_claiming_inheritance() {
+        let (properties, report) = paragraph(r#"<w:spacing w:line="300"/>"#).unwrap();
+        assert_eq!(
+            properties.format.line_spacing,
+            Some(LineSpacing::Multiple { value: 300 })
+        );
+        assert!(report.is_supported());
+        assert!(!report.normalizations.is_empty());
         for body in [
-            r#"<w:spacing w:line="300"/>"#,
             r#"<w:spacing w:lineRule="exact"/>"#,
             r#"<w:spacing w:lineRule="auto"/>"#,
         ] {
             let (properties, report) = paragraph(body).unwrap();
             assert_eq!(properties.format.line_spacing, None);
-            assert!(!report.is_supported());
-            assert!(report.diagnostics.iter().any(|diagnostic| {
-                diagnostic.kind == Issue::UnsupportedValue && diagnostic.path == "spacing"
-            }));
+            assert!(report.is_supported());
+            assert!(!report.normalizations.is_empty());
         }
         let (properties, report) =
             paragraph(r#"<w:spacing w:line="300" w:lineRule="auto"/>"#).unwrap();
         assert!(report.is_supported());
+        assert!(report.normalizations.is_empty());
         assert_eq!(
             properties.format.line_spacing,
             Some(LineSpacing::Multiple { value: 300 })
@@ -887,12 +1597,9 @@ mod tests {
                 .1
                 .is_supported()
         );
-        assert!(
-            !paragraph(r#"<w:spacing w:beforeLines="100"/>"#)
-                .unwrap()
-                .1
-                .is_supported()
-        );
+        let (_, report) = paragraph(r#"<w:spacing w:beforeLines="100"/>"#).unwrap();
+        assert!(report.is_supported());
+        assert!(!report.normalizations.is_empty());
     }
 
     #[test]
@@ -917,10 +1624,10 @@ mod tests {
     }
 
     #[test]
-    fn paragraph_mark_format_and_directional_alignment_remain_read_only() {
+    fn paragraph_mark_unknown_styles_and_directional_alignment_remain_read_only() {
         for body in [
-            r#"<w:rPr><w:b/></w:rPr>"#,
-            r#"<w:jc w:val="start"/>"#,
+            r#"<w:rPr><w:rStyle w:val="unknown"/></w:rPr>"#,
+            r#"<w:jc w:val="start" w:future="1"/>"#,
             r#"<w:numPr/>"#,
             r#"<w:bidi/>"#,
         ] {
@@ -973,8 +1680,8 @@ mod tests {
         for body in [
             r#"<w:pgSz w:w="12240"/>"#,
             r#"<w:pgSz w:w="210mm" w:h="297mm"/>"#,
-            r#"<w:type w:val="continuous"/>"#,
-            r#"<w:cols w:num="2"/>"#,
+            r#"<w:type w:val="continuous" w:future="1"/>"#,
+            r#"<w:cols w:num="2"><w:future/></w:cols>"#,
             r#"<w:headerReference/>"#,
             r#"<w:pgMar w:top="-1" w:right="1200" w:bottom="1440" w:left="1200" w:header="720" w:footer="720" w:gutter="0"/>"#,
         ] {

@@ -141,3 +141,70 @@ test('unsafe image and external relationships remain read-only with exact recove
   await expect(input(page)).toHaveText(initial ?? '');
   expect(unexpected).toEqual([]);
 });
+
+test('normalized Word formatting is disclosed only after original preservation and remains disclosed after local reopen', async ({ page }) => {
+  const original = await readFile(new URL('normalizable-wordweb-profile.docx', directory));
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  const notice = page.getByRole('complementary', { name: 'Import formatting notice', exact: true });
+  await expect(notice).toHaveCount(0);
+  await page.evaluate(() => {
+    const state = window as Window & { normalizationSaveHeld?: boolean; releaseNormalizationSave?: boolean };
+    state.normalizationSaveHeld = false;
+    state.releaseNormalizationSave = false;
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey): IDBRequest<IDBValidKey> {
+      IDBObjectStore.prototype.put = put;
+      const request = key === undefined ? put.call(this, value) : put.call(this, value, key);
+      const record = value as { id: string };
+      request.addEventListener('success', () => {
+        const keepAlive = () => {
+          const checking = this.get(record.id);
+          checking.onsuccess = () => {
+            state.normalizationSaveHeld = true;
+            if (!state.releaseNormalizationSave) keepAlive();
+          };
+        };
+        keepAlive();
+      });
+      return request;
+    };
+  });
+  await openFile(page, original, 'normalized.docx');
+  await expect.poll(() => page.evaluate(() => (window as Window & { normalizationSaveHeld?: boolean }).normalizationSaveHeld)).toBe(true);
+  try {
+    await expect(input(page)).toHaveText('');
+    await expect(input(page)).toHaveAttribute('contenteditable', 'false');
+    await expect(notice).toHaveCount(0);
+  } finally {
+    await page.evaluate(() => { (window as Window & { releaseNormalizationSave?: boolean }).releaseNormalizationSave = true; });
+  }
+  await expect(input(page).locator('p')).toHaveCount(9);
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('Formatting adjusted for editing.');
+  await expect(notice).toContainText('Your exact original is retained.');
+  await notice.locator('summary').click();
+  expect(await notice.locator('li').count()).toBeGreaterThan(0);
+  const initial = JSON.parse((await saveAs(page, 'writer')).toString('utf8')) as NativeFile;
+  expect(Buffer.from(initial.source.bytes_base64, 'base64')).toEqual(original);
+  expect(initial).not.toHaveProperty('importWarnings');
+  await page.getByRole('textbox', { name: 'Document title', exact: true }).fill('Normalization recovery');
+  await focusEditor(page);
+  await page.keyboard.press('Control+Home');
+  await page.keyboard.press('Home');
+  await page.keyboard.insertText('Edited e\u0301 👩🏽‍💻 — ');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+  const current = JSON.parse((await saveAs(page, 'writer')).toString('utf8')) as NativeFile;
+  expect(Buffer.from(current.source.bytes_base64, 'base64')).toEqual(original);
+  await expect(notice).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  await expect(notice).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: /Normalization recovery/ }).click();
+  await expect(input(page).locator('p').first()).toContainText('Edited e\u0301 👩🏽‍💻 — ');
+  await expect(notice).toBeVisible();
+  expect(JSON.parse((await saveAs(page, 'writer')).toString('utf8'))).toEqual(current);
+});

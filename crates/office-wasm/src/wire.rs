@@ -145,6 +145,7 @@ pub(crate) struct View {
     pub can_redo: bool,
     pub word_count: usize,
     pub original_source: Option<OriginalSourceView>,
+    pub import_warnings: CompatibilityReportView,
 }
 
 #[derive(Debug, Serialize)]
@@ -155,9 +156,9 @@ pub(crate) struct OriginalSourceView {
     pub byte_length: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-/// Bounded compatibility diagnostics returned by a preserved DOCX import.
+/// Bounded blocking diagnostics or non-blocking import normalization notices.
 pub struct CompatibilityReportView {
     /// Concrete issues in deterministic traversal order.
     pub diagnostics: Vec<CompatibilityDiagnosticView>,

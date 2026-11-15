@@ -850,6 +850,16 @@ all outgoing relationship parts are inspected. This is an adapter-only policy,
 with no model, schema or storage change. Native files retain exact originals;
 Save As warns that regenerated DOCX copies omit unmodeled auxiliary information.
 
+The owner subsequently approved [known formatting normalization](DOCX_NORMALIZATION.md).
+The complete editable content projection may use disclosed font, style and
+layout approximations while preserving exact source bytes. Blockers and notices
+have independent bounded reports; content/protection/structure failures still
+prevent editing. Character-style appearance is materialized in supported run
+properties rather than introducing format-specific model types. Runtime notices
+stay outside persisted documents/history and are derived again from the retained
+source on reopen. A browser notice appears only after source-preserving storage
+has succeeded. This supersedes exact-formatting-only acceptance above.
+
 The user selected preserving unsupported originals before editing. Browser DOCX
 import therefore uses a detached engine, then saves its complete source-bearing
 `WriterFile` through the existing IndexedDB transaction before replacing the live

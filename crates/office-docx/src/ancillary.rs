@@ -23,6 +23,15 @@ const DRAWING: [&str; 2] = [
     "http://schemas.openxmlformats.org/drawingml/2006/main",
     "http://purl.oclc.org/ooxml/drawingml/main",
 ];
+const MC: &str = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+const MATH: [&str; 2] = [
+    "http://schemas.openxmlformats.org/officeDocument/2006/math",
+    "http://purl.oclc.org/ooxml/officeDocument/math",
+];
+const W14: &str = "http://schemas.microsoft.com/office/word/2010/wordml";
+const W15: &str = "http://schemas.microsoft.com/office/word/2012/wordml";
+const OFFICE: &str = "urn:schemas-microsoft-com:office:office";
+const VML: &str = "urn:schemas-microsoft-com:vml";
 
 /// Known roles, never inferred from a filename alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -117,9 +126,9 @@ impl AncillaryKind {
                 "ancillary relationship target has an incorrect root or namespace",
             ));
         }
-        // Theme values are never interpreted here. Every theme-dependent body,
-        // style/default property remains rejected by the semantic parser, and
-        // all relationships out of the Theme part still traverse the graph.
+        // Theme values are never interpreted here. Theme-dependent body/style
+        // properties still pass through the semantic normalization and content
+        // guards; relationships out of the Theme part still traverse the graph.
         if self == Self::Theme {
             return Ok(());
         }
@@ -158,6 +167,16 @@ fn attrs(
     report: &mut CompatibilityReport,
 ) {
     for attr in node.attributes() {
+        if attr.namespace() == Some(MC)
+            && attr.name() == "Ignorable"
+            && attr.value().split_whitespace().next().is_some()
+            && attr
+                .value()
+                .split_whitespace()
+                .all(|prefix| node.lookup_namespace_uri(Some(prefix)).is_some())
+        {
+            continue;
+        }
         if attr.namespace() != ns || !allowed.contains(&attr.name()) {
             report.push(
                 Issue::UnsupportedAttribute,
@@ -465,14 +484,14 @@ fn fonts(
             if node.tag_name().namespace() != Some(ns)
                 || !matches!(
                     name,
-                    "charset" | "family" | "pitch" | "sig" | "panose1" | "notTrueType"
+                    "charset" | "family" | "pitch" | "sig" | "panose1" | "notTrueType" | "altName"
                 )
             {
                 unsupported(
                     node,
                     part,
                     report,
-                    "Alternate names, embedded fonts and unknown font semantics require preservation read-only.",
+                    "Embedded fonts and unknown font semantics require preservation read-only.",
                 );
                 continue;
             }
@@ -481,6 +500,12 @@ fn fonts(
             }
             leaf(node, part, report);
             whitespace(node, part)?;
+            if name == "altName" {
+                attrs(node, Some(ns), &["val"], part, report);
+                checked(!val(node, ns, part)?.trim().is_empty(), part)?;
+                report.normalize(part, "font/altName", "Font alternate-name substitution hints are not applied. Writer uses its pinned font catalog and reports unavailable requested families.");
+                continue;
+            }
             if name == "sig" {
                 attrs(
                     node,
@@ -527,6 +552,12 @@ fn settings(
 ) -> Result<(), ConversionError> {
     let mut seen = BTreeSet::new();
     for node in root.children().filter(Node::is_element) {
+        if !web && foreign_setting(node, part, report)? {
+            if !seen.insert((node.tag_name().namespace(), node.tag_name().name())) {
+                return Err(invalid(part, "duplicate document setting"));
+            }
+            continue;
+        }
         if node.tag_name().namespace() != Some(ns) {
             unsupported(
                 node,
@@ -537,8 +568,11 @@ fn settings(
             continue;
         }
         let name = node.tag_name().name();
-        if !seen.insert(name) {
+        if !seen.insert((Some(ns), name)) {
             return Err(invalid(part, "duplicate document setting"));
+        }
+        if !web && normalized_setting(node, ns, part, report)? {
+            continue;
         }
         let flag = if web {
             matches!(
@@ -647,4 +681,587 @@ fn settings(
         }
     }
     Ok(())
+}
+
+fn normalized_setting(
+    node: Node<'_, '_>,
+    ns: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<bool, ConversionError> {
+    let name = node.tag_name().name();
+    if name == "trackRevisions" {
+        attrs(node, Some(ns), &["val"], part, report);
+        leaf(node, part, report);
+        whitespace(node, part)?;
+        // An explicitly disabled feature does not request tracking. Missing,
+        // true and unknown values are still handled by the blocking path.
+        return Ok(node
+            .attribute((ns, "val"))
+            .is_some_and(|v| matches!(v, "false" | "0" | "off")));
+    }
+    let message = match name {
+        "defaultTabStop" | "hyphenationZone" | "consecutiveHyphenLimit" => {
+            attrs(node, Some(ns), &["val"], part, report);
+            leaf(node, part, report);
+            whitespace(node, part)?;
+            let value = val(node, ns, part)?
+                .parse::<u32>()
+                .map_err(|_| invalid(part, "invalid nonnegative settings dimension"))?;
+            checked(
+                value <= i32::MAX as u32 && (name != "defaultTabStop" || value <= 32767),
+                part,
+            )?;
+            "Document tab and hyphenation defaults are not applied; Writer uses its supported text and layout profile."
+        }
+        "autoHyphenation" | "doNotHyphenateCaps" => {
+            attrs(node, Some(ns), &["val"], part, report);
+            leaf(node, part, report);
+            whitespace(node, part)?;
+            checked(node.attribute((ns, "val")).is_none_or(boolean), part)?;
+            "Automatic hyphenation preferences are not applied; line wrapping uses Writer's layout profile."
+        }
+        "characterSpacingControl" => {
+            attrs(node, Some(ns), &["val"], part, report);
+            leaf(node, part, report);
+            whitespace(node, part)?;
+            checked(
+                matches!(
+                    val(node, ns, part)?,
+                    "doNotCompress" | "compressPunctuation" | "compressPunctuationAndJapaneseKana"
+                ),
+                part,
+            )?;
+            "Character-spacing compression preferences are normalized to Writer's shaping and spacing profile."
+        }
+        "compat" => {
+            compatibility(node, ns, part, report)?;
+            "Word compatibility layout switches are normalized to Writer's supported paragraph and page layout profile."
+        }
+        "themeFontLang" => {
+            attrs(node, Some(ns), &["val", "eastAsia", "bidi"], part, report);
+            leaf(node, part, report);
+            whitespace(node, part)?;
+            for key in ["val", "eastAsia", "bidi"] {
+                if let Some(value) = node.attribute((ns, key)) {
+                    checked(
+                        value.is_empty()
+                            || (value.len() <= 85
+                                && value.split('-').all(|piece| {
+                                    !piece.is_empty()
+                                        && piece.bytes().all(|b| b.is_ascii_alphanumeric())
+                                })),
+                        part,
+                    )?;
+                }
+            }
+            "Theme font-language preferences are not applied; supported requested fonts and Writer's pinned fallback profile determine display."
+        }
+        "clrSchemeMapping" => {
+            let slots = [
+                "bg1",
+                "t1",
+                "bg2",
+                "t2",
+                "accent1",
+                "accent2",
+                "accent3",
+                "accent4",
+                "accent5",
+                "accent6",
+                "hyperlink",
+                "followedHyperlink",
+            ];
+            attrs(node, Some(ns), &slots, part, report);
+            leaf(node, part, report);
+            whitespace(node, part)?;
+            for attribute in node
+                .attributes()
+                .filter(|a| a.namespace() == Some(ns) && slots.contains(&a.name()))
+            {
+                checked(
+                    matches!(
+                        attribute.value(),
+                        "dark1"
+                            | "light1"
+                            | "dark2"
+                            | "light2"
+                            | "accent1"
+                            | "accent2"
+                            | "accent3"
+                            | "accent4"
+                            | "accent5"
+                            | "accent6"
+                            | "hyperlink"
+                            | "followedHyperlink"
+                    ),
+                    part,
+                )?;
+            }
+            "Document-level theme color remapping is not applied; supported run color normalization is used instead."
+        }
+        "shapeDefaults" => {
+            shape_defaults(node, part, report)?;
+            "Unused legacy shape defaults are not applied. Actual drawing content still requires a supported content mapping."
+        }
+        "decimalSymbol" | "listSeparator" => {
+            attrs(node, Some(ns), &["val"], part, report);
+            leaf(node, part, report);
+            whitespace(node, part)?;
+            checked(val(node, ns, part)?.chars().count() == 1, part)?;
+            "Field-evaluation separator preferences are retained only in the original. Writer does not execute fields."
+        }
+        _ => return Ok(false),
+    };
+    report.normalize(part, format!("settings/{name}"), message);
+    Ok(true)
+}
+
+fn compatibility(
+    node: Node<'_, '_>,
+    ns: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attrs(node, Some(ns), &[], part, report);
+    whitespace(node, part)?;
+    let mut seen = BTreeSet::new();
+    for child in node.children().filter(Node::is_element) {
+        if child.tag_name().namespace() != Some(ns) {
+            unsupported(
+                child,
+                part,
+                report,
+                "Unknown compatibility namespace is not safely normalized.",
+            );
+            continue;
+        }
+        let kind = child.tag_name().name();
+        if kind == "compatSetting" {
+            attrs(child, Some(ns), &["name", "uri", "val"], part, report);
+            leaf(child, part, report);
+            whitespace(child, part)?;
+            let name = child
+                .attribute((ns, "name"))
+                .ok_or_else(|| invalid(part, "missing compatibility-setting name"))?;
+            if !seen.insert(name) {
+                return Err(invalid(part, "duplicate compatibility setting"));
+            }
+            let uri = child.attribute((ns, "uri"));
+            if uri != Some("http://schemas.microsoft.com/office/word")
+                || !matches!(
+                    name,
+                    "compatibilityMode"
+                        | "overrideTableStyleFontSizeAndJustification"
+                        | "enableOpenTypeFeatures"
+                        | "doNotFlipMirrorIndents"
+                        | "differentiateMultirowTableHeaders"
+                        | "useWord2013TrackBottomHyphenation"
+                )
+            {
+                unsupported(
+                    child,
+                    part,
+                    report,
+                    "Unknown compatibility names or vendors are not safely normalized.",
+                );
+                continue;
+            }
+            let value = val(child, ns, part)?;
+            checked(
+                if name == "compatibilityMode" {
+                    value.parse::<u32>().is_ok_and(|v| (11..=16).contains(&v))
+                } else {
+                    boolean(value)
+                },
+                part,
+            )?;
+        } else if kind == "adjustLineHeightInTable" {
+            if !seen.insert(kind) {
+                return Err(invalid(part, "duplicate compatibility setting"));
+            }
+            attrs(child, Some(ns), &["val"], part, report);
+            leaf(child, part, report);
+            whitespace(child, part)?;
+            checked(child.attribute((ns, "val")).is_none_or(boolean), part)?;
+        } else {
+            unsupported(
+                child,
+                part,
+                report,
+                "This compatibility behavior is outside the safe normalization profile.",
+            );
+        }
+    }
+    Ok(())
+}
+
+fn foreign_setting(
+    node: Node<'_, '_>,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<bool, ConversionError> {
+    let namespace = node.tag_name().namespace();
+    let name = node.tag_name().name();
+    if MATH.iter().any(|ns| namespace == Some(*ns)) && name == "mathPr" {
+        math_defaults(node, namespace.expect("known namespace"), part, report)?;
+        report.normalize(part,"settings/mathPr","Unused equation formatting defaults are not applied. Actual equation content is not silently converted to plain text.");
+        return Ok(true);
+    }
+    if (namespace == Some(W14) || namespace == Some(W15)) && name == "docId" {
+        let ns = namespace.expect("known namespace");
+        attrs(node, Some(ns), &["val"], part, report);
+        leaf(node, part, report);
+        whitespace(node, part)?;
+        let value = val(node, ns, part)?;
+        let guid = value.strip_prefix('{').and_then(|v| v.strip_suffix('}'));
+        checked(
+            if ns == W14 {
+                hex(value, 8)
+            } else {
+                guid.is_some_and(|v| {
+                    v.len() == 36
+                        && v.bytes().enumerate().all(|(i, b)| {
+                            if [8, 13, 18, 23].contains(&i) {
+                                b == b'-'
+                            } else {
+                                b.is_ascii_hexdigit()
+                            }
+                        })
+                })
+            },
+            part,
+        )?;
+        return Ok(true);
+    }
+    if namespace == Some(W15) && name == "chartTrackingRefBased" {
+        attrs(node, Some(W15), &["val"], part, report);
+        leaf(node, part, report);
+        whitespace(node, part)?;
+        checked(node.attribute((W15, "val")).is_none_or(boolean), part)?;
+        report.normalize(part,"settings/chartTrackingRefBased","Unused chart-reference preferences are not applied. Actual charts remain unsupported document content.");
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn math_defaults(
+    node: Node<'_, '_>,
+    ns: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attrs(node, Some(ns), &[], part, report);
+    whitespace(node, part)?;
+    let mut seen = BTreeSet::new();
+    for child in node.children().filter(Node::is_element) {
+        let name = child.tag_name().name();
+        if child.tag_name().namespace() != Some(ns)
+            || !matches!(
+                name,
+                "mathFont"
+                    | "brkBin"
+                    | "brkBinSub"
+                    | "smallFrac"
+                    | "dispDef"
+                    | "lMargin"
+                    | "rMargin"
+                    | "defJc"
+                    | "wrapIndent"
+                    | "intLim"
+                    | "naryLim"
+                    | "interSp"
+                    | "intraSp"
+                    | "preSp"
+                    | "postSp"
+                    | "wrapRight"
+            )
+        {
+            unsupported(
+                child,
+                part,
+                report,
+                "Unknown math defaults or nested equation content are not safely normalized.",
+            );
+            continue;
+        }
+        if !seen.insert(name) {
+            return Err(invalid(part, "duplicate math default"));
+        }
+        attrs(child, Some(ns), &["val"], part, report);
+        leaf(child, part, report);
+        whitespace(child, part)?;
+        let value = child.attribute((ns, "val"));
+        let valid = match name {
+            "mathFont" => value.is_some_and(|v| !v.trim().is_empty()),
+            "brkBin" => value.is_some_and(|v| matches!(v, "before" | "after" | "repeat")),
+            "brkBinSub" => value.is_some_and(|v| matches!(v, "--" | "-+" | "+-")),
+            "smallFrac" | "dispDef" | "wrapRight" => value.is_none_or(boolean),
+            "defJc" => {
+                value.is_some_and(|v| matches!(v, "centerGroup" | "center" | "left" | "right"))
+            }
+            "intLim" | "naryLim" => value.is_some_and(|v| matches!(v, "subSup" | "undOvr")),
+            _ => value.is_some_and(|v| v.parse::<u32>().is_ok_and(|n| n <= i32::MAX as u32)),
+        };
+        checked(valid, part)?;
+    }
+    Ok(())
+}
+
+fn shape_defaults(
+    node: Node<'_, '_>,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    attrs(node, node.tag_name().namespace(), &[], part, report);
+    whitespace(node, part)?;
+    let mut seen = BTreeSet::new();
+    for child in node.children().filter(Node::is_element) {
+        let name = child.tag_name().name();
+        if child.tag_name().namespace() != Some(OFFICE)
+            || !matches!(name, "shapedefaults" | "shapelayout")
+        {
+            unsupported(
+                child,
+                part,
+                report,
+                "Unknown legacy shape content is not safely normalized.",
+            );
+            continue;
+        }
+        if !seen.insert(name) {
+            return Err(invalid(part, "duplicate legacy shape defaults"));
+        }
+        shape_attributes(
+            child,
+            if name == "shapedefaults" {
+                "spidmax"
+            } else {
+                ""
+            },
+            part,
+            report,
+        )?;
+        whitespace(child, part)?;
+        if name == "shapedefaults" {
+            leaf(child, part, report);
+        } else {
+            let mut map = false;
+            for entry in child.children().filter(Node::is_element) {
+                if entry.has_tag_name((OFFICE, "idmap")) {
+                    checked(!map, part)?;
+                    map = true;
+                    shape_attributes(entry, "data", part, report)?;
+                    leaf(entry, part, report);
+                    whitespace(entry, part)?;
+                } else {
+                    unsupported(
+                        entry,
+                        part,
+                        report,
+                        "Only inert shape identifier maps are normalized.",
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn shape_attributes(
+    node: Node<'_, '_>,
+    numeric: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    for attribute in node.attributes() {
+        if attribute.namespace() == Some(VML) && attribute.name() == "ext" {
+            checked(
+                matches!(attribute.value(), "edit" | "view" | "backward"),
+                part,
+            )?;
+        } else if attribute.namespace().is_none()
+            && attribute.name() == numeric
+            && !numeric.is_empty()
+        {
+            checked(
+                attribute
+                    .value()
+                    .split(',')
+                    .all(|v| v.parse::<u32>().is_ok()),
+                part,
+            )?;
+        } else {
+            report.push(
+                Issue::UnsupportedAttribute,
+                part,
+                format!("{}/@{}", node.tag_name().name(), attribute.name()),
+                "Unknown legacy shape attributes are not safely normalized.",
+            );
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod normalization_tests {
+    use super::*;
+
+    const W: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    fn inspect(body: &str) -> Result<CompatibilityReport, ConversionError> {
+        let xml = format!(
+            "<w:settings xmlns:w=\"{W}\" xmlns:m=\"{}\" xmlns:o=\"{OFFICE}\" xmlns:v=\"{VML}\" xmlns:w14=\"{W14}\" xmlns:w15=\"{W15}\" xmlns:mc=\"{MC}\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">{body}</w:settings>",
+            MATH[0]
+        );
+        let mut report = CompatibilityReport::default();
+        AncillaryKind::Settings.inspect("word/settings.xml", xml.as_bytes(), W, &mut report)?;
+        Ok(report)
+    }
+
+    #[test]
+    fn known_layout_preferences_are_normalized_with_nonblocking_notices() {
+        for body in [
+            "<w:defaultTabStop w:val=\"720\"/>",
+            "<w:autoHyphenation w:val=\"true\"/>",
+            "<w:hyphenationZone w:val=\"0\"/>",
+            "<w:consecutiveHyphenLimit w:val=\"2\"/>",
+            "<w:characterSpacingControl w:val=\"doNotCompress\"/>",
+            "<w:themeFontLang w:val=\"en-US\" w:eastAsia=\"\"/>",
+            "<w:clrSchemeMapping w:bg1=\"light1\" w:t1=\"dark1\"/>",
+            "<w:decimalSymbol w:val=\".\"/>",
+            "<w:listSeparator w:val=\",\"/>",
+            "<w:compat><w:adjustLineHeightInTable/><w:compatSetting w:name=\"compatibilityMode\" w:uri=\"http://schemas.microsoft.com/office/word\" w:val=\"15\"/><w:compatSetting w:name=\"enableOpenTypeFeatures\" w:uri=\"http://schemas.microsoft.com/office/word\" w:val=\"1\"/></w:compat>",
+        ] {
+            let report = inspect(body).unwrap();
+            assert!(report.is_supported(), "{body}: {report:?}");
+            assert!(!report.normalizations.is_empty());
+            assert!(report.normalizations.iter().all(|n|n.kind==Issue::NormalizedFormatting&&n.part=="word/settings.xml"));
+        }
+    }
+
+    #[test]
+    fn disabled_tracking_is_distinct_from_active_missing_or_unknown_tracking() {
+        for value in ["false", "0", "off"] {
+            let report = inspect(&format!("<w:trackRevisions w:val=\"{value}\"/>")).unwrap();
+            assert!(report.is_supported());
+            assert!(report.normalizations.is_empty());
+        }
+        for body in [
+            "<w:trackRevisions/>",
+            "<w:trackRevisions w:val=\"true\"/>",
+            "<w:trackRevisions w:val=\"1\"/>",
+            "<w:trackRevisions w:val=\"on\"/>",
+            "<w:trackRevisions w:val=\"unknown\"/>",
+        ] {
+            assert!(!inspect(body).unwrap().is_supported(), "{body}");
+        }
+    }
+
+    #[test]
+    fn invalid_known_dimensions_and_enumerations_are_not_silently_repaired() {
+        for body in [
+            "<w:defaultTabStop w:val=\"-1\"/>",
+            "<w:defaultTabStop w:val=\"32768\"/>",
+            "<w:hyphenationZone w:val=\"2147483648\"/>",
+            "<w:autoHyphenation w:val=\"maybe\"/>",
+            "<w:characterSpacingControl w:val=\"unknown\"/>",
+            "<w:themeFontLang w:val=\"bad--language\"/>",
+            "<w:clrSchemeMapping w:t1=\"unknown\"/>",
+            "<w:compat><w:compatSetting w:name=\"compatibilityMode\" w:uri=\"http://schemas.microsoft.com/office/word\" w:val=\"999\"/></w:compat>",
+            "<m:mathPr><m:lMargin m:val=\"-1\"/></m:mathPr>",
+        ] {
+            assert!(inspect(body).is_err(), "{body}");
+        }
+    }
+
+    #[test]
+    fn normalization_never_hides_unknown_attributes_or_nested_content() {
+        for body in [
+            "<w:defaultTabStop w:val=\"720\" w:unknown=\"1\"/>",
+            "<w:defaultTabStop w:val=\"720\"><w:r><w:t>content</w:t></w:r></w:defaultTabStop>",
+            "<w:compat><w:compatSetting w:name=\"unknown\" w:uri=\"http://schemas.microsoft.com/office/word\" w:val=\"1\"/></w:compat>",
+            "<w:compat><w:compatSetting w:name=\"compatibilityMode\" w:uri=\"urn:unknown\" w:val=\"15\"/></w:compat>",
+            "<m:mathPr><m:oMath/></m:mathPr>",
+            "<w:shapeDefaults><v:shape/></w:shapeDefaults>",
+            "<future:setting xmlns:future=\"urn:future\"/>",
+        ] {
+            assert!(!inspect(body).unwrap().is_supported(), "{body}");
+        }
+    }
+
+    #[test]
+    fn protection_and_external_or_content_changing_settings_remain_blocking() {
+        for body in [
+            "<w:documentProtection w:enforcement=\"true\"/>",
+            "<w:writeProtection/>",
+            "<w:mailMerge/>",
+            "<w:attachedTemplate r:id=\"template\"/>",
+            "<w:linkStyles/>",
+            "<w:updateFields w:val=\"true\"/>",
+            "<w:saveThroughXslt r:id=\"transform\"/>",
+            "<w:trackRevisions w:val=\"true\"/>",
+            "<w:doNotTrackMoves/>",
+            "<w:unknownSetting/>",
+        ] {
+            assert!(!inspect(body).unwrap().is_supported(), "{body}");
+        }
+    }
+
+    #[test]
+    fn exact_app_identifiers_and_bound_ignorable_declarations_do_not_skip_extensions() {
+        let identifiers = "<w14:docId w14:val=\"1234ABCD\"/><w15:docId w15:val=\"{12345678-ABCD-1234-ABCD-123456789ABC}\"/><w15:chartTrackingRefBased/>";
+        let report = inspect(identifiers).unwrap();
+        assert!(report.is_supported());
+        assert_eq!(report.normalizations.len(), 1);
+        assert!(inspect("<w14:docId w14:val=\"bad\"/>").is_err());
+        assert!(
+            inspect("<w14:docId w14:val=\"1234ABCD\"/><w14:docId w14:val=\"1234ABCD\"/>").is_err()
+        );
+        for (attribute, body, supported) in [
+            ("mc:Ignorable=\"w14 w15\"", identifiers, true),
+            ("mc:Ignorable=\"w14\"", "<w14:unknown/>", false),
+            ("mc:Ignorable=\"unbound\"", "", false),
+        ] {
+            let xml = format!(
+                "<w:settings xmlns:w=\"{W}\" xmlns:w14=\"{W14}\" xmlns:w15=\"{W15}\" xmlns:mc=\"{MC}\" {attribute}>{body}</w:settings>"
+            );
+            let mut report = CompatibilityReport::default();
+            AncillaryKind::Settings
+                .inspect("word/settings.xml", xml.as_bytes(), W, &mut report)
+                .unwrap();
+            assert_eq!(report.is_supported(), supported);
+        }
+    }
+
+    #[test]
+    fn unused_math_and_legacy_shape_defaults_have_explicit_normalizations() {
+        let body = "<m:mathPr><m:mathFont m:val=\"Cambria Math\"/><m:brkBin m:val=\"before\"/><m:brkBinSub m:val=\"--\"/><m:smallFrac m:val=\"0\"/><m:dispDef/><m:lMargin m:val=\"0\"/><m:rMargin m:val=\"0\"/><m:defJc m:val=\"centerGroup\"/><m:wrapIndent m:val=\"1440\"/><m:intLim m:val=\"subSup\"/><m:naryLim m:val=\"undOvr\"/></m:mathPr><w:shapeDefaults><o:shapedefaults v:ext=\"edit\" spidmax=\"1026\"/><o:shapelayout v:ext=\"edit\"><o:idmap v:ext=\"edit\" data=\"1\"/></o:shapelayout></w:shapeDefaults>";
+        let report = inspect(body).unwrap();
+        assert!(report.is_supported());
+        assert_eq!(report.normalizations.len(), 2);
+    }
+
+    #[test]
+    fn font_alias_normalization_does_not_enable_embedded_fonts_or_hidden_text() {
+        for (body, supported) in [
+            ("<w:altName w:val=\"Times\"/>", true),
+            ("<w:embedRegular/>", false),
+            (
+                "<w:altName w:val=\"Times\"><w:r><w:t>hidden</w:t></w:r></w:altName>",
+                false,
+            ),
+        ] {
+            let xml = format!(
+                "<w:fonts xmlns:w=\"{W}\"><w:font w:name=\"Times New Roman\">{body}</w:font></w:fonts>"
+            );
+            let mut report = CompatibilityReport::default();
+            AncillaryKind::FontTable
+                .inspect("word/fontTable.xml", xml.as_bytes(), W, &mut report)
+                .unwrap();
+            assert_eq!(report.is_supported(), supported);
+            if supported {
+                assert_eq!(report.normalizations.len(), 1);
+            }
+        }
+    }
 }

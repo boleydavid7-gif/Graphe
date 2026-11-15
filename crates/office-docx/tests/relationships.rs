@@ -19,8 +19,28 @@ const AUTHORING: &[u8] =
 fn editable(bytes: &[u8]) -> ImportedDocx {
     match import_docx(bytes, Id::new("relationship-test").unwrap()).expect("valid package") {
         DocxImportOutcome::Editable(imported) => imported,
-        other => panic!("expected complete editable import, got {other:?}"),
+        DocxImportOutcome::Preserved { report, .. } => panic!(
+            "expected editable import; blockers={:?}; normalization counts={}/{} omitted",
+            report.diagnostics,
+            report.normalizations.len(),
+            report.omitted_normalizations
+        ),
     }
+}
+
+fn normalized(bytes: &[u8]) -> ImportedDocx {
+    let imported = editable(bytes);
+    assert!(imported.report().is_supported());
+    assert!(!imported.report().normalizations.is_empty());
+    assert!(
+        imported
+            .report()
+            .normalizations
+            .iter()
+            .all(|notice| { notice.kind == Issue::NormalizedFormatting })
+    );
+    assert_eq!(imported.original().original_bytes(), bytes);
+    imported
 }
 
 fn text(document: &Document) -> String {
@@ -263,7 +283,7 @@ fn strict_ancillary_relationships_use_exact_roles_and_strict_xml_namespaces() {
 }
 
 #[test]
-fn strict_theme_relationships_do_not_allow_active_body_or_style_theme_references() {
+fn strict_theme_formatting_is_normalized_with_explicit_nonblocking_notices() {
     for (name, expected_part, expected_path) in [
         (
             "unsupported-strict-theme-font-reference.docx",
@@ -286,10 +306,11 @@ fn strict_theme_relationships_do_not_allow_active_body_or_style_theme_references
             inspect_docx(&bytes).unwrap().conformance,
             DocxConformance::Strict
         );
-        let report = preserved(&bytes);
+        let imported = normalized(&bytes);
+        let report = imported.report();
         assert!(
             report
-                .diagnostics
+                .normalizations
                 .iter()
                 .any(|issue| { issue.part == expected_part && issue.path.contains(expected_path) }),
             "{name}: {report:?}"
@@ -301,7 +322,7 @@ fn strict_theme_relationships_do_not_allow_active_body_or_style_theme_references
                     Issue::UnsupportedRelationship | Issue::UnsupportedPart
                 )
             }),
-            "The theme property, not a known Strict auxiliary edge, must block editing: {name}: {report:?}"
+            "A known Strict theme formatting notice must not weaken relationship checks: {name}: {report:?}"
         );
     }
 }
@@ -379,7 +400,7 @@ fn correct_relationship_types_cannot_hide_wrong_mime_roots_or_singleton_ambiguit
 }
 
 #[test]
-fn recognized_ancillary_edges_do_not_hide_active_settings_embedded_fonts_or_theme_properties() {
+fn known_ancillary_formatting_is_normalized_without_weakening_font_embedding_guard() {
     for (name, expected_part, expected_path) in [
         (
             "unsupported-settings-compat.docx",
@@ -390,11 +411,6 @@ fn recognized_ancillary_edges_do_not_hide_active_settings_embedded_fonts_or_them
             "unsupported-settings-default-tabs.docx",
             "word/settings.xml",
             "defaultTabStop",
-        ),
-        (
-            "unsupported-font-embedding.docx",
-            "word/fontTable.xml",
-            "embedRegular",
         ),
         (
             "unsupported-theme-font-reference.docx",
@@ -412,10 +428,12 @@ fn recognized_ancillary_edges_do_not_hide_active_settings_embedded_fonts_or_them
             "rFonts",
         ),
     ] {
-        let report = preserved(&fixture(name));
+        let bytes = fixture(name);
+        let imported = normalized(&bytes);
+        let report = imported.report();
         assert!(
             report
-                .diagnostics
+                .normalizations
                 .iter()
                 .any(|issue| { issue.part == expected_part && issue.path.contains(expected_path) }),
             "{name}: {report:?}"
@@ -428,17 +446,22 @@ fn recognized_ancillary_edges_do_not_hide_active_settings_embedded_fonts_or_them
             "The known ancillary relationship itself is not the unsupported feature: {name}: {report:?}"
         );
     }
+    let report = preserved(&fixture("unsupported-font-embedding.docx"));
+    assert!(report.diagnostics.iter().any(|issue| {
+        issue.part == "word/fontTable.xml" && issue.path.contains("embedRegular")
+    }));
 }
 
 #[test]
-fn unmodified_microsoft_and_libreoffice_fixtures_report_real_semantic_limits_not_boilerplate_edges()
-{
+fn unmodified_microsoft_and_libreoffice_fixtures_become_editable_with_normalization_notices() {
     for name in [
-        "microsoft-sdk-hello-world.docx",
         "microsoft-sdk-plain.docx",
         "libreoffice-basic.docx",
+        "microsoft-sdk-hello-world.docx",
     ] {
-        let report = preserved(&fixture(name));
+        let bytes = fixture(name);
+        let imported = normalized(&bytes);
+        let report = imported.report();
         assert!(
             report.diagnostics.iter().all(|issue| {
                 !matches!(
@@ -449,10 +472,10 @@ fn unmodified_microsoft_and_libreoffice_fixtures_report_real_semantic_limits_not
             "{name}: {report:?}"
         );
         assert!(
-            report.diagnostics.iter().any(|issue| {
+            report.normalizations.iter().any(|issue| {
                 issue.part == "word/styles.xml" || issue.part == "word/settings.xml"
             }),
-            "The original producer still uses unrepresented styles/settings: {name}: {report:?}"
+            "Style/settings approximations must be disclosed: {name}: {report:?}"
         );
     }
 }

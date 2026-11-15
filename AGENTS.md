@@ -58,10 +58,18 @@ and explicit approvals govern the task's scope.
 - Editable DOCX import requires a complete supported projection and persistence
   of its exact original before browser editing is activated. Unsupported content
   stays preserved read-only with diagnostics; do not publish lossy editable copies.
+- The owner subsequently authorized safe normalization of known unsupported
+  formatting so ordinary Word/LibreOffice documents can be edited. Preserve all
+  text and its order, retain exact originals, expose bounded adjustment notices,
+  and disclose regenerated-export losses. This supersedes the earlier demand
+  that every formatting value fit the native model exactly. Content, protection,
+  revision, malformed-structure and unknown-markup guards remain strict; an
+  independent warning budget must never hide a blocking finding.
 - Recognize inert DOCX auxiliary data by exact relationship URI/source role,
   content type and inspected payload, never by filename alone. Preserve it in
-  the original. Theme references, active settings, embedded fonts and unknown
-  relationships remain guarded. See `docs/DOCX_RELATIONSHIPS.md`; current-content
+  the original. Known theme/script formatting and layout preferences may be
+  normalized with notices; content, embedded fonts and unknown relationships
+  remain guarded. See `docs/DOCX_RELATIONSHIPS.md`; current-content
   export must disclose omitted unmodeled metadata and auxiliary parts.
 - Use full `WriterFile` APIs when source state is present. Document-only loaders
   must reject source loss. Preserve strict legacy decoding and explicit migrations;

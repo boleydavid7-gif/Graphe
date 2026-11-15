@@ -1,5 +1,10 @@
 # DOCX semantic conversion completion
 
+The later owner-approved [formatting normalization](DOCX_NORMALIZATION.md)
+supersedes this milestone's exact-formatting-only read-only criteria. Content,
+original preservation, structural validation and explicit export-loss disclosure
+remain required.
+
 The owner paused Step 6 on 2026-11-14 to complete missing DOCX conversion first.
 Base commit: `a504e2f`; development branch: `dev/docx-conversion`. Step 5A remains
 the package-validation and original-byte preservation foundation. No typography,

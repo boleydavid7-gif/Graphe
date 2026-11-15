@@ -1,5 +1,10 @@
 # DOCX ancillary relationship correction
 
+This records the first relationship correction. The owner's subsequent
+[formatting-normalization policy](DOCX_NORMALIZATION.md) supersedes the historical
+style/settings read-only limits and producer outcomes below. Both corrections
+remain in the same review PR; earlier results are retained as audit evidence.
+
 The original semantic graph accepted the main document, paragraph styles and
 core properties only. It consequently classified ordinary metadata, font-table,
 unused-theme and preference relationships as unsupported document content, then

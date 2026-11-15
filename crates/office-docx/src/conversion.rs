@@ -12,7 +12,7 @@ pub(crate) const MAX_DIAGNOSTICS: usize = 128;
 pub const DOCX_MEDIA_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-/// A recognized compatibility gap that prevents a complete editable import.
+/// A recognized compatibility finding; normalization notices are non-blocking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompatibilityIssueKind {
     /// A document element has no supported semantic mapping.
@@ -25,6 +25,8 @@ pub enum CompatibilityIssueKind {
     UnsupportedRelationship,
     /// An additional package part requires unsupported interpretation.
     UnsupportedPart,
+    /// Approved formatting normalization permits editing with an explicit notice.
+    NormalizedFormatting,
 }
 
 impl CompatibilityIssueKind {
@@ -37,6 +39,7 @@ impl CompatibilityIssueKind {
             Self::UnsupportedValue => "unsupported_value",
             Self::UnsupportedRelationship => "unsupported_relationship",
             Self::UnsupportedPart => "unsupported_part",
+            Self::NormalizedFormatting => "normalized_formatting",
         }
     }
 }
@@ -54,13 +57,18 @@ pub struct CompatibilityDiagnostic {
     pub message: String,
 }
 
-/// Compatibility findings; any finding prevents editable import.
+/// Separate blocking compatibility findings and approved normalization notices.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CompatibilityReport {
     /// At most 128 concrete findings in deterministic traversal order.
     pub diagnostics: Vec<CompatibilityDiagnostic>,
     /// Number of further findings omitted from this bounded report.
     pub omitted_diagnostics: usize,
+    /// At most 128 formatting approximations applied during a supported import.
+    /// These notices never make unsupported content editable.
+    pub normalizations: Vec<CompatibilityDiagnostic>,
+    /// Number of further normalization notices omitted from this bounded report.
+    pub omitted_normalizations: usize,
 }
 
 impl CompatibilityReport {
@@ -88,6 +96,25 @@ impl CompatibilityReport {
             self.omitted_diagnostics += 1;
         }
     }
+
+    /// Records an approved approximation without consuming the blocker budget.
+    pub(crate) fn normalize(
+        &mut self,
+        part: &str,
+        path: impl Into<String>,
+        message: impl Into<String>,
+    ) {
+        if self.normalizations.len() < MAX_DIAGNOSTICS {
+            self.normalizations.push(CompatibilityDiagnostic {
+                kind: CompatibilityIssueKind::NormalizedFormatting,
+                part: bounded_label(part, 512),
+                path: bounded_label(&path.into(), 512),
+                message: bounded_label(&message.into(), 2048),
+            });
+        } else {
+            self.omitted_normalizations = self.omitted_normalizations.saturating_add(1);
+        }
+    }
 }
 
 /// Bounds diagnostic text without splitting UTF-8; ellipsis marks truncation.
@@ -107,6 +134,7 @@ pub(crate) fn bounded_label(value: &str, limit: usize) -> String {
 pub struct ImportedDocx {
     pub(crate) document: Document,
     pub(crate) original: DocxSource,
+    pub(crate) report: CompatibilityReport,
 }
 
 impl ImportedDocx {
@@ -120,6 +148,13 @@ impl ImportedDocx {
     #[must_use]
     pub fn original(&self) -> &DocxSource {
         &self.original
+    }
+
+    /// Returns the bounded normalization notices for this editable projection.
+    /// Blocking diagnostics are empty for every successfully imported document.
+    #[must_use]
+    pub fn report(&self) -> &CompatibilityReport {
+        &self.report
     }
 
     /// Transfers both parts; callers must retain the original before editing.
@@ -224,4 +259,77 @@ pub fn import_docx(bytes: &[u8], document_id: Id) -> Result<DocxImportOutcome, C
 /// universal DOCX guarantees. Errors return before publishing partial output.
 pub fn export_docx(document: &Document) -> Result<Vec<u8>, ConversionError> {
     crate::export::export_document(document)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CompatibilityIssueKind as Issue, CompatibilityReport, MAX_DIAGNOSTICS};
+
+    #[test]
+    fn normalization_flood_never_consumes_or_hides_blocking_diagnostics() {
+        let mut already_blocked = CompatibilityReport::default();
+        already_blocked.push(
+            Issue::UnsupportedElement,
+            "word/document.xml",
+            "ins",
+            "Revision content is unsupported.",
+        );
+        for index in 0..MAX_DIAGNOSTICS + 9 {
+            already_blocked.normalize(
+                "word/styles.xml",
+                index.to_string(),
+                "Approved approximation.",
+            );
+        }
+        assert!(!already_blocked.is_supported());
+        assert_eq!(already_blocked.diagnostics.len(), 1);
+        assert_eq!(already_blocked.diagnostics[0].path, "ins");
+        let mut report = CompatibilityReport::default();
+        for index in 0..MAX_DIAGNOSTICS + 9 {
+            report.normalize(
+                "word/styles.xml",
+                format!("rPr/{index}"),
+                "Approved approximation.",
+            );
+        }
+        assert!(report.is_supported());
+        assert_eq!(report.normalizations.len(), MAX_DIAGNOSTICS);
+        assert_eq!(report.omitted_normalizations, 9);
+        assert!(report.diagnostics.is_empty());
+        report.push(
+            Issue::UnsupportedElement,
+            "word/document.xml",
+            "tbl",
+            "Tables remain unsupported.",
+        );
+        assert!(!report.is_supported());
+        assert_eq!(report.diagnostics.len(), 1);
+        assert_eq!(report.diagnostics[0].kind, Issue::UnsupportedElement);
+        for index in 0..MAX_DIAGNOSTICS + 2 {
+            report.push(
+                Issue::UnsupportedRelationship,
+                "word/_rels/document.xml.rels",
+                index.to_string(),
+                "Unsafe relationship.",
+            );
+        }
+        assert_eq!(report.diagnostics.len(), MAX_DIAGNOSTICS);
+        assert_eq!(report.omitted_diagnostics, 3);
+        assert_eq!(report.normalizations.len(), MAX_DIAGNOSTICS);
+        assert_eq!(report.omitted_normalizations, 9);
+    }
+
+    #[test]
+    fn normalization_labels_remain_bounded_on_utf8_boundaries() {
+        let mut report = CompatibilityReport::default();
+        let text = "é".repeat(3000);
+        report.normalize(&text, &text, &text);
+        let warning = &report.normalizations[0];
+        assert_eq!(warning.kind, Issue::NormalizedFormatting);
+        assert_eq!(warning.kind.code(), "normalized_formatting");
+        assert!(warning.part.len() <= 512 && warning.part.ends_with('…'));
+        assert!(warning.path.len() <= 512 && warning.path.ends_with('…'));
+        assert!(warning.message.len() <= 2048 && warning.message.ends_with('…'));
+        assert!(report.is_supported());
+    }
 }

@@ -7,6 +7,17 @@ conversion statements. Research alone is not a compatibility or completion claim
 
 ## DOCX relationship review (2026-11-15)
 
+The owner subsequently authorized [safe formatting normalization](DOCX_NORMALIZATION.md).
+The supplied private Word-for-the-web file exposed 82 metadata/formatting-only
+blockers despite having ordinary paragraph content and disabled tracking.
+Research separates gallery/unused-style data and known appearance preferences
+from actual document content, revision records and protection. The accepted
+adapter policy uses explicit validated normalizations and visible notices,
+preserving exact originals without changing the core/native schema. Independent
+review covers character-style precedence, active numbering inheritance, report
+caps, import atomicity and allocation amplification. Sources, evidence, tests and
+limitations are recorded in the linked report; the private text is not checked in.
+
 The focused [relationship investigation](DOCX_RELATIONSHIPS.md) compares ordinary
 Word and LibreOffice package relationships with the previous semantic graph
 whitelist. It rejected extended/custom metadata, themes, font tables and settings

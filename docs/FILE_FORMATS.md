@@ -8,7 +8,7 @@ No browser document/layout engine, storage service or server conversion is used.
 | Format | Open/edit | Save As | Preservation contract |
 | --- | --- | --- | --- |
 | `.writer` | Full supported native model | Full native file | Stable identifiers, exact model distinctions, metadata/styles and optional original |
-| DOCX | Existing declared editable profile | Existing Rust DOCX exporter | Unsupported semantics remain preserved read-only; see `DOCX_CONVERSION.md` |
+| DOCX | Declared content profile with known formatting normalization | Existing Rust DOCX exporter | Exact originals retained; formatting notices and content safeguards in [DOCX_NORMALIZATION.md](DOCX_NORMALIZATION.md) |
 | ODT | Declared paragraph/span/style profile | ODF text package | Unsupported rich content remains preserved read-only |
 | RTF | Declared text/run/paragraph/style profile | Unicode RTF | Unsupported rich content remains preserved read-only |
 | TXT | Strict Unicode plain text | UTF-8, LF line endings | Original encoding/newlines retained separately, formatting is not portable |

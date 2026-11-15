@@ -59,9 +59,9 @@ impl BrowserEngine {
             ));
         }
         let id = self.allocate_id()?;
-        let file = match office_formats::import_document(format, bytes, id, filename)
-            .map_err(format_error)?
-        {
+        let imported = office_formats::import_document_with_warnings(format, bytes, id, filename)
+            .map_err(format_error)?;
+        let file = match imported.outcome {
             ImportOutcome::Editable(file) => file,
             ImportOutcome::Preserved { report, .. } => {
                 return Err(unsupported_import(format, report));
@@ -86,6 +86,7 @@ impl BrowserEngine {
         let (_, overhead) = checked_file(&document, original.clone())?;
         self.replace_session(document)?;
         self.original_source = original;
+        self.import_warnings = warning_view(imported.warnings, imported.omitted_warnings);
         self.source_overhead = overhead;
         Ok(())
     }
@@ -190,14 +191,17 @@ impl BrowserEngine {
         {
             warnings.push(ExportWarning {
                 code: "docx_original_parts".into(),
-                message: "Imported DOCX metadata and auxiliary package parts are retained in the exact original. The new DOCX copy is rebuilt from current supported content and does not reproduce unmodeled metadata or auxiliary parts. Keep a native Writer copy or download the original for full source preservation.".into(),
+                message: "Imported DOCX metadata and auxiliary package parts are retained in the exact original. The new DOCX copy is rebuilt from current supported content and does not reproduce unmodeled metadata or auxiliary parts. New copies use the formatting approximations disclosed during import. Keep a native Writer copy or download the original for full source preservation.".into(),
             });
         }
         Ok(warnings)
     }
 }
 
-pub(super) fn validate_source(source: &OriginalSource, id: Id) -> Result<(), EngineError> {
+pub(super) fn validate_source(
+    source: &OriginalSource,
+    id: Id,
+) -> Result<wire::CompatibilityReportView, EngineError> {
     let format = DocumentFormat::parse(source.format()).map_err(|_| {
         EngineError::new(
             "unsupported_source",
@@ -216,11 +220,34 @@ pub(super) fn validate_source(source: &OriginalSource, id: Id) -> Result<(), Eng
             "This Writer file's original source format and media type are unsupported or inconsistent.",
         ));
     }
-    match office_formats::import_document(format, source.bytes(), id, source.filename())
-        .map_err(format_error)?
-    {
-        ImportOutcome::Editable(_) => Ok(()),
+    let imported = office_formats::import_document_with_warnings(
+        format,
+        source.bytes(),
+        id,
+        source.filename(),
+    )
+    .map_err(format_error)?;
+    match imported.outcome {
+        ImportOutcome::Editable(_) => {
+            Ok(warning_view(imported.warnings, imported.omitted_warnings))
+        }
         ImportOutcome::Preserved { report, .. } => Err(unsupported_import(format, report)),
+    }
+}
+
+fn warning_view(warnings: Vec<FormatDiagnostic>, omitted: usize) -> wire::CompatibilityReportView {
+    wire::CompatibilityReportView {
+        omitted_diagnostics: omitted.saturating_add(warnings.len().saturating_sub(128)),
+        diagnostics: warnings
+            .into_iter()
+            .take(128)
+            .map(|notice| wire::CompatibilityDiagnosticView {
+                kind: bounded_label(notice.code, 64),
+                part: bounded_label(notice.part, 512),
+                path: bounded_label(notice.path, 512),
+                message: bounded_label(notice.message, 2048),
+            })
+            .collect(),
     }
 }
 

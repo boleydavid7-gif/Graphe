@@ -15,7 +15,7 @@ use crate::{
     conversion::{bounded_label, invalid},
     opc::{parse_relationships, relationship_source, resolve_target},
     package::{Package, read_package},
-    properties::{parse_character, parse_paragraph},
+    properties::{parse_character, parse_paragraph, parse_run_character},
     xml::parse_xml,
 };
 
@@ -35,6 +35,7 @@ const DCTERMS_NAMESPACE: &str = "http://purl.org/dc/terms/";
 const XSI_NAMESPACE: &str = "http://www.w3.org/2001/XMLSchema-instance";
 const MC_NAMESPACE: &str = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
+const WORD_2010_NAMESPACE: &str = "http://schemas.microsoft.com/office/word/2010/wordml";
 const STYLES_CONTENT_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml";
 const CORE_CONTENT_TYPE: &str = "application/vnd.openxmlformats-package.core-properties+xml";
@@ -51,6 +52,9 @@ struct StyleBook {
     definitions: Vec<NamedStyle>,
     identifiers: BTreeMap<String, Id>,
     default_style: Option<Id>,
+    effective_characters: BTreeMap<String, CharacterFormat>,
+    character_styles: BTreeMap<String, CharacterFormat>,
+    default_character: Option<CharacterFormat>,
 }
 
 struct RawStyle {
@@ -88,6 +92,7 @@ pub(crate) fn import_document(
             &package.parts[part],
             namespace,
             &document_id,
+            &package.parts[&original.inspection().main_document_part],
             &mut report,
         )?,
         None => StyleBook::default(),
@@ -107,11 +112,10 @@ pub(crate) fn import_document(
     )?;
     if styles.default_style.is_some() && sections.iter().all(|section| section.blocks().is_empty())
     {
-        report.push(
-            Issue::UnsupportedValue,
+        report.normalize(
             main_part,
             "body",
-            "An empty body with document/default-style formatting has no native paragraph to retain that default for future typing.",
+            "An empty body has no paragraph to retain its source default for future typing. Writer will use its own defaults; the source styles remain in the original.",
         );
     }
     if !report.is_supported() {
@@ -121,6 +125,7 @@ pub(crate) fn import_document(
     Ok(DocxImportOutcome::Editable(ImportedDocx {
         document,
         original,
+        report,
     }))
 }
 
@@ -315,14 +320,17 @@ fn parse_styles(
     bytes: &[u8],
     namespace: &str,
     document_id: &Id,
+    main_bytes: &[u8],
     report: &mut CompatibilityReport,
 ) -> Result<StyleBook, ConversionError> {
     let xml = parse_xml(part, bytes)?;
     let root = require_root(&xml, namespace, "styles", part)?;
     check_word_attributes(root, namespace, &[], part, report);
     let mut defaults = None;
-    let mut raw = Vec::new();
-    let mut identifiers = BTreeSet::new();
+    let mut declarations = BTreeMap::new();
+    let mut ordered = Vec::new();
+    let mut defaults_by_kind = BTreeSet::new();
+    let mut latent_seen = false;
     for node in root.children() {
         if !node.is_element() {
             check_whitespace(node, part)?;
@@ -335,24 +343,46 @@ fn parse_styles(
             check_word_attributes(
                 node,
                 namespace,
-                &["type", "styleId", "default"],
+                &["type", "styleId", "default", "customStyle"],
                 part,
                 report,
             );
             let word_id = required_word_attribute(node, namespace, "styleId", part)?.to_owned();
-            if !identifiers.insert(word_id.clone()) {
+            if declarations.insert(word_id.clone(), node).is_some() {
                 return Err(invalid(part, "duplicate style identifiers"));
             }
-            if node.attribute((namespace, "type")) != Some("paragraph") {
+            if let Some(value) = node.attribute((namespace, "customStyle")) {
+                on_off(value, part)?;
+            }
+            let kind = required_word_attribute(node, namespace, "type", part)?;
+            if !matches!(kind, "paragraph" | "character" | "table" | "numbering") {
                 unsupported_element(
                     node,
                     part,
                     report,
-                    "Only paragraph style definitions are supported.",
+                    "Unknown style types cannot be interpreted as ordinary formatting.",
                 );
                 continue;
             }
-            raw.push(parse_style(node, namespace, part, report, word_id)?);
+            if node
+                .attribute((namespace, "default"))
+                .map(|value| on_off(value, part))
+                .transpose()?
+                .unwrap_or(false)
+                && !defaults_by_kind.insert(kind)
+            {
+                return Err(invalid(
+                    part,
+                    "multiple default styles of the same type are ambiguous",
+                ));
+            }
+            ordered.push((word_id, kind, node));
+        } else if node.has_tag_name((namespace, "latentStyles")) {
+            if latent_seen {
+                return Err(invalid(part, "duplicate latent-style metadata"));
+            }
+            latent_seen = true;
+            inspect_latent_styles(node, namespace, part, report)?;
         } else {
             unsupported_element(
                 node,
@@ -363,12 +393,161 @@ fn parse_styles(
         }
     }
     if !report.is_supported() {
+        // An unknown extension may supply declarations or defaults. Preserve
+        // that source read-only rather than inventing a missing-style error.
+        return Ok(StyleBook::default());
+    }
+    validate_style_inheritance(&declarations, namespace, part)?;
+    let main = parse_xml("main document style references", main_bytes)?;
+    let mut required_characters = BTreeSet::new();
+    let mut required_paragraphs = BTreeSet::new();
+    for node in main
+        .descendants()
+        .filter(|node| node.has_tag_name((namespace, "rStyle")))
+    {
+        required_characters
+            .insert(required_word_attribute(node, namespace, "val", part)?.to_owned());
+    }
+    for node in main
+        .descendants()
+        .filter(|node| node.has_tag_name((namespace, "pStyle")))
+    {
+        required_paragraphs
+            .insert(required_word_attribute(node, namespace, "val", part)?.to_owned());
+    }
+    for (word_id, kind, node) in &ordered {
+        if *kind == "character"
+            && node
+                .attribute((namespace, "default"))
+                .map(|value| on_off(value, part))
+                .transpose()?
+                .unwrap_or(false)
+        {
+            required_characters.insert(word_id.clone());
+        }
+        if *kind == "paragraph"
+            && node
+                .attribute((namespace, "default"))
+                .map(|value| on_off(value, part))
+                .transpose()?
+                .unwrap_or(false)
+        {
+            required_paragraphs.insert(word_id.clone());
+        }
+    }
+    let mut pending: Vec<_> = required_characters.iter().cloned().collect();
+    while let Some(id) = pending.pop() {
+        let node = declarations
+            .get(&id)
+            .ok_or_else(|| invalid(part, "run references a missing character style"))?;
+        if node.attribute((namespace, "type")) != Some("character") {
+            return Err(invalid(
+                part,
+                "character-style reference has the wrong style type",
+            ));
+        }
+        if let Some(parent) = style_parent(*node, namespace, part)?
+            && required_characters.insert(parent.clone())
+        {
+            pending.push(parent);
+        }
+    }
+    let mut pending: Vec<_> = required_paragraphs.iter().cloned().collect();
+    while let Some(id) = pending.pop() {
+        let node = declarations
+            .get(&id)
+            .ok_or_else(|| invalid(part, "paragraph references a missing style"))?;
+        if node.attribute((namespace, "type")) != Some("paragraph") {
+            return Err(invalid(
+                part,
+                "paragraph-style reference has the wrong style type",
+            ));
+        }
+        if let Some(parent) = style_parent(*node, namespace, part)?
+            && required_paragraphs.insert(parent.clone())
+        {
+            pending.push(parent);
+        }
+    }
+    // Unused list-style libraries do not generate text in this document. Keep
+    // those definitions (and unused descendants) in the original. A default or
+    // referenced list style is never pruned: its numbering must still block.
+    let mut children: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut pending = Vec::new();
+    for (id, kind, node) in &ordered {
+        if *kind != "paragraph" {
+            continue;
+        }
+        if let Some(parent) = style_parent(*node, namespace, part)? {
+            children.entry(parent).or_default().push(id.clone());
+        }
+        if !required_paragraphs.contains(id)
+            && node
+                .children()
+                .filter(|child| child.has_tag_name((namespace, "pPr")))
+                .any(|properties| {
+                    properties
+                        .children()
+                        .any(|property| property.has_tag_name((namespace, "numPr")))
+                })
+        {
+            pending.push(id.clone());
+        }
+    }
+    let mut source_only = BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        if source_only.insert(id.clone()) {
+            if required_paragraphs.contains(&id) {
+                return Err(invalid(
+                    part,
+                    "referenced style cannot depend on a source-only definition",
+                ));
+            }
+            if let Some(descendants) = children.get(&id) {
+                pending.extend(descendants.iter().cloned());
+            }
+        }
+    }
+    let mut paragraphs = Vec::new();
+    let mut characters = Vec::new();
+    for (word_id, kind, node) in ordered {
+        if kind == "paragraph" && !source_only.contains(&word_id) {
+            paragraphs.push(parse_style(node, namespace, part, report, word_id)?);
+        } else if kind == "character" && required_characters.contains(&word_id) {
+            let style = parse_style(node, namespace, part, report, word_id)?;
+            if style.paragraph != ParagraphFormat::default() {
+                unsupported_element(
+                    node,
+                    part,
+                    report,
+                    "Character styles cannot introduce paragraph semantics.",
+                );
+            }
+            characters.push(style);
+        } else {
+            inspect_unused_style(node, namespace, part, report)?;
+        }
+    }
+    if !report.is_supported() {
         // Unprocessed style extensions may contain the referenced definitions.
         // Do not classify those references as corrupt or invent replacements.
         // No semantic document will be published for this read-only outcome.
         return Ok(StyleBook::default());
     }
-    build_styles(raw, defaults, document_id, part, report)
+    let character_book = build_styles(characters, None, document_id, part, report)?;
+    let mut book = build_styles(paragraphs, defaults, document_id, part, report)?;
+    book.default_character = character_book
+        .default_style
+        .as_ref()
+        .and_then(|id| character_book.effective_characters.get(id.as_str()))
+        .cloned();
+    for (word_id, id) in character_book.identifiers {
+        book.character_styles.insert(
+            word_id,
+            character_book.effective_characters[id.as_str()].clone(),
+        );
+    }
+    Ok(book)
 }
 
 fn parse_defaults(
@@ -434,6 +613,310 @@ fn parse_defaults(
     Ok((character, paragraph))
 }
 
+fn style_parent(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+) -> Result<Option<String>, ConversionError> {
+    let mut parent = None;
+    for child in node
+        .children()
+        .filter(|child| child.has_tag_name((namespace, "basedOn")))
+    {
+        if parent.is_some() {
+            return Err(invalid(part, "duplicate style parent"));
+        }
+        parent = Some(required_word_attribute(child, namespace, "val", part)?.to_owned());
+    }
+    Ok(parent)
+}
+
+fn validate_style_inheritance(
+    declarations: &BTreeMap<String, Node<'_, '_>>,
+    namespace: &str,
+    part: &str,
+) -> Result<(), ConversionError> {
+    let mut parents = BTreeMap::new();
+    for (id, node) in declarations {
+        if let Some(parent) = style_parent(*node, namespace, part)? {
+            if !declarations.contains_key(&parent) {
+                return Err(invalid(
+                    part,
+                    "style inheritance references a missing parent",
+                ));
+            }
+            parents.insert(id.as_str(), parent);
+        }
+    }
+    let mut resolved = BTreeSet::new();
+    for id in declarations.keys() {
+        let mut path = BTreeSet::new();
+        let mut current = Some(id.as_str());
+        while let Some(id) = current {
+            if resolved.contains(id) {
+                break;
+            }
+            if !path.insert(id) {
+                return Err(invalid(part, "style inheritance contains a cycle"));
+            }
+            current = parents.get(id).map(String::as_str);
+        }
+        resolved.extend(path);
+    }
+    Ok(())
+}
+
+fn style_metadata(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<bool, ConversionError> {
+    if node.tag_name().namespace() != Some(namespace) {
+        return Ok(false);
+    }
+    let kind = node.tag_name().name();
+    if !matches!(
+        kind,
+        "qFormat"
+            | "semiHidden"
+            | "unhideWhenUsed"
+            | "hidden"
+            | "locked"
+            | "autoRedefine"
+            | "personal"
+            | "personalCompose"
+            | "personalReply"
+            | "uiPriority"
+            | "rsid"
+            | "next"
+            | "link"
+            | "aliases"
+    ) {
+        return Ok(false);
+    }
+    check_word_attributes(node, namespace, &["val"], part, report);
+    check_leaf(node, part, report)?;
+    match kind {
+        "uiPriority" => {
+            required_word_attribute(node, namespace, "val", part)?
+                .parse::<u32>()
+                .map_err(|_| invalid(part, "invalid style UI priority"))?;
+        }
+        "rsid" => {
+            let value = required_word_attribute(node, namespace, "val", part)?;
+            if value.len() != 8 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return Err(invalid(part, "invalid style revision session identifier"));
+            }
+        }
+        "next" | "link" | "aliases" => {
+            required_word_attribute(node, namespace, "val", part)?;
+        }
+        _ => {
+            let value = node
+                .attribute((namespace, "val"))
+                .map(|value| on_off(value, part))
+                .transpose()?
+                .unwrap_or(true);
+            if kind == "locked" && value {
+                unsupported_element(
+                    node,
+                    part,
+                    report,
+                    "Locked style restrictions cannot be bypassed by formatting normalization.",
+                );
+                return Ok(true);
+            }
+        }
+    }
+    report.normalize(part, format!("style/{kind}"), "Style gallery, authoring or future-style behavior is retained in the original; Writer uses its own style controls.");
+    Ok(true)
+}
+
+fn inspect_latent_styles(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    check_word_attributes(
+        node,
+        namespace,
+        &[
+            "defLockedState",
+            "defUIPriority",
+            "defSemiHidden",
+            "defUnhideWhenUsed",
+            "defQFormat",
+            "count",
+        ],
+        part,
+        report,
+    );
+    let validate = |node: Node<'_, '_>, names: &[&str]| -> Result<(), ConversionError> {
+        for name in names {
+            if let Some(value) = node.attribute((namespace, *name)) {
+                if matches!(*name, "defUIPriority" | "uiPriority" | "count") {
+                    value
+                        .parse::<u32>()
+                        .map_err(|_| invalid(part, "invalid latent-style integer"))?;
+                } else {
+                    on_off(value, part)?;
+                }
+            }
+        }
+        Ok(())
+    };
+    validate(
+        node,
+        &[
+            "defLockedState",
+            "defUIPriority",
+            "defSemiHidden",
+            "defUnhideWhenUsed",
+            "defQFormat",
+            "count",
+        ],
+    )?;
+    if node
+        .attribute((namespace, "defLockedState"))
+        .map(|value| on_off(value, part))
+        .transpose()?
+        .unwrap_or(false)
+    {
+        unsupported_element(
+            node,
+            part,
+            report,
+            "Latent style locking cannot be bypassed.",
+        );
+    }
+    let mut names = BTreeSet::new();
+    for child in node.children() {
+        if !child.is_element() {
+            check_whitespace(child, part)?;
+            continue;
+        }
+        if !child.has_tag_name((namespace, "lsdException")) {
+            unsupported_element(child, part, report, "Unknown latent-style metadata.");
+            continue;
+        }
+        check_word_attributes(
+            child,
+            namespace,
+            &[
+                "name",
+                "locked",
+                "uiPriority",
+                "semiHidden",
+                "unhideWhenUsed",
+                "qFormat",
+            ],
+            part,
+            report,
+        );
+        check_leaf(child, part, report)?;
+        if !names.insert(required_word_attribute(child, namespace, "name", part)?) {
+            return Err(invalid(part, "duplicate latent-style name"));
+        }
+        validate(
+            child,
+            &[
+                "locked",
+                "uiPriority",
+                "semiHidden",
+                "unhideWhenUsed",
+                "qFormat",
+            ],
+        )?;
+        if child
+            .attribute((namespace, "locked"))
+            .map(|value| on_off(value, part))
+            .transpose()?
+            .unwrap_or(false)
+        {
+            unsupported_element(
+                child,
+                part,
+                report,
+                "Latent style locking cannot be bypassed.",
+            );
+        }
+    }
+    report.normalize(part, "latentStyles", "The latent style gallery is preserved in the original; it does not supply document text or instantiated formatting.");
+    Ok(())
+}
+
+fn inspect_unused_style(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    let mut seen = BTreeSet::new();
+    for child in node.children() {
+        if !child.is_element() {
+            check_whitespace(child, part)?;
+            continue;
+        }
+        if !seen.insert(child.tag_name().name()) {
+            return Err(invalid(part, "duplicate unused-style property"));
+        }
+        if style_metadata(child, namespace, part, report)? {
+            continue;
+        }
+        if child.tag_name().namespace() != Some(namespace) {
+            unsupported_element(child, part, report, "Unknown unused-style namespace.");
+            continue;
+        }
+        match child.tag_name().name() {
+            "name" | "basedOn" => {
+                check_word_attributes(child, namespace, &["val"], part, report);
+                check_leaf(child, part, report)?;
+                required_word_attribute(child, namespace, "val", part)?;
+            }
+            "rPr" | "pPr" | "tblPr" | "tcPr" | "trPr" | "tblStylePr" => {
+                // Only unused formatting libraries may stay opaque. A reference
+                // makes character styles go through the semantic parser; actual
+                // tables and numbering still fail the body/relationship guards.
+                for property in child.descendants() {
+                    if property.is_element()
+                        && (property.tag_name().namespace() != Some(namespace)
+                            || matches!(
+                                property.tag_name().name(),
+                                "t" | "r"
+                                    | "p"
+                                    | "tbl"
+                                    | "sdt"
+                                    | "instrText"
+                                    | "fldChar"
+                                    | "drawing"
+                                    | "pict"
+                                    | "object"
+                                    | "ins"
+                                    | "del"
+                                    | "moveFrom"
+                                    | "moveTo"
+                            ))
+                    {
+                        unsupported_element(
+                            property,
+                            part,
+                            report,
+                            "Content or foreign markup cannot be discarded as an unused formatting definition.",
+                        );
+                    } else if !property.is_element() {
+                        check_whitespace(property, part)?;
+                    }
+                }
+            }
+            _ => unsupported_element(child, part, report, "Unknown unused-style construct."),
+        }
+    }
+    report.normalize(part, "style/unused", "An unused character, table or numbering definition is retained in the original rather than added to Writer's paragraph-style model.");
+    Ok(())
+}
+
 fn parse_style(
     node: Node<'_, '_>,
     namespace: &str,
@@ -461,12 +944,15 @@ fn parse_style(
             continue;
         }
         let kind = child.tag_name().name();
+        if !seen.insert(kind) {
+            return Err(invalid(part, "duplicate style property"));
+        }
+        if style_metadata(child, namespace, part, report)? {
+            continue;
+        }
         if !matches!(kind, "name" | "basedOn" | "pPr" | "rPr") {
             unsupported_element(child, part, report, "This style property is not supported.");
             continue;
-        }
-        if !seen.insert(kind) {
-            return Err(invalid(part, "duplicate style property"));
         }
         match kind {
             "name" | "basedOn" => {
@@ -496,11 +982,10 @@ fn parse_style(
         }
     }
     let name = name.unwrap_or_else(|| {
-        report.push(
-            Issue::UnsupportedValue,
+        report.normalize(
             part,
             "style/name",
-            "A named style without an explicit display name is outside the editable profile.",
+            "A style without a display name uses its stable source style identifier as its Writer display name.",
         );
         word_id.clone()
     });
@@ -515,7 +1000,7 @@ fn parse_style(
 }
 
 fn build_styles(
-    raw: Vec<RawStyle>,
+    mut raw: Vec<RawStyle>,
     defaults: Option<(CharacterFormat, ParagraphFormat)>,
     document_id: &Id,
     part: &str,
@@ -526,14 +1011,22 @@ fn build_styles(
     });
     let mut book = StyleBook::default();
     let mut names = BTreeSet::new();
-    for style in &raw {
-        if style.name.trim().is_empty() || !names.insert(style.name.clone()) {
-            report.push(
-                Issue::UnsupportedValue,
-                part,
-                "style/name",
-                "Blank or duplicate style display names cannot be represented in the native model.",
-            );
+    let mut next_suffix = BTreeMap::new();
+    for style in &mut raw {
+        let base = if style.name.trim().is_empty() {
+            style.word_id.clone()
+        } else {
+            style.name.clone()
+        };
+        let mut name = base.clone();
+        let suffix = next_suffix.entry(base.clone()).or_insert(2usize);
+        while !names.insert(name.clone()) {
+            name = format!("{base} ({suffix})");
+            *suffix += 1;
+        }
+        if name != style.name {
+            report.normalize(part, "style/name", "A blank or repeated style display name was given a unique Writer display name; stable source references remain unchanged.");
+            style.name = name;
         }
     }
     let defaults_id = if let Some((character, paragraph)) = defaults {
@@ -562,7 +1055,7 @@ fn build_styles(
         let id = generated_id(document_id, "style", index + offset)?;
         book.identifiers.insert(style.word_id.clone(), id);
     }
-    let mut effective = vec![None; raw.len()];
+    let mut effective: Vec<Option<CharacterFormat>> = vec![None; raw.len()];
     for start in 0..raw.len() {
         if effective[start].is_some() {
             continue;
@@ -593,24 +1086,28 @@ fn build_styles(
                 .transpose()?;
         }
         let mut inherited = current
-            .and_then(|index| effective[index])
+            .and_then(|index| effective[index].clone())
             .unwrap_or_else(|| {
-                defaults_id.as_ref().map_or((false, false), |_| {
-                    let defaults = &book.definitions[0].character_format;
-                    (
-                        defaults.bold.unwrap_or(false),
-                        defaults.italic.unwrap_or(false),
-                    )
-                })
+                defaults_id
+                    .as_ref()
+                    .map_or_else(CharacterFormat::default, |_| {
+                        book.definitions[0].character_format.clone()
+                    })
             });
         for index in chain.into_iter().rev() {
+            let previous = inherited.clone();
+            inherited = overlay_character(&inherited, &raw[index].character);
             if raw[index].character.bold == Some(true) {
-                inherited.0 = !inherited.0;
+                inherited.bold = Some(!previous.bold.unwrap_or(false));
+            } else {
+                inherited.bold = previous.bold;
             }
             if raw[index].character.italic == Some(true) {
-                inherited.1 = !inherited.1;
+                inherited.italic = Some(!previous.italic.unwrap_or(false));
+            } else {
+                inherited.italic = previous.italic;
             }
-            effective[index] = Some(inherited);
+            effective[index] = Some(inherited.clone());
         }
     }
     for (index, raw_style) in raw.into_iter().enumerate() {
@@ -625,11 +1122,15 @@ fn build_styles(
         style.character_format = raw_style.character;
         // In styles, true toggles inherited state while false is a no-op. The
         // shared model stores an explicit current absolute override instead.
-        let values = effective[index].expect("all style chains were resolved");
+        let values = effective[index]
+            .as_ref()
+            .expect("all style chains were resolved");
         style.character_format.bold =
-            (style.character_format.bold == Some(true)).then_some(values.0);
+            (style.character_format.bold == Some(true)).then_some(values.bold.unwrap_or(false));
         style.character_format.italic =
-            (style.character_format.italic == Some(true)).then_some(values.1);
+            (style.character_format.italic == Some(true)).then_some(values.italic.unwrap_or(false));
+        book.effective_characters
+            .insert(style.id.as_str().to_owned(), values.clone());
         if raw_style.is_default && book.default_style.replace(id).is_some() {
             return Err(invalid(
                 part,
@@ -641,7 +1142,29 @@ fn build_styles(
     if book.default_style.is_none() {
         book.default_style = defaults_id;
     }
+    if let Some(id) = &book.default_style
+        && !book.effective_characters.contains_key(id.as_str())
+    {
+        book.effective_characters.insert(
+            id.as_str().to_owned(),
+            book.definitions[0].character_format.clone(),
+        );
+    }
     Ok(book)
+}
+
+fn overlay_character(base: &CharacterFormat, direct: &CharacterFormat) -> CharacterFormat {
+    CharacterFormat {
+        bold: direct.bold.or(base.bold),
+        italic: direct.italic.or(base.italic),
+        underline: direct.underline.or(base.underline),
+        font_family: direct
+            .font_family
+            .clone()
+            .or_else(|| base.font_family.clone()),
+        font_size: direct.font_size.or(base.font_size),
+        color: direct.color.or(base.color),
+    }
 }
 
 fn parse_metadata(
@@ -762,6 +1285,7 @@ fn parse_main_document(
     }
     let body = body.ok_or_else(|| invalid(part, "document body is missing"))?;
     check_word_attributes(body, namespace, &[], part, report);
+    inspect_bookmarks(body, namespace, part, report)?;
     let mut sections = Vec::new();
     let mut blocks = Vec::new();
     let mut paragraph_index = 0;
@@ -770,6 +1294,9 @@ fn parse_main_document(
     for node in body.children() {
         if !node.is_element() {
             check_whitespace(node, part)?;
+            continue;
+        }
+        if bookmark_marker(node, namespace) {
             continue;
         }
         if final_properties.is_some() {
@@ -845,6 +1372,7 @@ fn parse_paragraph_content(
     check_word_attributes(node, namespace, &[], part, report);
     let mut properties = None;
     let mut runs = Vec::new();
+    let mut character_styles = Vec::new();
     for child in node.children() {
         if !child.is_element() {
             check_whitespace(child, part)?;
@@ -854,7 +1382,12 @@ fn parse_paragraph_content(
             }
             properties = Some(parse_paragraph(child, namespace, part, report)?);
         } else if child.has_tag_name((namespace, "r")) {
-            runs.push(parse_run(child, namespace, part, report)?);
+            let (run, style) = parse_run(child, namespace, part, report)?;
+            runs.push(run);
+            character_styles.push(style);
+        } else if bookmark_marker(child, namespace) {
+            // Pairing and leaf/attribute integrity are checked once for the
+            // whole document; these markers do not contain text.
         } else {
             unsupported_element(
                 child,
@@ -891,6 +1424,56 @@ fn parse_paragraph_content(
     } else {
         styles.default_style.clone()
     };
+    if let Some(style) = &style {
+        paragraph = paragraph.with_style(style.clone());
+    }
+    let inherited = paragraph
+        .style()
+        .and_then(|id| styles.effective_characters.get(id.as_str()))
+        .cloned()
+        .unwrap_or_default();
+    let mut materialized = Vec::with_capacity(paragraph.runs().len());
+    for (run, word_style) in paragraph.runs().iter().zip(character_styles) {
+        let character = if let Some(word_style) = word_style {
+            match styles.character_styles.get(&word_style) {
+                Some(format) => Some(format),
+                None if !report.is_supported() => {
+                    report.push(
+                        Issue::UnsupportedValue,
+                        part,
+                        "rPr/rStyle",
+                        "The character style cannot be resolved without unsupported content.",
+                    );
+                    None
+                }
+                None => {
+                    return Err(invalid(
+                        part,
+                        "run references an unavailable character style",
+                    ));
+                }
+            }
+        } else {
+            styles.default_character.as_ref()
+        };
+        let mut run = run.clone();
+        if let Some(character) = character {
+            let mut projected = character.clone();
+            // OOXML character-style b/i values toggle the paragraph result.
+            // The native run stores the materialized absolute override.
+            projected.bold =
+                (character.bold == Some(true)).then_some(!inherited.bold.unwrap_or(false));
+            projected.italic =
+                (character.italic == Some(true)).then_some(!inherited.italic.unwrap_or(false));
+            if projected != CharacterFormat::default() {
+                run.format = overlay_character(&projected, &run.format);
+                report.normalize(part, "rPr/rStyle", "Character-style appearance was materialized into supported run formatting. The original retains its style definitions and future-style behavior.");
+            }
+        }
+        materialized.push(run);
+    }
+    paragraph = Paragraph::new(paragraph.id().clone(), materialized)
+        .with_format(paragraph.format().clone());
     if let Some(style) = style {
         paragraph = paragraph.with_style(style);
     }
@@ -902,11 +1485,12 @@ fn parse_run(
     namespace: &str,
     part: &str,
     report: &mut CompatibilityReport,
-) -> Result<TextRun, ConversionError> {
+) -> Result<(TextRun, Option<String>), ConversionError> {
     check_word_attributes(node, namespace, &[], part, report);
     let mut format = None;
     let mut text = String::new();
     let mut content_seen = false;
+    let mut character_style = None;
     for child in node.children() {
         if !child.is_element() {
             check_whitespace(child, part)?;
@@ -916,7 +1500,9 @@ fn parse_run(
             if format.is_some() || content_seen {
                 return Err(invalid(part, "duplicate or misplaced run properties"));
             }
-            format = Some(parse_character(child, namespace, part, report)?);
+            let (parsed, style) = parse_run_character(child, namespace, part, report)?;
+            format = Some(parsed);
+            character_style = style;
             continue;
         }
         content_seen = true;
@@ -995,10 +1581,62 @@ fn parse_run(
             );
         }
     }
-    Ok(TextRun {
-        text,
-        format: format.unwrap_or_default(),
-    })
+    Ok((
+        TextRun {
+            text,
+            format: format.unwrap_or_default(),
+        },
+        character_style,
+    ))
+}
+
+fn bookmark_marker(node: Node<'_, '_>, namespace: &str) -> bool {
+    node.has_tag_name((namespace, "bookmarkStart")) || node.has_tag_name((namespace, "bookmarkEnd"))
+}
+
+fn inspect_bookmarks(
+    node: Node<'_, '_>,
+    namespace: &str,
+    part: &str,
+    report: &mut CompatibilityReport,
+) -> Result<(), ConversionError> {
+    let mut starts = BTreeSet::new();
+    let mut ends = BTreeSet::new();
+    for marker in node
+        .descendants()
+        .filter(|marker| bookmark_marker(*marker, namespace))
+    {
+        let start = marker.has_tag_name((namespace, "bookmarkStart"));
+        check_word_attributes(
+            marker,
+            namespace,
+            if start { &["id", "name"] } else { &["id"] },
+            part,
+            report,
+        );
+        check_leaf(marker, part, report)?;
+        let id = required_word_attribute(marker, namespace, "id", part)?
+            .parse::<u32>()
+            .map_err(|_| invalid(part, "invalid bookmark range identifier"))?;
+        if start {
+            required_word_attribute(marker, namespace, "name", part)?;
+            if !starts.insert(id) {
+                return Err(invalid(part, "duplicate bookmark start identifier"));
+            }
+        } else if !starts.contains(&id) || !ends.insert(id) {
+            return Err(invalid(
+                part,
+                "unpaired or duplicate bookmark end identifier",
+            ));
+        }
+    }
+    if starts != ends {
+        return Err(invalid(part, "bookmark range is not closed"));
+    }
+    if !starts.is_empty() {
+        report.normalize(part, "bookmark", "Bookmark anchors are retained in the original; Writer preserves the enclosed text but does not export the original anchors.");
+    }
+    Ok(())
 }
 
 fn generated_id(document_id: &Id, kind: &str, index: usize) -> Result<Id, ConversionError> {
@@ -1038,6 +1676,17 @@ fn check_word_attributes(
 ) {
     for attribute in node.attributes() {
         if attribute.namespace() == Some(XML_NAMESPACE) && attribute.name() == "space" {
+            continue;
+        }
+        if node.has_tag_name((namespace, "p"))
+            && attribute.namespace() == Some(WORD_2010_NAMESPACE)
+            && matches!(attribute.name(), "paraId" | "textId")
+            && attribute.value().len() == 8
+            && attribute
+                .value()
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+        {
             continue;
         }
         // Session IDs describe authoring history, not inserted/deleted content.

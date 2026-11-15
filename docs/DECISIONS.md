@@ -935,3 +935,27 @@ Native saving preserves the exact original before editing. A regenerated DOCX
 copy omits unmodeled auxiliary information and requires the existing Save As
 acknowledgement; original download remains byte-identical. Real producer fixture
 limits and evidence are recorded in [DOCX_RELATIONSHIPS.md](DOCX_RELATIONSHIPS.md).
+
+## 045: Normalize known DOCX formatting while preserving content and originals
+
+**Decision:** With the owner's explicit authorization, permit validated known
+formatting approximations on editable import. Preserve all supported text/order,
+exact originals and core validation. Keep content, revision, protection,
+unknown-markup and malformed-structure safeguards. Report normalization notices
+separately from blocking compatibility findings with independent bounds.
+
+**Reason:** Ordinary Word and LibreOffice documents include unused style
+libraries, theme/script defaults and layout preferences beyond Writer's model.
+Requiring every formatting detail to match the native model made ordinary
+content unavailable for editing without improving content integrity.
+
+**Consequences:** Resolve supported used character styles into run properties;
+retain unused libraries in the original and never prune active/default/inherited
+numbering. Use deterministic documented font/color/layout fallbacks and display
+an accessible adjustment notice after original-preserving local storage. Native
+reopen derives runtime notices from the original without replacing edited state.
+Existing import APIs remain available; a richer facade result carries notices
+without a second parse. No native schema, dependency or layout-engine change is
+needed. Regenerated exports disclose losses; full originals remain recoverable.
+This is a bounded compatibility profile, not complete Word fidelity. See
+[DOCX_NORMALIZATION.md](DOCX_NORMALIZATION.md) for evidence and safeguards.
