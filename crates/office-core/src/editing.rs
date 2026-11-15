@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     CharacterFormat, CharacterFormatPatch, Document, DocumentPosition, GraphemeOffset, Id,
-    ParagraphFormatPatch, PositionError, Selection, TextCoordinates, Transaction, ValidationError,
+    ListKind, ParagraphFormatPatch, PositionError, Selection, TextCoordinates, Transaction, ValidationError,
     edit_ops,
 };
 
@@ -249,6 +249,19 @@ impl Transaction {
         self.check_context(&selection.context)?;
         let before = self.candidate()?;
         let after = edit_ops::apply_paragraph_format(&before, &selection.selection, patch)?;
+        Ok(self.finish_operation(before, after))
+    }
+
+    /// Applies or clears the first-level semantic list classification on
+    /// selected paragraphs. The result is a single validated, undoable edit.
+    pub fn set_paragraph_list(
+        &mut self,
+        selection: &EditSelection,
+        list: Option<ListKind>,
+    ) -> Result<bool, EditError> {
+        self.check_context(&selection.context)?;
+        let before = self.candidate()?;
+        let after = edit_ops::set_paragraph_list(&before, &selection.selection, list)?;
         Ok(self.finish_operation(before, after))
     }
 
