@@ -58,7 +58,7 @@ type SaveAsState = {
 
 const DOCX_MEDIA_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const FILE_FORMATS: readonly { format: DocumentFormat; label: string; mediaType: string }[] = [
-  { format: 'writer', label: 'Writer document (.writer)', mediaType: 'application/json' },
+  { format: 'writer', label: 'Writer document (.writer)', mediaType: 'application/octet-stream' },
   { format: 'docx', label: 'Word document (.docx)', mediaType: DOCX_MEDIA_TYPE },
   { format: 'odt', label: 'OpenDocument text (.odt)', mediaType: 'application/vnd.oasis.opendocument.text' },
   { format: 'rtf', label: 'Rich Text Format (.rtf)', mediaType: 'application/rtf' },
@@ -71,7 +71,7 @@ function fileFormat(file: File): DocumentFormat {
   const byExtension = FILE_FORMATS.find((item) => item.format === extension);
   if (byExtension) return byExtension.format;
   const mediaType = file.type.toLowerCase().split(';')[0];
-  const byMediaType = FILE_FORMATS.find((item) => item.mediaType.split(';')[0] === mediaType);
+  // Generic binary MIME is deliberately not used to guess Writer on import.\n  const byMediaType = FILE_FORMATS.find((item) => item.format !== 'writer' && item.mediaType.split(';')[0] === mediaType);
   if (byMediaType) return byMediaType.format;
   if (mediaType === 'text/rtf') return 'rtf';
   throw new Error('Choose a .writer, .docx, .odt, .rtf or .txt file. TXT supports UTF-8 or BOM-marked UTF-16. PDF is available for export only.');
@@ -100,7 +100,7 @@ function requestDownload(url: string, filename: string) {
 }
 
 function safeFilename(title: string, extension: string): string {
-  const name = [...(title.trim() || 'Untitled document')]
+  const base = (title.trim() || 'Untitled document').replace(/\\.(writer|writer\\.json|docx|odt|rtf|txt|pdf)$/i, '');\n  const name = [...(base || 'Untitled document')]
     .map((character) => {
       const code = character.codePointAt(0) ?? 0;
       return code < 32 || (code >= 0x7f && code <= 0x9f) || '\\/:*?"<>|'.includes(character) ? '_' : character;
@@ -623,7 +623,7 @@ export default function App() {
     if (!engine.current || !viewRef.current || !documentOpen || composing) return;
     try {
       const bytes = engine.current.serialize();
-      download(new Blob([bytes.slice().buffer], { type: 'application/json;charset=utf-8' }), safeFilename(viewRef.current.title, 'writer'));
+      download(new Blob([bytes.slice().buffer], { type: formatMediaType('writer') }), safeFilename(viewRef.current.title, 'writer'));
       setExportDisclosure(false);
       setNotice('Writer copy ready. Export does not replace your local save.');
     } catch (failure) { setError(message(failure)); }
