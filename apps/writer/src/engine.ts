@@ -157,7 +157,7 @@ export class EngineClient {
     } catch (error) { throw failure(error); }
   }
 
-  /** Exports only after explicitly acknowledged losses and current-origin checks. */
+  /** Save copy confirms displayed meaningful losses; Rust checks the origin. */
   exportFormat(format: DocumentFormat, acknowledgeLoss = false,
     expectedOrigin?: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>): Uint8Array {
     try {

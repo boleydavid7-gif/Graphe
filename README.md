@@ -80,7 +80,7 @@ format, storage database and existing engines are reused. See
 Step 7.5 was merged through PR #13 at `3f447c4` with the owner's approval:
 DOCX/ODT/RTF/TXT open, edit and save within declared profiles; PDF export only;
 and full native `.writer` retention. Open and Save As reuse the Rust adapters,
-preserve imported originals and require acknowledgement of conversion warnings.
+preserve imported originals and show brief warnings for meaningful conversion loss.
 Unsupported rich content remains read-only rather than silently becoming a
 partial editable document. See [file formats](docs/FILE_FORMATS.md),
 [verification](docs/FILE_FORMATS_VERIFICATION.md) and
@@ -97,6 +97,11 @@ require device verification; mobile Chromium checks do not establish that.
 The focused [document-menu correction](docs/WRITER_MENU_RELIABILITY.md) traces
 every existing three-dot command and fixes swallowed activation, clipped options
 and dialog return focus. It preserves the same Rust, format and local-save APIs.
+
+[Compact Save As](docs/SAVE_COPY.md) uses filename, file format and Save copy,
+with no ordinary-save checkbox. DOCX copies now preserve validated source
+properties and safe auxiliary parts around regenerated current content. Originals,
+native saves and editing history remain unchanged by exporting a copy.
 
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level

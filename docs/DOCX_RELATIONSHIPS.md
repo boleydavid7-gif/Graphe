@@ -104,9 +104,12 @@ The original stays outside document state and undo snapshots; native `.writer`
 save/reopen retains it byte-for-byte. Inert source-only metadata is not copied
 into a competing document model.
 
-Current-content DOCX export regenerates the supported edited model. It does not
-pass through all original settings, metadata, thumbnails or unsupported features.
-Save As must continue to disclose conversion losses and recommend a native copy.
+Current-content DOCX export regenerates the supported edited model. The later
+[source-aware copy path](SAVE_COPY.md) preserves validated descriptive/custom
+metadata and safe theme/font/settings parts with regenerated relationships.
+It excludes old body/styles, thumbnails, stale caches/audit data and unsafe theme
+extensions. Brief warnings identify meaningful format/content/property losses;
+ordinary saves no longer show a blanket metadata-loss panel or checkbox.
 Original download is separate and can contain text removed from the edited model;
 sharing a source-bearing native file carries the same disclosure.
 

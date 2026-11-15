@@ -25,8 +25,7 @@ async function review(page: Page, format: typeof formats[number]) {
   const dialog = page.getByRole('dialog', { name: 'Save As', exact: true });
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption(format);
   await dialog.getByRole('textbox', { name: 'Filename', exact: true }).fill(`Reliable é 📝.${format}`);
-  const warning = dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true });
-  if (await warning.count()) await warning.check();
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
   return dialog;
 }
 
@@ -59,7 +58,7 @@ for (const touch of [false, true]) {
         await begin(page);
         const dialog = await review(page, format);
         const pending = page.waitForEvent('download');
-        const button = dialog.getByRole('button', { name: 'Download copy', exact: true });
+        const button = dialog.getByRole('button', { name: 'Save copy', exact: true });
         if (touch) await button.tap(); else await button.click();
         const file = await pending;
         expect(file.suggestedFilename()).toBe(`Reliable é 📝.${format}`);
@@ -111,7 +110,8 @@ test('dialog shortcuts preserve the reviewed format and cannot stack modal workf
   await page.keyboard.press('Control+Shift+s');
   await expect(dialog.getByRole('combobox', { name: 'File format', exact: true })).toHaveValue('pdf');
   await expect(dialog.getByRole('textbox', { name: 'Filename', exact: true })).toHaveValue('Reliable é 📝.pdf');
-  await expect(dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+  await expect(dialog.getByRole('note', { name: 'Format warning', exact: true })).toContainText(/PDF|search|select/i);
   await page.keyboard.press('Control+o');
   await page.keyboard.press('Control+f');
   await page.keyboard.press('Control+s');
@@ -126,7 +126,7 @@ test('a blocked automatic file handoff leaves a usable immutable retry without c
     HTMLAnchorElement.prototype.click = function () { throw new DOMException('Blocked automatic handoff', 'NotAllowedError'); };
   });
   const dialog = await review(page, 'txt');
-  await dialog.getByRole('button', { name: 'Download copy', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save copy', exact: true }).click();
   const copy = page.getByRole('complementary', { name: 'Prepared export', exact: true });
   await expect(copy).toContainText('could not start the automatic download');
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');

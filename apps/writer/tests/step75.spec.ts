@@ -56,20 +56,17 @@ async function downloaded(download: Download) {
   return readFile(path);
 }
 
-/** Use the real Save As menu/dialog and its explicit Rust warning gate. */
+/** Use the compact Save As dialog and current Rust assessment. */
 async function saveAs(page: Page, format: FileFormat, filename?: string) {
   await documentAction(page, 'Save As…');
   const dialog = page.getByRole('dialog', { name: 'Save As', exact: true });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption(format);
   if (filename) await dialog.getByRole('textbox', { name: 'Filename', exact: true }).fill(filename);
-  const acknowledgement = dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true });
-  if (await acknowledgement.count()) {
-    await expect(dialog.getByRole('button', { name: 'Download copy', exact: true })).toBeDisabled();
-    await acknowledgement.check();
-  }
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Save copy', exact: true })).toBeEnabled();
   const pending = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: 'Download copy', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save copy', exact: true }).click();
   const download = await pending;
   expect(download.suggestedFilename()).toMatch(new RegExp(`\\.${format}$`, 'i'));
   await expect(dialog).toHaveCount(0);
@@ -185,7 +182,7 @@ test('native Save As retains identifiers, existing styles and metadata when open
   await expect(page.locator('.save-state')).toHaveText('Not saved yet');
 });
 
-test('format-loss warning requires acknowledgement, resets on format change and leaves rich local content intact', async ({ page }) => {
+test('a brief meaningful-loss warning follows the format and one Save copy preserves rich local content', async ({ page }) => {
   await start(page);
   await focusEditor(page);
   await page.keyboard.insertText('Keep this rich text — e\u0301 👩🏽‍💻');
@@ -198,14 +195,15 @@ test('format-loss warning requires acknowledgement, resets on format change and 
   await documentAction(page, 'Save As…');
   const dialog = page.getByRole('dialog', { name: 'Save As', exact: true });
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption('txt');
-  const ack = dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true });
-  await expect(ack).not.toBeChecked();
-  await expect(dialog.getByRole('button', { name: 'Download copy', exact: true })).toBeDisabled();
+  const warning = dialog.getByRole('note', { name: 'Format warning', exact: true });
+  await expect(warning).toContainText(/format|bold|text/i);
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Save copy', exact: true })).toBeEnabled();
   await page.screenshot({ path: '../../docs/images/writer-file-formats.png' });
-  await ack.check();
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption('rtf');
-  await expect(ack).not.toBeChecked();
-  await expect(dialog.getByRole('button', { name: 'Download copy', exact: true })).toBeDisabled();
+  await expect(warning).toHaveCount(0);
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Save copy', exact: true })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.locator('[data-testid="editor"]:focus, summary[aria-label="Document options"]:focus')).toHaveCount(1);
   expect(await readNative(page)).toEqual(before);
@@ -231,9 +229,10 @@ test('format-loss warning requires acknowledgement, resets on format change and 
 
   await page.keyboard.press('Control+Shift+s');
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption('txt');
-  await dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true }).check();
+  await expect(warning).toBeVisible();
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
   const copy = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: 'Download copy', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save copy', exact: true }).click();
   await page.keyboard.type('+');
   await copy;
   await expect(input(page)).toHaveText('Keep this rich text — e\u0301 👩🏽‍💻!?+');

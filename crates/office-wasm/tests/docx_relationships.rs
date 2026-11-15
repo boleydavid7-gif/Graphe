@@ -100,7 +100,7 @@ fn requires_relationship_diagnostic(name: &str) -> bool {
 }
 
 #[test]
-fn harmless_parts_survive_native_reopen_and_edits_without_becoming_regenerated_content() {
+fn harmless_parts_survive_copy_export_without_replacing_current_text_or_mutating_the_source() {
     for name in [
         SAFE,
         "supported-authoring-metadata.docx",
@@ -163,37 +163,41 @@ fn harmless_parts_survive_native_reopen_and_edits_without_becoming_regenerated_c
             let restored = execute(&mut reopened, json!({"type":"undo"}));
             assert_eq!(text(&restored["paragraphs"][0]), original_text);
             execute(&mut reopened, json!({"type":"redo"}));
-            let current = execute(&mut reopened, json!({"type":"redo"}));
+            execute(&mut reopened, json!({"type":"redo"}));
+            let current = execute(
+                &mut reopened,
+                json!({"type":"set_title","title":"Current DOCX copy"}),
+            );
+            let before_snapshot = reopened.snapshot();
+            let before_native = reopened.export_document().unwrap();
             let assessment: Value = serde_json::from_str(
                 &reopened
                     .export_assessment("docx", Some(current["revision"].as_str().unwrap()))
                     .unwrap(),
             )
             .unwrap();
-            assert!(
-                assessment["warnings"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .any(|warning| warning["code"] == "docx_original_parts")
-            );
-            assert_eq!(
-                reopened
-                    .export_format("docx", false, None)
-                    .unwrap_err()
-                    .code,
-                "export_confirmation_required"
-            );
+            assert_eq!(assessment["warnings"], json!([]), "{name}: {assessment}");
             let copied = reopened
-                .export_format("docx", true, Some(current["revision"].as_str().unwrap()))
+                .export_format("docx", false, Some(current["revision"].as_str().unwrap()))
                 .unwrap();
+            assert_eq!(reopened.snapshot(), before_snapshot, "{name}");
+            assert_eq!(reopened.export_document().unwrap(), before_native, "{name}");
             let inspection = office_docx::inspect_docx(&copied).unwrap();
-            assert!(
-                !inspection
-                    .parts
-                    .iter()
-                    .any(|part| auxiliary_content_type(&part.content_type))
-            );
+            let original_inspection = office_docx::inspect_docx(&source).unwrap();
+            for part in original_inspection
+                .parts
+                .iter()
+                .filter(|part| auxiliary_content_type(&part.content_type))
+            {
+                assert!(
+                    inspection
+                        .parts
+                        .iter()
+                        .any(|copied_part| copied_part.content_type == part.content_type),
+                    "{name}: omitted safe {}",
+                    part.content_type
+                );
+            }
             let DocxImportOutcome::Editable(copy) = office_docx::import_docx(
                 &copied,
                 office_core::Id::new("regenerated-current-copy").unwrap(),
@@ -203,6 +207,7 @@ fn harmless_parts_survive_native_reopen_and_edits_without_becoming_regenerated_c
             };
             let office_core::Block::Paragraph(paragraph) =
                 &copy.document().sections()[0].blocks()[0];
+            assert_eq!(copy.document().metadata().title, "Current DOCX copy");
             assert_eq!(
                 paragraph
                     .runs()
@@ -227,6 +232,13 @@ fn harmless_parts_survive_native_reopen_and_edits_without_becoming_regenerated_c
                     .bytes(),
                 source
             );
+            let undone = execute(&mut reopened, json!({"type":"undo"}));
+            assert_eq!(undone["title"], initial["title"]);
+            assert_eq!(text(&undone["paragraphs"][0]), EDITED);
+            let redone = execute(&mut reopened, json!({"type":"redo"}));
+            assert_eq!(redone["title"], current["title"]);
+            assert_eq!(redone["paragraphs"], current["paragraphs"]);
+            assert_eq!(redone["selection"], current["selection"]);
         }
     }
 }
@@ -313,28 +325,22 @@ fn unsafe_originals_in_native_files_are_revalidated_before_replacement() {
 }
 
 #[test]
-fn original_only_export_warning_is_specific_to_imported_docx_copies() {
+fn ordinary_docx_copies_do_not_warn_about_preserved_auxiliaries() {
     let mut engine = BrowserEngine::new("docx-warning-scope").unwrap();
     let report: Value =
         serde_json::from_str(&engine.export_assessment("docx", None).unwrap()).unwrap();
-    assert!(
-        !report["warnings"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|warning| warning["code"] == "docx_original_parts")
-    );
+    assert_eq!(report["warnings"], json!([]));
     let response = import(&mut engine, &fixture(SAFE), true);
     assert_eq!(response["ok"], true, "{response}");
     let before = engine.export_document().unwrap();
     let report: Value =
         serde_json::from_str(&engine.export_assessment("docx", None).unwrap()).unwrap();
+    assert_eq!(report["warnings"], json!([]));
     assert!(
-        report["warnings"]
-            .as_array()
+        !engine
+            .export_format("docx", false, None)
             .unwrap()
-            .iter()
-            .any(|warning| warning["code"] == "docx_original_parts")
+            .is_empty()
     );
     for format in ["writer", "odt", "rtf", "txt"] {
         let report: Value =
@@ -348,6 +354,48 @@ fn original_only_export_warning_is_specific_to_imported_docx_copies() {
         );
     }
     assert_eq!(engine.export_document().unwrap(), before);
+}
+
+#[test]
+fn active_source_formatting_changes_still_require_review_without_changing_current_state() {
+    let source = fixture("unsupported-theme-font-reference.docx");
+    let mut engine = BrowserEngine::new("meaningful-docx-formatting").unwrap();
+    let response = import(&mut engine, &source, true);
+    assert_eq!(response["ok"], true, "{response}");
+    let current = execute(
+        &mut engine,
+        json!({"type":"set_title","title":"Edited with a normalized font"}),
+    );
+    let before = engine.snapshot();
+    let native = engine.export_document().unwrap();
+    let report: Value =
+        serde_json::from_str(&engine.export_assessment("docx", None).unwrap()).unwrap();
+    assert!(
+        report["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|warning| warning["code"] == "docx_formatting_changes"),
+        "{report}"
+    );
+    assert_eq!(
+        engine.export_format("docx", false, None).unwrap_err().code,
+        "export_confirmation_required"
+    );
+    assert_eq!(engine.snapshot(), before);
+    assert_eq!(engine.export_document().unwrap(), native);
+    let bytes = engine.export_format("docx", true, None).unwrap();
+    let mut copy = BrowserEngine::new("normalized-copy-reopened").unwrap();
+    let opened = import(&mut copy, &bytes, true);
+    assert_eq!(opened["ok"], true, "{opened}");
+    assert_eq!(opened["view"]["title"], current["title"]);
+    assert_eq!(
+        text(&opened["view"]["paragraphs"][0]),
+        text(&current["paragraphs"][0])
+    );
+    assert_eq!(engine.snapshot(), before);
+    assert_eq!(engine.export_document().unwrap(), native);
+    assert_eq!(engine.export_original().unwrap(), source);
 }
 
 #[test]

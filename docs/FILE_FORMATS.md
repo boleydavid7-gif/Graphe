@@ -36,8 +36,9 @@ bytes because a native original record is intentionally nonempty.
 
 Save/Ctrl+S and autosave continue saving native Writer state locally through the
 existing serialized etag lane. Save As/Ctrl+Shift+S selects a format and filename,
-requests a Rust assessment tied to session/document/revision, presents warnings
-and requires acknowledgement before loss-prone conversion. A changed document
+requests a Rust assessment tied to session/document/revision and presents only
+brief meaningful-loss warnings. Save copy confirms that displayed assessment;
+ordinary saves have no acknowledgment checkbox or technical panel. A changed document
 invalidates that assessment. Bytes are fully produced before a download starts.
 Downloads are copies; they do not mark a newer local revision saved, replace its
 etag or imply that an original external file was overwritten.
@@ -47,6 +48,12 @@ native styles and original recovery. Foreign-format identifiers/run partitions
 are not exact native guarantees. Editing history is not persisted in any current
 format. Native files retaining originals may include text or metadata removed
 from the current document; the existing disclosure applies to every source type.
+
+Source-aware DOCX copies preserve validated source properties and auxiliary parts
+where safe, while regenerating current body/styles. Use `assess_file` / `export_file`
+when a complete `WriterFile` is available; a document-only exporter cannot recover
+information it was not given. Safe preservation and meaningful-loss policy are
+specified in [SAVE_COPY.md](SAVE_COPY.md).
 
 ## TXT policy
 
@@ -114,6 +121,7 @@ remain structured failures. No source bytes or native IDs are embedded in PDF.
 ```text
 import_document(format, bytes, document_id, filename)
 assess_export(format, document)
+assess_file(format, writer_file)
 export_document(format, document)
 export_file(format, writer_file)
 ```
@@ -127,7 +135,10 @@ add the existing original-content privacy disclosure when sharing native files.
 Generic WASM
 `import_format`, `export_assessment` and `export_format` preserve existing DOCX
 and Writer APIs, validate source records through their own adapter, guard stale
-origins and require acknowledgement of export warnings. Source state stays
+origins and require confirmation of meaningful warnings through Save copy.
+The legacy WASM `export_docx` remains a model-only regeneration primitive;
+user-facing copies use the source-aware assessed `export_format` route.
+Source state stays
 outside undo snapshots. No native schema or IndexedDB migration is required.
 
 Adapters cap input at 16 MiB (native files retain their existing 32 MiB limit),

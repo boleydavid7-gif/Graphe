@@ -1,6 +1,6 @@
 //! Format selection, source preservation and revision-bound Save As transport.
 
-use office_core::{Id, OriginalSource};
+use office_core::{Id, OriginalSource, WriterFile};
 use office_formats::{DocumentFormat, FormatDiagnostic, FormatError, ImportOutcome};
 use serde::Serialize;
 
@@ -94,7 +94,8 @@ impl BrowserEngine {
     /// Reports conversion losses for an exact Rust document revision.
     ///
     /// The returned origin must still match before confirming Save As. Native
-    /// source retention is disclosed because originals may contain removed text.
+    /// source retention is disclosed separately by the interface because originals
+    /// may contain removed text; it is not a lossy conversion.
     pub fn export_assessment(
         &self,
         format: &str,
@@ -102,7 +103,8 @@ impl BrowserEngine {
     ) -> Result<String, EngineError> {
         self.check_export_revision(expected_revision)?;
         let format = DocumentFormat::parse(format).map_err(format_error)?;
-        let warnings = self.export_warnings(format)?;
+        let file = self.export_file_snapshot()?;
+        let warnings = export_warnings(format, &file)?;
         let response = ExportAssessment {
             session_id: &self.session_id,
             document_id: self.session.document().id().as_str(),
@@ -126,19 +128,15 @@ impl BrowserEngine {
     ) -> Result<Vec<u8>, EngineError> {
         self.check_export_revision(expected_revision)?;
         let format = DocumentFormat::parse(format).map_err(format_error)?;
-        let warnings = self.export_warnings(format)?;
+        let file = self.export_file_snapshot()?;
+        let warnings = export_warnings(format, &file)?;
         if !warnings.is_empty() && !acknowledge_loss {
             return Err(EngineError::new(
                 "export_confirmation_required",
-                "Review and acknowledge this format's warnings before saving a copy.",
+                "Review the format warning before saving this copy.",
             ));
         }
-        let bytes = if format == DocumentFormat::Writer {
-            self.export_document()?
-        } else {
-            office_formats::export_document(format, self.session.document())
-                .map_err(format_error)?
-        };
+        let bytes = office_formats::export_file(format, &file).map_err(format_error)?;
         if bytes.len() > MAX_DOCUMENT_BYTES {
             return Err(limit_error());
         }
@@ -155,47 +153,42 @@ impl BrowserEngine {
         Ok(())
     }
 
-    fn export_warnings(&self, format: DocumentFormat) -> Result<Vec<ExportWarning>, EngineError> {
+    fn export_file_snapshot(&self) -> Result<WriterFile, EngineError> {
         self.check_candidate(self.session.document())?;
-        let report =
-            office_formats::assess_export(format, self.session.document()).map_err(format_error)?;
-        let omitted = report.warnings.len().saturating_sub(127);
-        let mut warnings = report
-            .warnings
-            .into_iter()
-            .take(127)
-            .map(|warning| ExportWarning {
-                code: bounded_label(warning.code, 64),
-                message: bounded_label(warning.message, 2048),
-            })
-            .collect::<Vec<_>>();
-        if omitted > 0 {
-            warnings.push(ExportWarning {
-                code: "additional_warnings".into(),
-                message: format!(
-                    "{omitted} additional compatibility warnings were omitted from this bounded report. Keep a native Writer copy to preserve the full document."
-                ),
-            });
+        match self.original_source.clone() {
+            Some(source) => Ok(WriterFile::with_original_source(
+                self.session.document().clone(),
+                source,
+            )?),
+            None => Ok(WriterFile::new(self.session.document().clone())),
         }
-        if format == DocumentFormat::Writer && self.original_source.is_some() {
-            warnings.push(ExportWarning {
-                code: "retained_original".into(),
-                message: "This native Writer file includes the exact imported original, which may contain text or metadata removed from the edited document.".into(),
-            });
-        }
-        if format == DocumentFormat::Docx
-            && self
-                .original_source
-                .as_ref()
-                .is_some_and(|source| source.format() == "docx")
-        {
-            warnings.push(ExportWarning {
-                code: "docx_original_parts".into(),
-                message: "Imported DOCX metadata and auxiliary package parts are retained in the exact original. The new DOCX copy is rebuilt from current supported content and does not reproduce unmodeled metadata or auxiliary parts. New copies use the formatting approximations disclosed during import. Keep a native Writer copy or download the original for full source preservation.".into(),
-            });
-        }
-        Ok(warnings)
     }
+}
+
+fn export_warnings(
+    format: DocumentFormat,
+    file: &WriterFile,
+) -> Result<Vec<ExportWarning>, EngineError> {
+    let report = office_formats::assess_file(format, file).map_err(format_error)?;
+    let omitted = report.warnings.len().saturating_sub(127);
+    let mut warnings = report
+        .warnings
+        .into_iter()
+        .take(127)
+        .map(|warning| ExportWarning {
+            code: bounded_label(warning.code, 64),
+            message: bounded_label(warning.message, 2048),
+        })
+        .collect::<Vec<_>>();
+    if omitted > 0 {
+        warnings.push(ExportWarning {
+            code: "additional_warnings".into(),
+            message: format!(
+                "{omitted} other formatting or content changes may occur. Keep a Writer copy."
+            ),
+        });
+    }
+    Ok(warnings)
 }
 
 pub(super) fn validate_source(
