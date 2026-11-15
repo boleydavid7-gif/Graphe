@@ -182,6 +182,17 @@ impl BrowserEngine {
                 message: "This native Writer file includes the exact imported original, which may contain text or metadata removed from the edited document.".into(),
             });
         }
+        if format == DocumentFormat::Docx
+            && self
+                .original_source
+                .as_ref()
+                .is_some_and(|source| source.format() == "docx")
+        {
+            warnings.push(ExportWarning {
+                code: "docx_original_parts".into(),
+                message: "Imported DOCX metadata and auxiliary package parts are retained in the exact original. The new DOCX copy is rebuilt from current supported content and does not reproduce unmodeled metadata or auxiliary parts. Keep a native Writer copy or download the original for full source preservation.".into(),
+            });
+        }
         Ok(warnings)
     }
 }

@@ -11,6 +11,7 @@ use roxmltree::{Document as XmlDocument, Node};
 use crate::{
     CompatibilityIssueKind as Issue, CompatibilityReport, ConversionError, DocxConformance,
     DocxError, DocxImportOutcome, DocxSource, ImportedDocx,
+    ancillary::AncillaryKind,
     conversion::{bounded_label, invalid},
     opc::{parse_relationships, relationship_source, resolve_target},
     package::{Package, read_package},
@@ -25,9 +26,14 @@ const REL_TRANSITIONAL: &str =
 const REL_STRICT: &str = "http://purl.oclc.org/ooxml/officeDocument/relationships/";
 const CORE_RELATIONSHIP: &str =
     "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties";
+const THUMBNAIL_RELATIONSHIP: &str =
+    "http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail";
 const CORE_NAMESPACE: &str =
     "http://schemas.openxmlformats.org/package/2006/metadata/core-properties";
 const DC_NAMESPACE: &str = "http://purl.org/dc/elements/1.1/";
+const DCTERMS_NAMESPACE: &str = "http://purl.org/dc/terms/";
+const XSI_NAMESPACE: &str = "http://www.w3.org/2001/XMLSchema-instance";
+const MC_NAMESPACE: &str = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 const STYLES_CONTENT_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml";
@@ -37,6 +43,7 @@ const MAX_IMPORT_ID_BYTES: usize = 256;
 struct PartGraph {
     styles: Option<String>,
     core_properties: Option<String>,
+    ancillary: BTreeMap<AncillaryKind, String>,
 }
 
 #[derive(Default)]
@@ -131,6 +138,7 @@ fn inspect_semantic_graph(
     let mut graph = PartGraph {
         styles: None,
         core_properties: None,
+        ancillary: BTreeMap::new(),
     };
     let mut understood = BTreeSet::from([main_part.clone()]);
     for part in &original.inspection().parts {
@@ -141,11 +149,11 @@ fn inspect_semantic_graph(
         let source = relationship_source(&part.name)?;
         for relation in parse_relationships(&part.name, &package.parts[&part.name])? {
             if relation.external {
-                report.push(
-                    Issue::UnsupportedRelationship,
+                unsupported_relationship(
                     &part.name,
-                    "Relationship",
-                    "External relationships have no editable semantic mapping.",
+                    &relation,
+                    report,
+                    "External targets are never fetched and have no editable semantic mapping.",
                 );
                 continue;
             }
@@ -175,12 +183,22 @@ fn inspect_semantic_graph(
                     ));
                 }
                 understood.insert((*target).into());
+            } else if let Some(kind) =
+                ancillary_relationship(&relation.relationship_type, source.is_none(), main_source)
+            {
+                if graph.ancillary.insert(kind, (*target).into()).is_some() {
+                    return Err(invalid(
+                        &part.name,
+                        "multiple singleton ancillary relationships are ambiguous",
+                    ));
+                }
+                understood.insert((*target).into());
             } else {
-                report.push(
-                    Issue::UnsupportedRelationship,
+                unsupported_relationship(
                     &part.name,
-                    "Relationship",
-                    "This relationship requires unsupported document semantics.",
+                    &relation,
+                    report,
+                    "This type or source role has no supported document interpretation.",
                 );
             }
         }
@@ -211,7 +229,80 @@ fn inspect_semantic_graph(
             ));
         }
     }
+    let namespace = match original.inspection().conformance {
+        DocxConformance::Transitional => WORD_TRANSITIONAL,
+        DocxConformance::Strict => WORD_STRICT,
+    };
+    for (kind, target) in &graph.ancillary {
+        let inventory = original
+            .inspection()
+            .parts
+            .iter()
+            .find(|part| &part.name == target)
+            .ok_or_else(|| {
+                invalid(
+                    target,
+                    "ancillary target is absent from the package inventory",
+                )
+            })?;
+        if !kind.accepts_content_type(&inventory.content_type) {
+            return Err(invalid(
+                target,
+                "ancillary relationship has an incorrect content type",
+            ));
+        }
+        kind.inspect(target, &package.parts[target], namespace, report)?;
+    }
     Ok(graph)
+}
+
+fn unsupported_relationship(
+    part: &str,
+    relationship: &crate::opc::Relationship,
+    report: &mut CompatibilityReport,
+    reason: &str,
+) {
+    report.push(
+        Issue::UnsupportedRelationship,
+        part,
+        format!("Relationship/{}", bounded_label(&relationship.id, 128)),
+        format!(
+            "Type={} Target={}. {reason}",
+            bounded_label(&relationship.relationship_type, 512),
+            bounded_label(&relationship.target, 512)
+        ),
+    );
+}
+
+fn ancillary_relationship(value: &str, root: bool, main: bool) -> Option<AncillaryKind> {
+    if root {
+        if value == THUMBNAIL_RELATIONSHIP {
+            return Some(AncillaryKind::Thumbnail);
+        }
+        if value == format!("{REL_TRANSITIONAL}extended-properties")
+            || value == format!("{REL_STRICT}extendedProperties")
+        {
+            return Some(AncillaryKind::ExtendedProperties);
+        }
+        if value == format!("{REL_TRANSITIONAL}custom-properties")
+            || value == format!("{REL_STRICT}customProperties")
+        {
+            return Some(AncillaryKind::CustomProperties);
+        }
+    }
+    if main {
+        for (name, kind) in [
+            ("theme", AncillaryKind::Theme),
+            ("fontTable", AncillaryKind::FontTable),
+            ("settings", AncillaryKind::Settings),
+            ("webSettings", AncillaryKind::WebSettings),
+        ] {
+            if relation_kind(value, name) {
+                return Some(kind);
+            }
+        }
+    }
+    None
 }
 
 fn relation_kind(value: &str, kind: &str) -> bool {
@@ -562,15 +653,25 @@ fn parse_metadata(
     let root = require_root(&xml, CORE_NAMESPACE, "coreProperties", part)?;
     check_word_attributes(root, CORE_NAMESPACE, &[], part, report);
     let mut title = None;
+    let mut seen = BTreeSet::new();
     for node in root.children() {
         if !node.is_element() {
             check_whitespace(node, part)?;
-        } else if node.has_tag_name((DC_NAMESPACE, "title")) {
+        } else if core_metadata_field(node) {
+            if !seen.insert((node.tag_name().namespace(), node.tag_name().name())) {
+                return Err(invalid(part, "duplicate core metadata field"));
+            }
+            check_metadata_attributes(node, part, report);
+            let content = simple_text(node, part, report)?;
+            if !node.has_tag_name((DC_NAMESPACE, "title")) {
+                // These standard descriptive/audit fields do not control body
+                // formatting. Their exact values remain in the original rather
+                // than forcing an otherwise complete document read-only.
+                continue;
+            }
             if title.is_some() {
                 return Err(invalid(part, "duplicate document title"));
             }
-            check_word_attributes(node, DC_NAMESPACE, &[], part, report);
-            let content = simple_text(node, part, report)?;
             if content.contains('\r') {
                 report.push(Issue::UnsupportedValue, part, "coreProperties/title",
                     "Literal carriage returns in title metadata are outside the editable conversion profile.");
@@ -588,6 +689,52 @@ fn parse_metadata(
     Ok(DocumentMetadata {
         title: title.unwrap_or_default(),
     })
+}
+
+fn core_metadata_field(node: Node<'_, '_>) -> bool {
+    match node.tag_name().namespace() {
+        Some(DC_NAMESPACE) => matches!(
+            node.tag_name().name(),
+            "title" | "creator" | "subject" | "description" | "identifier" | "language"
+        ),
+        Some(CORE_NAMESPACE) => matches!(
+            node.tag_name().name(),
+            "category"
+                | "contentStatus"
+                | "contentType"
+                | "keywords"
+                | "lastModifiedBy"
+                | "lastPrinted"
+                | "revision"
+                | "version"
+        ),
+        Some(DCTERMS_NAMESPACE) => matches!(node.tag_name().name(), "created" | "modified"),
+        _ => false,
+    }
+}
+
+fn check_metadata_attributes(node: Node<'_, '_>, part: &str, report: &mut CompatibilityReport) {
+    for attribute in node.attributes() {
+        if attribute.namespace() == Some(XML_NAMESPACE)
+            && matches!(attribute.name(), "space" | "lang")
+        {
+            continue;
+        }
+        if node.tag_name().namespace() == Some(DCTERMS_NAMESPACE)
+            && attribute.namespace() == Some(XSI_NAMESPACE)
+            && attribute.name() == "type"
+            && attribute
+                .value()
+                .split_once(':')
+                .is_some_and(|(prefix, local)| {
+                    local == "W3CDTF"
+                        && node.lookup_namespace_uri(Some(prefix)) == Some(DCTERMS_NAMESPACE)
+                })
+        {
+            continue;
+        }
+        unsupported_attribute(node, attribute.name(), part, report);
+    }
 }
 
 fn parse_main_document(
@@ -891,6 +1038,33 @@ fn check_word_attributes(
 ) {
     for attribute in node.attributes() {
         if attribute.namespace() == Some(XML_NAMESPACE) && attribute.name() == "space" {
+            continue;
+        }
+        // Session IDs describe authoring history, not inserted/deleted content.
+        // Revision elements themselves still go through the semantic guards.
+        if matches!(namespace, WORD_TRANSITIONAL | WORD_STRICT)
+            && attribute.namespace() == Some(namespace)
+            && matches!(
+                attribute.name(),
+                "rsidR" | "rsidRDefault" | "rsidRPr" | "rsidP" | "rsidSect" | "rsidDel"
+            )
+            && attribute.value().len() == 8
+            && attribute
+                .value()
+                .bytes()
+                .all(|value| value.is_ascii_hexdigit())
+        {
+            continue;
+        }
+        // This declaration does not grant permission to skip extensions: every
+        // actual element/property below is still checked and may prevent edits.
+        if attribute.namespace() == Some(MC_NAMESPACE)
+            && attribute.name() == "Ignorable"
+            && attribute
+                .value()
+                .split_whitespace()
+                .all(|prefix| node.lookup_namespace_uri(Some(prefix)).is_some())
+        {
             continue;
         }
         if attribute.namespace() != Some(namespace) || !allowed.contains(&attribute.name()) {

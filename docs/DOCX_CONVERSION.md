@@ -52,6 +52,13 @@ markup-compatibility processing. Such valid packages remain preserved read-only.
 Known metadata/defaults require explicit handling. An importer must not assume
 that every inspected package is editable.
 
+The subsequent [relationship correction](DOCX_RELATIONSHIPS.md) accepts inspected
+inert metadata, unused themes, font descriptors, cached package thumbnails and
+view/proofing/session preferences. It does not resolve theme formatting, ignore
+active settings, prune unused styles or implement general markup compatibility.
+Original bytes survive native save/reopen; regenerated DOCX exports explicitly
+warn about unmodeled auxiliary parts and metadata omitted from that copy.
+
 Nonfinal section properties belong to the last paragraph of that section;
 final properties belong at body end. Automatic line spacing uses 1/240-line
 units; exact/minimum spacing uses twips. First-line/hanging indentation maps to

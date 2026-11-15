@@ -840,6 +840,16 @@ structured error. Supported defaults, styles and direct properties are mapped
 deliberately, including OOXML style-toggle translation. Unknown semantic
 elements, properties, relationships and parts prevent editable import.
 
+The [relationship correction](DOCX_RELATIONSHIPS.md) separates inert auxiliary
+data from unsupported document semantics. Exact root/main relationship roles,
+content types, roots and an explicit payload profile allow ordinary metadata,
+unused themes, font descriptors, cached package thumbnails and inert preferences.
+Styles still use the existing semantic parser. Theme-dependent formatting, active
+settings, embedded fonts and unknown or external relationships remain guarded;
+all outgoing relationship parts are inspected. This is an adapter-only policy,
+with no model, schema or storage change. Native files retain exact originals;
+Save As warns that regenerated DOCX copies omit unmodeled auxiliary information.
+
 The user selected preserving unsupported originals before editing. Browser DOCX
 import therefore uses a detached engine, then saves its complete source-bearing
 `WriterFile` through the existing IndexedDB transaction before replacing the live

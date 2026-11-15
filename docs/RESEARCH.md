@@ -5,6 +5,31 @@ reviews are appended with their milestone context. Earlier limitations record
 what was true at that stage. The conversion review below supersedes 5A-only
 conversion statements. Research alone is not a compatibility or completion claim.
 
+## DOCX relationship review (2026-11-15)
+
+The focused [relationship investigation](DOCX_RELATIONSHIPS.md) compares ordinary
+Word and LibreOffice package relationships with the previous semantic graph
+whitelist. It rejected extended/custom metadata, themes, font tables and settings
+without inspecting their role or content. This caused false read-only findings.
+
+Primary evidence includes Microsoft's WordprocessingML structure, theme/settings
+documentation and pinned official Open XML SDK fixtures; see the report for links
+and fixture provenance. No new parser, dependency or shared model was needed.
+The correction checks exact URI/source role, content type, root, singleton rules
+and a named inert payload subset. Every child relationship is still inspected.
+Active settings, unresolved theme formatting and embedded fonts remain guarded.
+Unknown extension markup is not discarded under `mc:Ignorable`.
+
+Independent code review found no critical integrity hole in this scoped policy.
+This is not complete OOXML schema validation: metadata scalars receive bounded
+structural checks, and unused themes/thumbnails remain opaque original data.
+Important remaining profile limits are recorded rather than addressed by a
+style/theme rewrite. Native source retention, failed-import atomicity and
+regenerated-export disclosure have dedicated native/WASM/browser regressions.
+The user's specific DOCX was unavailable; actual Word execution is also
+unavailable. Unmodified Word-producer fixtures and an actual LibreOffice-generated
+file establish the reported relationship behavior, not general Word fidelity.
+
 ## Questions, evidence, and accepted approach
 
 | Question | Sources and approaches considered | Step 4.5 choice and tradeoff |

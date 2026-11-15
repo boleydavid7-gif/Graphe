@@ -77,7 +77,7 @@ format, storage database and existing engines are reused. See
 [verification](docs/WRITER_STEP7_VERIFICATION.md) and
 [approved references](docs/design/README.md).
 
-The owner subsequently authorized Step 7.5 on `dev/writer-file-formats`:
+Step 7.5 was merged through PR #13 at `3f447c4` with the owner's approval:
 DOCX/ODT/RTF/TXT open, edit and save within declared profiles; PDF export only;
 and full native `.writer` retention. Open and Save As reuse the Rust adapters,
 preserve imported originals and require acknowledgement of conversion warnings.
@@ -596,6 +596,13 @@ numbering, revisions, headers/footers, theme/script-specific font differences
 and unknown semantic properties remain read-only. Ambiguous text whitespace or
 literal CR/LF/TAB in Word text elements is reported rather than silently trimmed
 or approximated. See [DOCX.md](docs/DOCX.md) for precise restrictions.
+
+Ordinary auxiliary relationships no longer make an otherwise supported document
+read-only: inspected inert metadata, unused themes, font descriptors, cached
+thumbnails and view/session preferences are retained in its exact original.
+Active unsupported formatting/settings still prevent editing. Save As warns
+that a newly generated DOCX omits unmodeled original metadata and auxiliary parts.
+See [relationship policy and regressions](docs/DOCX_RELATIONSHIPS.md).
 
 DOCX semantic round trips do not promise arbitrary native ID preservation, exact
 run partitions or identical future Word style-editing behavior. Originals remain

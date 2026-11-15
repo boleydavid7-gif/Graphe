@@ -37,6 +37,7 @@ struct ContentTypes {
 }
 
 pub(crate) struct Relationship {
+    pub(crate) id: String,
     pub(crate) relationship_type: String,
     pub(crate) target: String,
     pub(crate) external: bool,
@@ -374,6 +375,7 @@ pub(crate) fn parse_relationships(
         }
         check_empty_element(node, part)?;
         relationships.push(Relationship {
+            id: id.to_owned(),
             relationship_type: relationship_type.to_owned(),
             target: target.to_owned(),
             external,

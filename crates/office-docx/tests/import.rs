@@ -216,7 +216,7 @@ fn unsupported_source_is_preserved_without_returning_a_partial_editable_document
 #[test]
 fn unknown_attributes_inline_page_breaks_and_metadata_prevent_editable_import() {
     let unknown_attribute = modified(BASIC, "document.xml", |text| {
-        text.replace("<w:p>", "<w:p w:rsidR=\"12345678\">")
+        text.replace("<w:p>", "<w:p w:unrecognizedAttribute=\"12345678\">")
     });
     let page_break = modified(BASIC, "document.xml", |text| {
         text.replace("</w:t>", "</w:t><w:br w:type=\"page\"/>")
@@ -224,7 +224,7 @@ fn unknown_attributes_inline_page_breaks_and_metadata_prevent_editable_import() 
     let metadata = modified(FORMATTING, "metadata/core.xml", |text| {
         text.replace(
             "</cp:coreProperties>",
-            "<dc:creator>Alice</dc:creator></cp:coreProperties>",
+            "<dc:unrecognizedMetadata>Alice</dc:unrecognizedMetadata></cp:coreProperties>",
         )
     });
     for input in [unknown_attribute, page_break, metadata] {
