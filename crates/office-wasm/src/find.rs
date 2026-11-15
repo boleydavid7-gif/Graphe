@@ -105,6 +105,8 @@ impl BrowserEngine {
         Ok(response)
     }
 
+    /// Returns a JSON snapshot of case-sensitive literal matches for the current document.
+    /// The snapshot is bounded and contains Rust-validated grapheme selections.
     pub fn find_text(&self, query: &str) -> Result<String, EngineError> {
         serde_json::to_string(&self.find_snapshot(query)?)
             .map_err(|error| EngineError::new("find_failed", error.to_string()))
