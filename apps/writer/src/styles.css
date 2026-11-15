@@ -679,3 +679,27 @@ dialog::backdrop { background: rgb(12 9 6 / 54%); }
   .editor-tabs > button, .editor-tabs > button::after { transition: none !important; }
   .formatting-bar > :not(.history-controls) { animation: none !important; }
 }
+
+/* Shared sliding indicator, anchored to actual tab geometry. */
+.editor-tabs { position: relative; }
+.editor-tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  z-index: 1;
+  opacity: 0;
+  background: var(--accent);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 1px 6px rgb(237 198 105 / 24%);
+  pointer-events: none;
+  transition: transform 290ms cubic-bezier(.22, 1, .36, 1),
+    width 290ms cubic-bezier(.22, 1, .36, 1),
+    opacity 140ms ease-out;
+}
+.editor-tabs > button::after,
+.editor-tabs > button[aria-pressed='true']::after { content: none; }
+@media (prefers-reduced-motion: reduce) {
+  .editor-tab-indicator { transition: none; }
+}
