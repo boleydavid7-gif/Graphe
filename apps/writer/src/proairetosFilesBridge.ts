@@ -48,6 +48,10 @@ export function installProairetosFilesBridge(): () => void {
   };
 }
 
+export function announceFilesReady(): void {
+  if (connectedHost) window.parent.postMessage({ type: 'writer:files-ready', version: 1 }, connectedHost);
+}
+
 export function canSaveToProairetos(): boolean { return connectedHost !== null && window.parent !== window; }
 
 export function saveToProairetos(name: string, format: string, data: Uint8Array, fileId?: string): Promise<string> {
