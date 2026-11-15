@@ -555,3 +555,86 @@ dialog {
 @media (prefers-reduced-motion: reduce) {
   .formatting-bar { transition: none; }
 }
+
+/* Lamplight soft geometry and motion system. Paper stays square. */
+:root {
+  --writer-radius-xs: 5px;
+  --writer-radius-sm: 8px;
+  --writer-radius-md: 12px;
+  --writer-radius-lg: 16px;
+  --writer-motion-fast: 140ms;
+  --writer-motion-normal: 200ms;
+  --writer-motion-enter: 240ms;
+  --writer-motion-curve: cubic-bezier(.22, 1, .36, 1);
+}
+button,
+.document-title,
+.document-menu > summary,
+.format-group select,
+.zoom-controls select,
+.find-input,
+.layout-preview-controls select,
+.save-as-fields > input,
+.save-as-fields > select {
+  border-radius: var(--writer-radius-sm);
+}
+.formatting-bar { border-radius: var(--writer-radius-md); }
+.document-menu-panel { border-radius: var(--writer-radius-md); }
+.document-menu-panel > button { border-radius: var(--writer-radius-sm); }
+dialog { border-radius: var(--writer-radius-lg); }
+.paged-editor-error,
+.layout-preview-error,
+.import-notice,
+.prepared-export { border-radius: var(--writer-radius-sm); }
+.library-entry { border-radius: var(--writer-radius-sm); }
+.editor-tabs > button { border-radius: var(--writer-radius-sm) var(--writer-radius-sm) 0 0; }
+.editor-tabs > button[aria-pressed='true']::after { border-radius: 2px 2px 0 0; }
+button:not(:disabled),
+summary,
+.document-title,
+.library-entry,
+.format-group select,
+.zoom-controls select,
+.find-input,
+.layout-preview-controls select,
+.save-as-fields > input,
+.save-as-fields > select,
+.editor-tabs > button {
+  transition-property: background-color, border-color, color, box-shadow, opacity;
+  transition-duration: var(--writer-motion-fast);
+  transition-timing-function: var(--writer-motion-curve);
+}
+button:not(:disabled):active { transition-duration: 65ms; }
+.formatting-bar {
+  transition: border-color var(--writer-motion-normal) var(--writer-motion-curve),
+    box-shadow var(--writer-motion-normal) var(--writer-motion-curve);
+}
+.document-menu-panel {
+  animation: writer-menu-arrive var(--writer-motion-enter) var(--writer-motion-curve) both;
+}
+dialog[open] {
+  animation: writer-dialog-arrive var(--writer-motion-enter) var(--writer-motion-curve) both;
+}
+dialog::backdrop { background: rgb(12 9 6 / 54%); }
+@keyframes writer-menu-arrive {
+  from { opacity: 0; transform: translateY(-6px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes writer-dialog-arrive {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .document-menu-panel > button:hover:not(:disabled),
+  .library-entry:hover:not(:disabled) { box-shadow: inset 0 0 0 1px rgb(237 198 105 / 9%); }
+}
+@media (max-width: 620px) {
+  .formatting-bar { border-radius: var(--writer-radius-md); }
+  .document-menu-panel { border-radius: var(--writer-radius-md); }
+  dialog { border-radius: var(--writer-radius-lg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .document-menu-panel, dialog[open] { animation: none; }
+  button, summary, .document-title, .library-entry, select, input,
+  .editor-tabs > button, .formatting-bar { transition: none !important; }
+}
