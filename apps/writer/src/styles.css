@@ -1538,3 +1538,32 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 .about-graphe-section p { margin: 8px 0; color: var(--writer-text-muted); }
 .about-graphe-section a { display: block; padding: 9px 0; color: var(--writer-accent); text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .about-graphe-section a:focus-visible { outline: 2px solid var(--writer-focus); outline-offset: 3px; }
+
+
+/* Mobile document-first header. Keep the Office identity attached to Graphe,
+   not separated from the app heading. ProairetOS supplies its own title in
+   embedded mode, so the host owns that label there. */
+.identity__label { display: inline-flex; align-items: baseline; }
+.identity__office { display: none; }
+@media (max-width: 620px) {
+  .identity__label { flex-direction: column; align-items: flex-start; gap: 3px; }
+  .identity__office {
+    display: block;
+    color: var(--writer-text-muted);
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+  .top-bar .office-brand { display: none; }
+  .status-bar {
+    min-height: 28px;
+    gap: 7px;
+    padding: 2px 10px calc(2px + env(safe-area-inset-bottom, 0px));
+    flex-wrap: nowrap;
+    font-size: 10px;
+  }
+  .status-bar .word-count { padding-left: 0; white-space: nowrap; }
+  .status-bar .page-status { white-space: nowrap; }
+  .status-bar .zoom-controls { margin-left: auto; }
+}

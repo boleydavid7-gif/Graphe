@@ -846,7 +846,13 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app">
     <header className="top-bar">
-      <div className="identity" role="img" aria-label="Graphe"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><span>Graphe</span></div>
+      <div className="identity">
+        <img src="/writer-logo.svg" className="writer-lantern" alt="" />
+        <span className="identity__label">
+          <span>Graphe</span>
+          <span className="identity__office">Proairet<span className="office-brand__os">OS</span>&nbsp;Office</span>
+        </span>
+      </div>
       <div className="title-area">
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
@@ -1089,12 +1095,6 @@ export default function App() {
         <button aria-label="Zoom in" disabled={!documentOpen || previewZoom === '200'} onClick={() => changeZoom(1)}><WriterIcon name="plus" /></button>
       </div>
     </footer>
-    <nav className="mobile-document-actions" aria-label="Mobile document actions">
-      <button aria-label="New" disabled={!view || busy || composing} onClick={newDocument}><WriterIcon name="new" /><span>New</span></button>
-      <button aria-label="Open" disabled={!view || busy || composing} onClick={() => void showLibrary()}><WriterIcon name="open" /><span>Open</span></button>
-      <button aria-label="Find" disabled={unavailable} onClick={openFind}><WriterIcon name="search" /><span>Find</span></button>
-      <button aria-label="Save As" disabled={unavailable} onClick={() => reviewSaveAs()}><WriterIcon name="save" /><span>Save As</span></button>
-    </nav>
     <input ref={fileInput} type="file" accept={`.writer,.docx,.odt,.rtf,.txt,application/json,${DOCX_MEDIA_TYPE},application/vnd.oasis.opendocument.text,application/rtf,text/rtf,text/plain`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
     {library !== null && <Dialog title="Open document" onClose={() => setLibrary(null)} busy={busy}>
