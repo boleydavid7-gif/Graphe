@@ -998,3 +998,8 @@ dialog .dialog-actions { border-color: var(--writer-border); }
 @media (prefers-reduced-motion: reduce) {
   .writer-inspector { animation: none; }
 }
+
+/* Selected Writer identity artwork replaces the old lantern glyph. */
+img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 35px; flex-shrink: 0; }
+.closed-document img.writer-lantern { width: 64px; height: 68px; }
+@media (max-width: 620px) { img.writer-lantern { width: 29px; height: 33px; } }
