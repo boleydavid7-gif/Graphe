@@ -610,7 +610,7 @@ fn parse_defaults(
                     character = parse_character(properties, namespace, part, report)?;
                 } else {
                     let parsed = parse_paragraph(properties, namespace, part, report)?;
-                    if parsed.style_id.is_some() || parsed.section.is_some() {
+                    if parsed.style_id.is_some() || parsed.section.is_some() || parsed.numbering_id.is_some() {
                         unsupported_element(
                             properties,
                             part,
@@ -988,7 +988,7 @@ fn parse_style(
             "rPr" => character = parse_character(child, namespace, part, report)?,
             "pPr" => {
                 let parsed = parse_paragraph(child, namespace, part, report)?;
-                if parsed.style_id.is_some() || parsed.section.is_some() {
+                if parsed.style_id.is_some() || parsed.section.is_some() || parsed.numbering_id.is_some() {
                     unsupported_element(
                         child,
                         part,
