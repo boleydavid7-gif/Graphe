@@ -666,44 +666,17 @@ dialog::backdrop { background: rgb(12 9 6 / 54%); }
   .editor-tabs > button, .formatting-bar { transition: none !important; }
 }
 
-/* Lamplight dock-like section switching: short glide, soft settle.
-   Animate only the controls being replaced, never the editor/page. */
-.editor-tabs > button {
-  transition: color 190ms var(--writer-motion-curve),
-    background-color 190ms var(--writer-motion-curve);
-}
-.editor-tabs > button::after {
-  position: absolute;
-  content: '';
-  left: 10px;
-  right: 10px;
-  bottom: 0;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: var(--accent);
-  opacity: 0;
-  transform: scaleX(.38);
-  transform-origin: center;
-  transition: opacity 190ms ease-out,
-    transform 260ms var(--writer-motion-curve);
-  pointer-events: none;
-}
-.editor-tabs > button[aria-pressed='true']::after {
-  opacity: 1;
-  transform: scaleX(1);
-}
+/* Ribbon controls enter gently when their section changes; the shared tab
+   indicator below is the only visible selection underline. */
 .formatting-bar > :not(.history-controls) {
   animation: writer-ribbon-arrive 240ms var(--writer-motion-curve) both;
 }
-.formatting-bar > :not(.history-controls):nth-child(n + 3) {
-  animation-delay: 25ms;
-}
+.formatting-bar > :not(.history-controls):nth-child(n + 3) { animation-delay: 25ms; }
 @keyframes writer-ribbon-arrive {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .editor-tabs > button, .editor-tabs > button::after { transition: none !important; }
   .formatting-bar > :not(.history-controls) { animation: none !important; }
 }
 
