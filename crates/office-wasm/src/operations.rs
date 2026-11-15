@@ -267,7 +267,7 @@ impl BrowserEngine {
         }
         // The first release replaces within paragraphs only, so this command
         // never inserts paragraph breaks or changes document structure.
-        if replacement.len() > 1024 || replacement.contains(['\r', '\n']) {
+        if replacement.len() > 1024 || replacement.contains('\r') || replacement.contains('\n') {
             return Err(EngineError::new(
                 "invalid_replace",
                 "Replacement text must be a single line of at most 1,024 UTF-8 bytes.",
