@@ -698,7 +698,7 @@ export default function App() {
     setBusy(true);
     try {
       const bytes = engine.current.exportFormat(current.format, current.assessment.warnings.length > 0, current.assessment);
-      const filename = safeFilename(current.filename.replace(/\\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
+      const filename = safeFilename(current.filename.replace(/\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
       const sessionId = viewRef.current?.sessionId;
       const existingId = proairetosSession.current === sessionId ? proairetosFileId : null;
       const savedId = await saveToProairetos(filename, current.format, bytes, existingId ?? undefined);
