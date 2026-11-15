@@ -7,6 +7,7 @@ use office_core::{
 };
 use office_formats::{
     DocumentFormat, ImportOutcome, assess_export, export_document, import_document,
+    import_document_with_warnings,
 };
 
 fn id(value: &str) -> Id {
@@ -295,6 +296,254 @@ fn metadata_title_and_unicode_table_names_do_not_treat_escaped_semicolons_as_del
 }
 
 #[test]
+fn known_formatting_fixture_reports_normalizations_and_survives_edit_export_reopen() {
+    let bytes = include_bytes!("../../../tests/fixtures/formats/rtf-known-formatting.rtf");
+    let report = import_document_with_warnings(
+        DocumentFormat::Rtf,
+        bytes,
+        id("normalized"),
+        "compatibility.rtf",
+    )
+    .unwrap();
+    assert!(report.has_formatting_normalizations);
+    assert!(report.warnings.len() >= 10);
+    assert_eq!(report.omitted_warnings, 0);
+    assert!(report.warnings.iter().all(|warning| {
+        warning.code == "normalized_formatting"
+            && warning.part == "rtf"
+            && warning.path.starts_with("byte:")
+    }));
+    let ImportOutcome::Editable(file) = report.outcome else {
+        panic!("Known formatting must not block the complete supported content")
+    };
+    assert_eq!(file.original_source().unwrap().bytes(), bytes);
+    assert_eq!(file.document().metadata().title, "Compatibility notes");
+    assert_eq!(file.document().styles().len(), 2);
+    assert_eq!(
+        text(file.document()),
+        vec![
+            "Compatibility notes",
+            "Writer keeps logical Unicode e\u{301} and 😀 with bold, italic and underlined text.",
+        ]
+    );
+    let runs = paragraphs(file.document())[1].runs();
+    for (word, expected) in [("bold", 0), ("italic", 1), ("underlined", 2)] {
+        let run = runs.iter().find(|run| run.text == word).unwrap();
+        match expected {
+            0 => assert_eq!(run.format.bold, Some(true)),
+            1 => assert_eq!(run.format.italic, Some(true)),
+            _ => assert_eq!(run.format.underline, Some(Underline::Single)),
+        }
+    }
+    let last = paragraphs(file.document())[1];
+    let paragraph_id = last.id().clone();
+    let end = TextCoordinates::new(last).grapheme_len();
+    let (document, original) = file.into_parts();
+    let mut session = DocumentSession::new(document);
+    let mut transaction = session.begin_transaction();
+    let position = transaction.position(&paragraph_id, end).unwrap();
+    transaction
+        .insert_text(&position, " Edited 👩🏽‍💻.", Default::default())
+        .unwrap();
+    session.commit(transaction).unwrap();
+    let saved =
+        WriterFile::with_original_source(session.document().clone(), original.unwrap()).unwrap();
+    let reopened_native =
+        office_core::deserialize_writer_file(&office_core::serialize_writer_file(&saved).unwrap())
+            .unwrap();
+    assert_eq!(reopened_native.document(), session.document());
+    assert_eq!(reopened_native.original_source().unwrap().bytes(), bytes);
+    let encoded = export_document(DocumentFormat::Rtf, reopened_native.document()).unwrap();
+    let reopened = open(&encoded);
+    assert_eq!(text(reopened.document()), text(session.document()));
+    assert_eq!(
+        reopened
+            .document()
+            .styles()
+            .iter()
+            .map(|style| style.name.as_str())
+            .collect::<Vec<_>>(),
+        ["Heading", "Body"]
+    );
+    assert_eq!(saved.original_source().unwrap().bytes(), bytes);
+}
+
+#[test]
+fn validated_language_and_layout_controls_disclose_their_approximation() {
+    for property in [
+        "adeflang0",
+        "adeflang65535",
+        "deflang1033",
+        "deflangfe2052",
+        "lang1033",
+        "langfe2052",
+        "alang1025",
+        "nowidctlpar",
+        "widctlpar",
+        "noline",
+        "hyphpar",
+        "hyphpar0",
+        "hyphauto1",
+        "kerning0",
+        "kerning1",
+        "kerning32767",
+    ] {
+        let bytes = format!("{{\\rtf1 \\{property} complete text}}");
+        let report = import_document_with_warnings(
+            DocumentFormat::Rtf,
+            bytes.as_bytes(),
+            id("formatting"),
+            "formatting.rtf",
+        )
+        .unwrap();
+        assert!(report.has_formatting_normalizations, "{property}");
+        assert_eq!(report.warnings.len(), 1, "{property}");
+        let ImportOutcome::Editable(file) = report.outcome else {
+            panic!("Known formatting control was blocked: {property}")
+        };
+        assert_eq!(text(file.document()), ["complete text"], "{property}");
+        assert_eq!(file.original_source().unwrap().bytes(), bytes.as_bytes());
+    }
+}
+
+#[test]
+fn invalid_known_formatting_values_and_next_style_references_are_rejected() {
+    for property in [
+        "adeflang",
+        "adeflang-1",
+        "deflang65536",
+        "deflangfe-1",
+        "lang-1",
+        "langfe65536",
+        "alang65536",
+        "nowidctlpar2",
+        "widctlpar-1",
+        "noline2",
+        "hyphpar2",
+        "hyphauto-1",
+        "kerning",
+        "kerning-1",
+        "kerning32768",
+    ] {
+        let bytes = format!("{{\\rtf1 \\{property} text}}");
+        let error = import_document(DocumentFormat::Rtf, bytes.as_bytes(), id("bad"), "bad.rtf")
+            .unwrap_err();
+        assert_eq!(error.code, "invalid_rtf", "{property}");
+    }
+    for bytes in [
+        br"{\rtf1{\stylesheet{\s0\snext1 Normal;}}text}".as_slice(),
+        br"{\rtf1{\stylesheet{\s0\snext-1 Normal;}}text}",
+    ] {
+        assert!(import_document(DocumentFormat::Rtf, bytes, id("bad"), "bad.rtf").is_err());
+    }
+}
+
+#[test]
+fn automatic_next_style_is_disclosed_without_changing_existing_paragraph_styles() {
+    let bytes = br"{\rtf1{\stylesheet{\s0 Normal;}{\s1\snext0 Heading;}}\s1 text}";
+    let report =
+        import_document_with_warnings(DocumentFormat::Rtf, bytes, id("next"), "next.rtf").unwrap();
+    assert!(report.has_formatting_normalizations);
+    assert_eq!(report.warnings.len(), 1);
+    assert!(report.warnings[0].message.contains("next-paragraph"));
+    let ImportOutcome::Editable(file) = report.outcome else {
+        panic!("Known automatic next-style editing preference must be disclosed")
+    };
+    assert_eq!(text(file.document()), ["text"]);
+    assert_eq!(
+        paragraphs(file.document())[0].style(),
+        Some(&file.document().styles()[1].id)
+    );
+    assert_eq!(file.original_source().unwrap().bytes(), bytes);
+}
+
+#[test]
+fn exact_alternate_font_labels_keep_primary_font_and_scoped_unicode_fallback() {
+    let bytes = br"{\rtf1\ansi\deff0{\fonttbl{\f0\fnil Primary{\*\falt Fallback\u-10179?\u-8704?};}}\f0\uc2\u233??\u-10179??\u-8704??}";
+    let report =
+        import_document_with_warnings(DocumentFormat::Rtf, bytes, id("font"), "font.rtf").unwrap();
+    assert!(report.has_formatting_normalizations);
+    let ImportOutcome::Editable(file) = report.outcome else {
+        panic!("An exact alternate font label should be normalizable")
+    };
+    assert_eq!(text(file.document()), ["é😀"]);
+    assert_eq!(
+        paragraphs(file.document())[0].runs()[0]
+            .format
+            .font_family
+            .as_deref(),
+        Some("Primary")
+    );
+    assert_eq!(file.original_source().unwrap().bytes(), bytes);
+    for bytes in [
+        br"{\rtf1{\fonttbl{\f0 Primary{\*\falt };}}text}".as_slice(),
+        br"{\rtf1{\fonttbl{\f0 Primary{\*\falt1 Alternate};}}text}",
+        br"{\rtf1{\fonttbl{\f0 Primary{\*\falt \u-10179?};}}text}",
+        br"{\rtf1{\fonttbl{\f0 Primary;{\*\falt Alternate}}}text}",
+        br"{\rtf1{\fonttbl{\f0 Primary{\*\falt Alternate}{\*\falt Other};}}text}",
+        br"{\rtf1{\fonttbl{\f0 Primary{\*\falt Alternate} trailing;}}text}",
+    ] {
+        assert!(import_document(DocumentFormat::Rtf, bytes, id("bad"), "bad.rtf").is_err());
+    }
+}
+
+#[test]
+fn late_unknown_content_remains_read_only_after_normalization_notice_saturation() {
+    for suffix in [
+        r"\unknown42 text",
+        r"{\*\future retained}",
+        r"{\field{\*\fldinst PAGE}{\fldrslt 1}}",
+        r"\rtlch directional text",
+        r"{\footnote note}",
+        r"{\*\listtable{\list\listid1}}",
+    ] {
+        let bytes = format!(
+            "{{\\rtf1 {}complete text {suffix}}}",
+            "\\lang1033 ".repeat(140)
+        );
+        let report = import_document_with_warnings(
+            DocumentFormat::Rtf,
+            bytes.as_bytes(),
+            id("blocked"),
+            "blocked.rtf",
+        )
+        .unwrap();
+        assert!(report.has_formatting_normalizations);
+        assert_eq!(report.warnings.len(), 128);
+        assert_eq!(report.omitted_warnings, 12);
+        let ImportOutcome::Preserved { original, report } = report.outcome else {
+            panic!("Late unsupported source became an editable partial document: {suffix}")
+        };
+        assert_eq!(original.bytes(), bytes.as_bytes());
+        assert!(!report.is_empty());
+    }
+}
+
+#[test]
+fn alternate_font_support_does_not_allow_embedded_or_unknown_font_content() {
+    for metadata in [
+        r"{\*\fontemb\fttruetype\bin3 abc}",
+        r"{\*\fontfile external.ttf}",
+        r"{\*\future font data}",
+        r"{\*\falt Alternate{\*\future hidden}}",
+        r"{\*\falt Alternate\unknown42}",
+    ] {
+        let bytes = format!("{{\\rtf1{{\\fonttbl{{\\f0 Primary{metadata};}}}}\\f0 text}}");
+        let ImportOutcome::Preserved { original, report } = import_document(
+            DocumentFormat::Rtf,
+            bytes.as_bytes(),
+            id("font"),
+            "font.rtf",
+        )
+        .unwrap() else {
+            panic!("Unsupported font payload became editable: {metadata}")
+        };
+        assert_eq!(original.bytes(), bytes.as_bytes());
+        assert!(!report.is_empty());
+    }
+}
+
+#[test]
 fn unsupported_destinations_properties_and_objects_remain_exact_read_only_originals() {
     for bytes in [
         br"{\rtf1 text{\pict\pngblip abc}}".as_slice(),
@@ -492,7 +741,6 @@ fn unsupported_default_font_and_nested_metadata_are_not_silently_dropped() {
         br"{\rtf1\deff0{\fonttbl{\f0\fcharset2 Symbol;}}text}".as_slice(),
         br"{\rtf1{\info{\creatim{\pict data}}}text}",
         br"{\rtf1{\*\generator{\object text}}text}",
-        br"{\rtf1{\stylesheet{\s0 Normal;}{\s1\snext0 Heading;}}\s1 text}",
     ] {
         let ImportOutcome::Preserved { original, report } =
             import_document(DocumentFormat::Rtf, bytes, id("source"), "source.rtf").unwrap()

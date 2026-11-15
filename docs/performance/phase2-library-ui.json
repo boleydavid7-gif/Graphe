@@ -1,0 +1,69 @@
+{
+  "before": [
+    {
+      "count": 1000,
+      "originalBytes": 6144,
+      "totalBytes": 10568890,
+      "trialsMs": [
+        398.40000000596046,
+        193.20000000298023,
+        263.09999999403954,
+        172.1000000089407,
+        146.79999999701977
+      ],
+      "medianMs": 193.20000000298023,
+      "productionGetAllCalls": 5
+    },
+    {
+      "count": 100,
+      "originalBytes": 786432,
+      "totalBytes": 105095190,
+      "trialsMs": [
+        533,
+        564.6000000089407,
+        698.6000000089407,
+        473.6000000089407,
+        222.90000000596046
+      ],
+      "medianMs": 533,
+      "productionGetAllCalls": 5
+    }
+  ],
+  "after": [
+    {
+      "phase": "after",
+      "count": 1000,
+      "originalBytes": 6144,
+      "totalBytes": 10568890,
+      "trialsMs": [
+        283.09999999403954,
+        144.6000000089407,
+        141.70000000298023,
+        157.69999998807907,
+        168.79999999701977
+      ],
+      "medianMs": 157.69999998807907,
+      "getAll": 0,
+      "cursor": 5,
+      "bundle": "/assets/index-B8LnQAs5.js"
+    },
+    {
+      "phase": "after",
+      "count": 100,
+      "originalBytes": 786432,
+      "totalBytes": 105095190,
+      "trialsMs": [
+        220.3999999910593,
+        249.79999999701977,
+        229.20000000298023,
+        280.40000000596046,
+        186.29999999701977
+      ],
+      "medianMs": 229.20000000298023,
+      "getAll": 0,
+      "cursor": 5,
+      "bundle": "/assets/index-B8LnQAs5.js"
+    }
+  ],
+  "scope": "Separate before/after production Open-document windows, five trials each, same Chromium environment; not OS input-to-paint or a timing guarantee."
+}

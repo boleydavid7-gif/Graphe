@@ -10,6 +10,31 @@ compatibility come first; spreadsheets and presentations will follow later.
 
 ## Current status
 
+Phase 2's [mobile text selection](docs/PHASE2_MOBILE_SELECTION.md) adds Rust word
+selection, draggable endpoints, scrolling/zoom handling and guarded clipboard
+controls on a separate development branch. Browser automation passes; physical
+iOS/Android/PWA validation remains outstanding. This is not a release approval.
+
+Phase 2's [external compatibility corrections](docs/PHASE2_COMPATIBILITY.md)
+classify validated DOCX/ODT/RTF formatting separately from unsupported content.
+Exact originals and native identity remain preserved; known approximations are
+disclosed on import and external copies. This is a bounded profile improvement,
+not a claim that all documents from those applications are editable.
+
+The [PDF text investigation](docs/PHASE2_PDF.md) retains outlined production
+export after the experimental text-font path failed independent rendering checks.
+Searchable/selectable PDF and tagged/archival conformance remain unfinished.
+
+[Measured performance work](docs/PHASE2_PERFORMANCE.md) reduces library-list
+buffer retention without changing save protections. Large-document layout,
+snapshot and SVG costs remain explicit limits; reproducible developer probes
+are included for future changes.
+
+The [Phase 2 report](docs/PHASE2_REPORT.md) distinguishes verified improvements
+from physical-device, large-document, PDF-text and
+[hosted CI/browser availability](docs/PHASE2_CI.md) limitations. No merge or
+deployment is authorized by those reports.
+
 PR #17's [stability and file-compatibility audit](docs/WRITER_STABILITY_AUDIT.md)
 records executed format/save workflows, corrective regressions and outstanding
 mobile, external-producer and hosted-CI limits. It is not a general release or

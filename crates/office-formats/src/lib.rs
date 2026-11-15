@@ -188,6 +188,50 @@ pub struct ImportReport {
     pub warnings: Vec<FormatDiagnostic>,
     /// Additional notices omitted independently from blocking diagnostics.
     pub omitted_warnings: usize,
+    /// Whether imported formatting may differ, tracked before notice truncation.
+    ///
+    /// This runtime summary lets source-aware export disclose a meaningful
+    /// approximation even when individual notices exceed the display limit.
+    pub has_formatting_normalizations: bool,
+}
+
+/// Non-blocking notices have an independent budget from unsafe-content findings.
+#[derive(Default)]
+pub(crate) struct ImportNotices {
+    warnings: Vec<FormatDiagnostic>,
+    omitted: usize,
+    meaningful_formatting: bool,
+}
+
+impl ImportNotices {
+    pub(crate) fn record(
+        &mut self,
+        part: &str,
+        path: impl Into<String>,
+        message: impl Into<String>,
+        meaningful: bool,
+    ) {
+        self.meaningful_formatting |= meaningful;
+        if self.warnings.len() < 128 {
+            self.warnings.push(FormatDiagnostic::new(
+                "normalized_formatting",
+                part,
+                path,
+                message,
+            ));
+        } else {
+            self.omitted = self.omitted.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn finish(self, outcome: ImportOutcome) -> ImportReport {
+        ImportReport {
+            outcome,
+            warnings: self.warnings,
+            omitted_warnings: self.omitted,
+            has_formatting_normalizations: self.meaningful_formatting,
+        }
+    }
 }
 
 /// Meaningful conversion losses to present before saving a copy.
@@ -237,6 +281,7 @@ pub fn import_document_with_warnings(
     }
     let mut warnings = Vec::new();
     let mut omitted_warnings = 0;
+    let mut has_formatting_normalizations = false;
     let outcome = match format {
         DocumentFormat::Writer => Ok(ImportOutcome::Editable(
             office_core::deserialize_writer_file(bytes)?,
@@ -255,6 +300,7 @@ pub fn import_document_with_warnings(
                     )
                 }));
                 omitted_warnings = report.omitted_normalizations;
+                has_formatting_normalizations = report.has_formatting_normalizations;
                 let (document, _) = imported.into_parts();
                 Ok(ImportOutcome::Editable(retain_source(
                     format, document, bytes, filename,
@@ -273,8 +319,12 @@ pub fn import_document_with_warnings(
                 })
             }
         },
-        DocumentFormat::Odt => odt::import_document(bytes, document_id, filename),
-        DocumentFormat::Rtf => rtf::import_document(bytes, document_id, filename),
+        DocumentFormat::Odt => {
+            return odt::import_document_with_warnings(bytes, document_id, filename);
+        }
+        DocumentFormat::Rtf => {
+            return rtf::import_document_with_warnings(bytes, document_id, filename);
+        }
         DocumentFormat::Txt => text::import_document(bytes, document_id, filename),
         DocumentFormat::Pdf => Err(FormatError::new(
             "export_only",
@@ -285,6 +335,7 @@ pub fn import_document_with_warnings(
         outcome,
         warnings,
         omitted_warnings,
+        has_formatting_normalizations,
     })
 }
 
@@ -346,17 +397,31 @@ pub fn assess_export(
 /// text. DOCX copies preserve validated source information when available.
 pub fn assess_file(format: DocumentFormat, file: &WriterFile) -> Result<ExportReport, FormatError> {
     let mut report = assess_export(format, file.document())?;
+    if format != DocumentFormat::Writer {
+        assess_normalized_original(format, file, &mut report)?;
+    }
     if format != DocumentFormat::Writer
         && let Some(source) = docx_source(file)?
     {
         let assessment = office_docx::assess_docx_copy(file.document(), &source)
             .map_err(|error| FormatError::new("unsupported_docx_export", error.to_string()))?;
-        if format == DocumentFormat::Docx && assessment.formatting_may_differ {
+        if assessment.formatting_may_differ {
+            let (code, message) = if format == DocumentFormat::Docx {
+                (
+                    "docx_formatting_changes",
+                    "Some original formatting may look different in this Word copy.",
+                )
+            } else {
+                (
+                    "original_formatting_changes",
+                    "Some original formatting may look different in this copy. The exact original remains in the native Writer document.",
+                )
+            };
             report.warnings.push(FormatDiagnostic::new(
-                "docx_formatting_changes",
-                "docx",
+                code,
+                format.extension(),
                 "document",
-                "Some original formatting may look different in this Word copy.",
+                message,
             ));
         }
         if format == DocumentFormat::Docx && assessment.theme_omitted {
@@ -396,6 +461,51 @@ pub fn assess_file(format: DocumentFormat, file: &WriterFile) -> Result<ExportRe
         }
     }
     Ok(report)
+}
+
+fn assess_normalized_original(
+    destination: DocumentFormat,
+    file: &WriterFile,
+    report: &mut ExportReport,
+) -> Result<(), FormatError> {
+    let Some(original) = file.original_source() else {
+        return Ok(());
+    };
+    let source_format = match original.format() {
+        "odt" => DocumentFormat::Odt,
+        "rtf" => DocumentFormat::Rtf,
+        _ => return Ok(()),
+    };
+    if !original
+        .media_type()
+        .eq_ignore_ascii_case(source_format.media_type())
+    {
+        return Err(FormatError::new(
+            "invalid_original_source",
+            "The original document has inconsistent format information.",
+        ));
+    }
+    let imported = import_document_with_warnings(
+        source_format,
+        original.bytes(),
+        Id::new("writer-original-assessment")?,
+        original.filename(),
+    )?;
+    if !matches!(imported.outcome, ImportOutcome::Editable(_)) {
+        return Err(FormatError::new(
+            "unsupported_original_source",
+            "The original cannot be projected completely; an editable copy cannot be assessed safely.",
+        ));
+    }
+    if imported.has_formatting_normalizations {
+        report.warnings.push(FormatDiagnostic::new(
+            "original_formatting_changes",
+            destination.extension(),
+            "document",
+            "Some original formatting may look different in this copy. The exact original remains in the native Writer document.",
+        ));
+    }
+    Ok(())
 }
 
 fn docx_source(file: &WriterFile) -> Result<Option<office_docx::DocxSource>, FormatError> {

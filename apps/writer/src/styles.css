@@ -830,7 +830,7 @@ dialog .dialog-actions { border-color: var(--writer-border); }
   );
   scrollbar-width: thin;
   scrollbar-color: var(--writer-border-control) var(--writer-workspace);
-  overscroll-behavior: contain;
+  overscroll-behavior: var(--writer-viewport-overscroll, contain);
 }
 .paged-editing-view,
 .paged-editor,
@@ -1107,6 +1107,73 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 }
 .save-copy-dialog .dialog-actions { margin-top: 18px; }
 .save-copy-dialog[open] { animation: none; }
+
+/* Pointer handles only project Rust endpoint rectangles. Their hit targets and
+   action bar retain a usable screen size while the browser viewport magnifies. */
+.touch-selection-handle,
+.touch-selection-handle:hover,
+.touch-selection-handle:active {
+  position: fixed;
+  z-index: 16;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(-50%) scale(var(--selection-ui-scale, 1));
+  transform-origin: 50% 0;
+  transition: none;
+  touch-action: pinch-zoom;
+  cursor: grab;
+  -webkit-touch-callout: none;
+}
+.touch-selection-handle::before {
+  content: '';
+  position: absolute;
+  left: 21px;
+  top: -2px;
+  width: 2px;
+  height: 16px;
+  background: var(--writer-accent);
+}
+.touch-selection-handle::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 10px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--writer-accent);
+  box-shadow: 0 0 0 1px var(--writer-paper);
+}
+.touch-selection-handle[data-placement="above"]::before { top: 20px; height: 24px; }
+.touch-selection-handle[data-placement="above"]::after { top: 10px; }
+.paged-editor-paper > svg { -webkit-touch-callout: none; }
+.touch-selection-tools {
+  position: fixed;
+  z-index: 15;
+  width: max-content;
+  transform: scale(var(--selection-ui-scale, 1));
+  transform-origin: 0 0;
+}
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--writer-border-control);
+  border-radius: 4px;
+  background: var(--writer-surface-menu);
+  box-shadow: 0 3px 12px #0003;
+}
+.selection-actions > button { min-height: 40px; padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+.selection-actions-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .save-copy-dialog .dialog-actions button { min-height: 38px; }
 .save-copy-dialog .save-as-fields { gap: 10px 12px; margin-block: 18px; }
 .save-copy-dialog .save-copy-warning { margin: 12px 0 0; color: var(--accent); font-size: 12px; line-height: 1.5; }

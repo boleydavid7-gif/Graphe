@@ -59,7 +59,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function decode(value: unknown): StoredDocument {
+function validateRecord(value: unknown): asserts value is StoredDocument {
   if (!isRecord(value)
     || typeof value.id !== 'string' || value.id.length === 0
     || typeof value.title !== 'string'
@@ -70,6 +70,10 @@ function decode(value: unknown): StoredDocument {
     || value.bytes.byteLength === 0 || value.bytes.byteLength > MAX_STORED_DOCUMENT_BYTES) {
     throw new StorageError('corrupt', 'This local document record is damaged. Open an exported .writer copy instead.');
   }
+}
+
+function decode(value: unknown): StoredDocument {
+  validateRecord(value);
   return {
     id: value.id,
     title: value.title,
@@ -173,22 +177,30 @@ export class WriterStorage {
       let reason: StorageError | undefined;
       try {
         transaction = database.transaction(STORE, 'readonly');
-        const request = transaction.objectStore(STORE).getAll();
+        const documents: StoredDocumentSummary[] = [];
+        const problems: LibraryProblem[] = [];
+        // Keep summaries, not a complete library of cloned document buffers.
+        // A cursor still reads each full record; validate it without making the
+        // owned byte copy required by load/save's public return values.
+        const request = transaction.objectStore(STORE).openCursor();
         request.onsuccess = () => {
           try {
-            const documents: StoredDocumentSummary[] = [];
-            const problems: LibraryProblem[] = [];
-            for (const value of request.result as unknown[]) {
-              try {
-                documents.push(summary(decode(value)));
-              } catch (cause) {
-                if (!(cause instanceof StorageError) || cause.code !== 'corrupt') throw cause;
-                const id = isRecord(value) && typeof value.id === 'string' && value.id.length > 0 ? value.id : undefined;
-                problems.push({ message: cause.message, ...(id ? { id } : {}) });
-              }
+            const cursor = request.result;
+            if (!cursor) {
+              documents.sort((left, right) => right.updatedAt - left.updatedAt || left.id.localeCompare(right.id));
+              result = { documents, problems };
+              return;
             }
-            documents.sort((left, right) => right.updatedAt - left.updatedAt || left.id.localeCompare(right.id));
-            result = { documents, problems };
+            const value: unknown = cursor.value;
+            try {
+              validateRecord(value);
+              documents.push(summary(value));
+            } catch (cause) {
+              if (!(cause instanceof StorageError) || cause.code !== 'corrupt') throw cause;
+              const id = isRecord(value) && typeof value.id === 'string' && value.id.length > 0 ? value.id : undefined;
+              problems.push({ message: cause.message, ...(id ? { id } : {}) });
+            }
+            cursor.continue();
           } catch (cause) {
             reason = failure(cause);
             transaction.abort();

@@ -85,6 +85,14 @@ each milestone is implemented.
    tests and independent-consumer checks. The owner authorized merging after
    successful verification. Deployment, Step 8 and the comprehensive audit are
    not implied by this additional feature request.
+
+   **Stability Phase 2 — dedicated development branch.** Rust-authoritative touch
+   selection, bounded external-format normalization and measured library-listing
+   corrections have regression coverage. PDF text experiments were rejected to
+   preserve rendering fidelity. Large-document responsiveness, physical-device
+   verification and hosted/browser CI availability remain explicit limits. See
+   [PHASE2_REPORT.md](PHASE2_REPORT.md); no merge, deployment, ProairetOS integration
+   or next feature milestone is authorized automatically.
 8. **Advanced Word compatibility.** Expand DOCX fidelity and Word-compatible
    behavior using increasingly demanding documents and regression coverage.
 

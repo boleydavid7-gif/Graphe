@@ -2,11 +2,13 @@
 
 use std::io::{self, Write};
 
+use office_core::{Document, GraphemeOffset, Id, TextCoordinates, Utf8Offset};
 use office_layout::{
     CaretAffinity, CaretGeometry, DocumentLayout, LayoutEngine, LayoutOptions, LayoutPosition,
     NavigationDirection, SelectionGeometry,
 };
 use serde::{Deserialize, Serialize};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     BrowserEngine, Command, EngineError,
@@ -52,12 +54,30 @@ enum LayoutAction {
         #[serde(default)]
         extend: bool,
     },
+    SelectWord {
+        page_number: u32,
+        x: i64,
+        y: i64,
+    },
+    DragEndpoint {
+        endpoint: SelectionEndpoint,
+        page_number: u32,
+        x: i64,
+        y: i64,
+    },
     Move {
         direction: NavigationDirection,
         #[serde(default)]
         extend: bool,
     },
     SelectAll {},
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SelectionEndpoint {
+    Anchor,
+    Focus,
 }
 
 #[derive(Serialize)]
@@ -213,8 +233,11 @@ impl BrowserEngine {
 
     /// Applies a revision-bound pointer or keyboard selection intention in Rust.
     ///
-    /// `hit` uses one-based pages and integer 1/64-point coordinates. `move`
-    /// addresses visual graphemes/lines; `select_all` spans all source paragraphs.
+    /// Pointer actions use one-based pages and integer 1/64-point coordinates.
+    /// `select_word` expands the touched shaper cell using pinned Unicode word
+    /// boundaries; nonword cells select one whole grapheme. `drag_endpoint`
+    /// moves the named logical endpoint without swapping it when handles cross.
+    /// `move` addresses visual graphemes/lines; `select_all` spans all paragraphs.
     /// These actions do not edit content, advance revisions, or add undo entries.
     pub fn layout_action(
         &mut self,
@@ -265,6 +288,43 @@ impl BrowserEngine {
                     if !extend || initial.is_none() {
                         anchor = focus;
                     }
+                }
+            }
+            LayoutAction::SelectWord { page_number, x, y } => {
+                if let Some(target) = layout.hit_test(page_number, x, y).map_err(layout_error)? {
+                    selected = Some(word_selection(self.session.document(), layout, &target, x)?);
+                    anchor = CaretAffinity::Leading;
+                    focus = CaretAffinity::Trailing;
+                }
+            }
+            LayoutAction::DragEndpoint {
+                endpoint: moving,
+                page_number,
+                x,
+                y,
+            } => {
+                let mut selection = self.selection.clone().ok_or_else(|| {
+                    EngineError::new(
+                        "invalid_selection",
+                        "Select text before dragging a selection endpoint.",
+                    )
+                })?;
+                if let Some(target) = layout.hit_test(page_number, x, y).map_err(layout_error)? {
+                    let point = Point {
+                        paragraph_id: target.position.paragraph_id,
+                        utf16: target.position.utf16,
+                    };
+                    match moving {
+                        SelectionEndpoint::Anchor => {
+                            selection.anchor = point;
+                            anchor = target.position.affinity;
+                        }
+                        SelectionEndpoint::Focus => {
+                            selection.focus = point;
+                            focus = target.position.affinity;
+                        }
+                    }
+                    selected = Some(selection);
                 }
             }
             LayoutAction::Move { direction, extend } => {
@@ -441,6 +501,134 @@ fn selection_at(
         .filter(|_| extend)
         .map_or_else(|| focus.clone(), |selection| selection.anchor.clone());
     BrowserSelection { anchor, focus }
+}
+
+/// Select a UAX #29 word from the complete paragraph, including across runs.
+///
+/// Geometry chooses a whole grapheme cell before word segmentation, so the right
+/// half of a word's final glyph does not accidentally select following space.
+/// Emoji, punctuation and whitespace outside Unicode words select one whole
+/// extended grapheme. A blank paragraph stays collapsed. No text is normalized.
+fn word_selection(
+    document: &Document,
+    layout: &DocumentLayout,
+    target: &CaretGeometry,
+    x: i64,
+) -> Result<BrowserSelection, EngineError> {
+    let coordinates = document.text_coordinates(&Id::new(&target.position.paragraph_id)?)?;
+    let count = coordinates.grapheme_len().get();
+    let boundary = coordinates
+        .utf8_to_grapheme(Utf8Offset::new(target.position.utf8))?
+        .get();
+    let selected = if count == 0 {
+        (0, 0)
+    } else {
+        let index = touched_grapheme(layout, target, &coordinates, boundary, x);
+        let start = coordinates
+            .grapheme_to_utf8(GraphemeOffset::new(index))?
+            .get();
+        let end = coordinates
+            .grapheme_to_utf8(GraphemeOffset::new(index + 1))?
+            .get();
+        let (start, end) = coordinates
+            .text()
+            .unicode_word_indices()
+            .find(|(word_start, word)| *word_start <= start && start < word_start + word.len())
+            .map_or((start, end), |(start, word)| (start, start + word.len()));
+        enclosing_graphemes(&coordinates, start, end)?
+    };
+    let point = |index| -> Result<Point, EngineError> {
+        Ok(Point {
+            paragraph_id: target.position.paragraph_id.clone(),
+            utf16: coordinates
+                .grapheme_to_utf16(GraphemeOffset::new(index))?
+                .get(),
+        })
+    };
+    Ok(BrowserSelection {
+        anchor: point(selected.0)?,
+        focus: point(selected.1)?,
+    })
+}
+
+/// Pick between the two logical grapheme cells adjoining the nearest caret.
+/// Both sides use existing Rust leading/trailing geometry, including bidi.
+/// Only a cell on the actual hit line/page can contain this pointer position.
+fn touched_grapheme(
+    layout: &DocumentLayout,
+    target: &CaretGeometry,
+    coordinates: &TextCoordinates,
+    boundary: usize,
+    x: i64,
+) -> usize {
+    let count = coordinates.grapheme_len().get();
+    let fallback = if target.position.affinity == CaretAffinity::Trailing || boundary == count {
+        boundary.saturating_sub(1)
+    } else {
+        boundary
+    };
+    [
+        boundary.checked_sub(1),
+        (boundary < count).then_some(boundary),
+    ]
+    .into_iter()
+    .flatten()
+    .filter_map(|index| {
+        let position = |index, affinity| {
+            Some(LayoutPosition {
+                paragraph_id: target.position.paragraph_id.clone(),
+                utf16: coordinates
+                    .grapheme_to_utf16(GraphemeOffset::new(index))
+                    .ok()?
+                    .get(),
+                affinity,
+            })
+        };
+        let start = layout
+            .caret_geometry(&position(index, CaretAffinity::Leading)?)
+            .ok()?;
+        let end = layout
+            .caret_geometry(&position(index + 1, CaretAffinity::Trailing)?)
+            .ok()?;
+        if start.page_number != target.page_number
+            || end.page_number != target.page_number
+            || start.line_index != target.line_index
+            || end.line_index != target.line_index
+        {
+            return None;
+        }
+        let left = start.rect.x.min(end.rect.x);
+        let right = start.rect.x.max(end.rect.x);
+        if x < left || x > right {
+            return None;
+        }
+        let center_distance = (i128::from(x) * 2 - i128::from(left) - i128::from(right)).abs();
+        Some((center_distance, index != fallback, index))
+    })
+    .min()
+    .map_or(fallback, |(_, _, index)| index)
+}
+
+/// UAX word spans expand outward if they meet an extended grapheme interior.
+/// This is a selection rule, never a repair or modification of source text.
+fn enclosing_graphemes(
+    coordinates: &TextCoordinates,
+    start: usize,
+    end: usize,
+) -> Result<(usize, usize), EngineError> {
+    let mut first = 0;
+    for index in 0..=coordinates.grapheme_len().get() {
+        let byte = coordinates
+            .grapheme_to_utf8(GraphemeOffset::new(index))?
+            .get();
+        if byte <= start {
+            first = index;
+        }
+        if byte >= end {
+            return Ok((first, index));
+        }
+    }
+    unreachable!("word segmentation spans cannot exceed the source paragraph")
 }
 
 fn first_selection(layout: &DocumentLayout) -> Option<BrowserSelection> {

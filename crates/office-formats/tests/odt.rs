@@ -6,7 +6,9 @@ use office_core::{
     Paragraph, ParagraphFormat, Section, SectionProperties, TextColor, TextCoordinates, TextRun,
     Twips, Underline, WriterFile,
 };
-use office_formats::{DocumentFormat, ImportOutcome, export_document, import_document};
+use office_formats::{
+    DocumentFormat, ImportOutcome, export_document, import_document, import_document_with_warnings,
+};
 use std::{
     collections::BTreeMap,
     io::{Cursor, Read, Write},
@@ -391,21 +393,23 @@ fn unsupported_tables_images_links_and_properties_preserve_original_read_only() 
         "<office:document-styles {NS}><office:styles><style:default-style style:family=\"paragraph\"><style:text-properties fo:language=\"en\"/></style:default-style></office:styles></office:document-styles>"
     );
     let bytes = package(content("<text:p>language metadata</text:p>"), Some(styles));
-    assert!(matches!(
-        import_document(ODT, &bytes, id("d"), "source.odt").unwrap(),
-        ImportOutcome::Preserved { .. }
-    ));
+    let report = import_document_with_warnings(ODT, &bytes, id("d"), "source.odt").unwrap();
+    assert!(matches!(report.outcome, ImportOutcome::Editable(_)));
+    assert!(report.has_formatting_normalizations);
+    assert!(!report.warnings.is_empty());
 }
 
 #[test]
-fn independently_generated_libreoffice_source_preserves_unmodeled_defaults() {
-    let bytes = include_bytes!("../../../tests/fixtures/formats/libreoffice-basic.odt");
-    match import_document(ODT, bytes, id("lo"), "libreoffice-basic.odt").unwrap() {
-        ImportOutcome::Preserved { original, report } => {
-            assert_eq!(original.bytes(), bytes);
-            assert!(report.iter().any(|d| d.code == "unsupported_property"));
+fn independent_libreoffice_documents_normalize_known_defaults_and_preserve_originals() {
+    let bytes = include_bytes!("../../../tests/fixtures/formats/libreoffice-audit-resaved.odt");
+    let report = import_document_with_warnings(ODT, bytes, id("lo"), "libreoffice.odt").unwrap();
+    assert!(report.has_formatting_normalizations);
+    assert!(!report.warnings.is_empty());
+    match report.outcome {
+        ImportOutcome::Editable(file) => {
+            assert_eq!(file.original_source().unwrap().bytes(), bytes);
         }
-        _ => panic!("LibreOffice script/language/page defaults must not be silently discarded"),
+        other => panic!("ordinary LibreOffice document remained guarded: {other:?}"),
     }
 }
 
@@ -601,4 +605,383 @@ fn explicit_master_page_transitions_preserve_same_geometry_page_boundaries() {
         .len(),
         2
     );
+}
+
+const LIBREOFFICE_AUDIT: &[u8] =
+    include_bytes!("../../../tests/fixtures/formats/libreoffice-audit-resaved.odt");
+
+fn changed_part(source: &[u8], name: &str, change: impl FnOnce(String) -> String) -> Vec<u8> {
+    let mut members = parts(source);
+    let before = String::from_utf8(members[name].clone()).unwrap();
+    let after = change(before.clone());
+    assert_ne!(before, after, "fixture mutation must exercise its target");
+    members.insert(name.into(), after.into_bytes());
+    zip_parts(members)
+}
+
+fn assert_preserved(bytes: &[u8]) {
+    match import_document(ODT, bytes, id("guarded"), "source.odt").unwrap() {
+        ImportOutcome::Preserved { original, report } => {
+            assert_eq!(original.bytes(), bytes);
+            assert!(!report.is_empty());
+        }
+        other => panic!("unsupported content became editable: {other:?}"),
+    }
+}
+
+#[test]
+fn libreoffice_resave_edits_native_saves_exports_and_reopens_without_changing_source() {
+    let file = editable(LIBREOFFICE_AUDIT);
+    assert_eq!(file.document().metadata().title, "Project notes");
+    assert_eq!(paragraphs(file.document()).len(), 6);
+    let original_text = text(file.document());
+    assert!(original_text.contains("Audit edit e\u{301} 👩🏽‍💻 العربية नमस्ते שלום."));
+    let emphasis = paragraphs(file.document())[1]
+        .runs()
+        .iter()
+        .find(|r| r.text == "dependable editing")
+        .unwrap();
+    assert_eq!(emphasis.format.bold, Some(true));
+    assert_eq!(emphasis.format.italic, Some(true));
+    assert_eq!(emphasis.format.underline, Some(Underline::Single));
+    assert_eq!(emphasis.format.font_size, Some(HalfPoints(28)));
+    assert_eq!(emphasis.format.font_family.as_deref(), Some("Tinos"));
+    let (document, source) = file.into_parts();
+    let paragraph = paragraphs(&document).last().unwrap().id().clone();
+    let mut session = DocumentSession::new(document);
+    let mut tx = session.begin_transaction();
+    let position = tx.position(&paragraph, GraphemeOffset::new(0)).unwrap();
+    tx.insert_text(&position, "Reviewed — ", CharacterFormat::default())
+        .unwrap();
+    session.commit(tx).unwrap();
+    let edited =
+        WriterFile::with_original_source(session.document().clone(), source.unwrap()).unwrap();
+    let native = office_core::serialize_writer_file(&edited).unwrap();
+    let reopened = office_core::deserialize_writer_file(&native).unwrap();
+    assert_eq!(reopened, edited);
+    assert_eq!(
+        reopened.original_source().unwrap().bytes(),
+        LIBREOFFICE_AUDIT
+    );
+    let exported = output(reopened.document());
+    let reimported = editable(&exported);
+    assert_eq!(text(reimported.document()), text(reopened.document()));
+    assert_eq!(paragraphs(reimported.document()).len(), 6);
+    assert_eq!(
+        reimported.document().sections()[0].properties(),
+        reopened.document().sections()[0].properties()
+    );
+    assert_eq!(
+        reimported.document().metadata(),
+        reopened.document().metadata()
+    );
+    for (before, after) in paragraphs(reopened.document())
+        .iter()
+        .zip(paragraphs(reimported.document()))
+    {
+        // ODF export may merge adjacent runs with equal formatting. Native
+        // persistence above preserves exact structure; an external copy must
+        // preserve text and supported formatting without requiring run splits.
+        let characters = |document: &Document, paragraph: &Paragraph| {
+            let inherited = office_layout::resolve_paragraph_style(document, paragraph).character;
+            paragraph
+                .runs()
+                .iter()
+                .flat_map(|run| {
+                    let mut format = inherited.clone();
+                    office_layout::overlay_character(&mut format, &run.format);
+                    run.text
+                        .chars()
+                        .map(move |character| (character, format.clone()))
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            characters(reopened.document(), before),
+            characters(reimported.document(), after)
+        );
+        assert_eq!(
+            office_layout::resolve_paragraph_style(reopened.document(), before),
+            office_layout::resolve_paragraph_style(reimported.document(), after)
+        );
+    }
+    assert_eq!(
+        reopened.original_source().unwrap().bytes(),
+        LIBREOFFICE_AUDIT
+    );
+}
+
+#[test]
+fn other_libreoffice_profiles_remain_guarded_when_unknown_preferences_remain() {
+    // This separate producer fixture includes additional hyphenation, font,
+    // default-page-layout and application settings outside the bounded profile.
+    assert_preserved(include_bytes!(
+        "../../../tests/fixtures/formats/libreoffice-basic.odt"
+    ));
+}
+
+#[test]
+fn active_notes_lists_tables_and_headings_remain_preserved() {
+    assert_preserved(include_bytes!(
+        "../../../tests/fixtures/formats/unsupported-active-note.odt"
+    ));
+    for body in [
+        "<text:list><text:list-item><text:p>Important list item</text:p></text:list-item></text:list>",
+        "<text:h text:outline-level=\"1\">Important heading semantics</text:h>",
+        "<table:table xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\"><table:table-row><table:table-cell><text:p>Important table text</text:p></table:table-cell></table:table-row></table:table>",
+        "<text:p><text:sequence text:name=\"Figure\">1</text:sequence></text:p>",
+    ] {
+        assert_preserved(&package(content(body), None));
+    }
+}
+
+#[test]
+fn active_or_default_enabled_numbering_is_not_misclassified_as_inactive() {
+    for (from, to) in [
+        ("text:number-lines=\"false\"", "text:number-lines=\"true\""),
+        ("text:number-lines=\"false\"", ""),
+        ("style:num-format=\"\"", "style:num-format=\"1\""),
+    ] {
+        assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "styles.xml", |s| {
+            s.replacen(from, to, 1)
+        }));
+    }
+}
+
+#[test]
+fn content_inside_inactive_authoring_configurations_is_not_ignored() {
+    for (from, to) in [
+        (
+            "<text:notes-configuration text:note-class=\"endnote\" style:num-format=\"i\" text:start-value=\"0\"/>",
+            "<text:notes-configuration text:note-class=\"endnote\" style:num-format=\"i\" text:start-value=\"0\"><text:p>Important hidden note</text:p></text:notes-configuration>",
+        ),
+        (
+            "<style:table-properties table:border-model=\"separating\"/>",
+            "<style:table-properties table:border-model=\"separating\"><text:p>Important hidden table</text:p></style:table-properties>",
+        ),
+        (
+            "<loext:theme-colors loext:name=\"LibreOffice\">",
+            "<loext:theme-colors loext:name=\"LibreOffice\"><text:p>Important extension content</text:p>",
+        ),
+    ] {
+        assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "styles.xml", |s| {
+            s.replacen(from, to, 1)
+        }));
+    }
+}
+
+#[test]
+fn protected_or_unknown_settings_do_not_become_editable() {
+    for (from, to) in [
+        (
+            "config:name=\"LoadReadonly\" config:type=\"boolean\">false",
+            "config:name=\"LoadReadonly\" config:type=\"boolean\">true",
+        ),
+        (
+            "config:name=\"ProtectForm\" config:type=\"boolean\">false",
+            "config:name=\"ProtectForm\" config:type=\"boolean\">true",
+        ),
+        (
+            "config:name=\"RedlineProtectionKey\" config:type=\"base64Binary\"/>",
+            "config:name=\"RedlineProtectionKey\" config:type=\"base64Binary\">AQ==</config:config-item>",
+        ),
+        (
+            "config:name=\"SaveThumbnail\"",
+            "config:name=\"UnknownFutureSetting\"",
+        ),
+        (
+            "config:name=\"SaveThumbnail\" config:type=\"boolean\"",
+            "config:name=\"SaveThumbnail\" config:type=\"string\"",
+        ),
+    ] {
+        assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "settings.xml", |s| {
+            s.replacen(from, to, 1)
+        }));
+    }
+}
+
+#[test]
+fn typed_image_preferences_respect_signed_odf_integer_bounds() {
+    let preference = "config:name=\"ImagePreferredDPI\" config:type=\"int\">0";
+    for value in ["0", "300", "2147483647"] {
+        let bytes = if value == "0" {
+            LIBREOFFICE_AUDIT.to_vec()
+        } else {
+            changed_part(LIBREOFFICE_AUDIT, "settings.xml", |source| {
+                source.replace(
+                    preference,
+                    &format!("config:name=\"ImagePreferredDPI\" config:type=\"int\">{value}"),
+                )
+            })
+        };
+        let report = import_document_with_warnings(ODT, &bytes, id("image"), "source.odt").unwrap();
+        assert!(matches!(report.outcome, ImportOutcome::Editable(_)));
+    }
+    for value in ["-1", "2147483648", "4294967295", "not-an-integer"] {
+        assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "settings.xml", |source| {
+            source.replace(
+                preference,
+                &format!("config:name=\"ImagePreferredDPI\" config:type=\"int\">{value}"),
+            )
+        }));
+    }
+}
+
+#[test]
+fn settings_validate_container_names_namespaces_duplicates_and_shapes() {
+    for change in [
+        (
+            "<config:config-item-set ",
+            "<config:unknown-set ",
+            "</config:config-item-set>",
+            "</config:unknown-set>",
+        ),
+        (
+            "<config:config-item-set ",
+            "<office:config-item-set ",
+            "</config:config-item-set>",
+            "</office:config-item-set>",
+        ),
+    ] {
+        assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "settings.xml", |s| {
+            s.replace(change.0, change.1).replace(change.2, change.3)
+        }));
+    }
+    assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "settings.xml", |s| {
+        s.replace(
+            "</office:document-settings>",
+            "<office:settings/></office:document-settings>",
+        )
+    }));
+    assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "settings.xml", |s| {
+        s.replace(
+            "</office:settings>",
+            "<config:config-item-set config:name=\"ooo:view-settings\"/></office:settings>",
+        )
+    }));
+}
+
+#[test]
+fn undefined_script_font_references_are_rejected() {
+    for name in ["font-name-asian", "font-name-complex"] {
+        let styles = format!(
+            "<office:document-styles {NS}><office:styles><style:default-style style:family=\"paragraph\"><style:text-properties style:{name}=\"Missing font\"/></style:default-style></office:styles></office:document-styles>"
+        );
+        let bytes = package(content("<text:p>keep source</text:p>"), Some(styles));
+        assert_eq!(
+            import_document(ODT, &bytes, id("d"), "bad.odt")
+                .unwrap_err()
+                .code,
+            "invalid_odt"
+        );
+    }
+}
+
+#[test]
+fn malformed_text_in_property_elements_is_not_silently_discarded() {
+    for property in [
+        "text-properties",
+        "paragraph-properties",
+        "page-layout-properties",
+    ] {
+        let styles = if property == "page-layout-properties" {
+            format!(
+                "<office:document-styles {NS}><office:automatic-styles><style:page-layout style:name=\"page\"><style:{property}>Important content</style:{property}></style:page-layout></office:automatic-styles></office:document-styles>"
+            )
+        } else {
+            format!(
+                "<office:document-styles {NS}><office:styles><style:default-style style:family=\"paragraph\"><style:{property}>Important content</style:{property}></style:default-style></office:styles></office:document-styles>"
+            )
+        };
+        let bytes = package(content("<text:p>keep source</text:p>"), Some(styles));
+        assert_eq!(
+            import_document(ODT, &bytes, id("d"), "bad.odt")
+                .unwrap_err()
+                .code,
+            "invalid_odt"
+        );
+    }
+    for declaration in [
+        "<office:automatic-styles><style:page-layout style:name=\"page\">Important content</style:page-layout></office:automatic-styles>",
+        "<office:automatic-styles><style:page-layout style:name=\"page\"/></office:automatic-styles><office:master-styles><style:master-page style:name=\"master\" style:page-layout-name=\"page\">Important content</style:master-page></office:master-styles>",
+    ] {
+        let styles = format!("<office:document-styles {NS}>{declaration}</office:document-styles>");
+        let bytes = package(content("<text:p>keep source</text:p>"), Some(styles));
+        assert_eq!(
+            import_document(ODT, &bytes, id("d"), "bad.odt")
+                .unwrap_err()
+                .code,
+            "invalid_odt"
+        );
+    }
+}
+
+#[test]
+fn known_property_children_in_the_wrong_context_remain_guarded() {
+    for (property, child) in [
+        ("text-properties", "<style:tab-stops/>"),
+        ("paragraph-properties", "<style:footnote-sep/>"),
+        ("page-layout-properties", "<style:tab-stops/>"),
+    ] {
+        let styles = if property == "page-layout-properties" {
+            format!(
+                "<office:document-styles {NS}><office:automatic-styles><style:page-layout style:name=\"page\"><style:{property}>{child}</style:{property}></style:page-layout></office:automatic-styles></office:document-styles>"
+            )
+        } else {
+            format!(
+                "<office:document-styles {NS}><office:styles><style:default-style style:family=\"paragraph\"><style:{property}>{child}</style:{property}></style:default-style></office:styles></office:document-styles>"
+            )
+        };
+        assert_preserved(&package(
+            content("<text:p>keep source</text:p>"),
+            Some(styles),
+        ));
+    }
+}
+
+#[test]
+fn malformed_or_authored_auxiliary_data_is_not_dismissed_as_generated_metadata() {
+    assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "meta.xml", |s| {
+        s.replace(
+            "</office:meta>",
+            "<dc:creator>Important author</dc:creator></office:meta>",
+        )
+    }));
+    assert_preserved(&changed_part(LIBREOFFICE_AUDIT, "manifest.rdf", |s| {
+        s.replace("</rdf:RDF>","<rdf:Description rdf:about=\"\"><rdf:value>Important custom metadata</rdf:value></rdf:Description></rdf:RDF>")
+    }));
+    assert_preserved(&changed_part(
+        LIBREOFFICE_AUDIT,
+        "META-INF/manifest.xml",
+        |s| {
+            s.replace("manifest:full-path=\"Thumbnails/thumbnail.png\" manifest:media-type=\"image/png\"","manifest:full-path=\"Thumbnails/thumbnail.png\" manifest:media-type=\"application/octet-stream\"")
+        },
+    ));
+}
+
+#[test]
+fn normalization_notice_saturation_cannot_hide_late_unsupported_content() {
+    let definitions=(0..140).map(|i|format!("<style:style style:name=\"S{i}\" style:family=\"paragraph\"><style:text-properties fo:language=\"en\"/></style:style>")).collect::<String>();
+    let styles = format!(
+        "<office:document-styles {NS}><office:styles>{definitions}</office:styles></office:document-styles>"
+    );
+    let bytes = package(
+        content(
+            "<text:p>body</text:p><text:p><text:note><text:note-body><text:p>Important note</text:p></text:note-body></text:note></text:p>",
+        ),
+        Some(styles),
+    );
+    let report = import_document_with_warnings(ODT, &bytes, id("d"), "source.odt").unwrap();
+    assert_eq!(report.warnings.len(), 128);
+    assert!(report.omitted_warnings > 0);
+    assert!(report.has_formatting_normalizations);
+    match report.outcome {
+        ImportOutcome::Preserved { original, report } => {
+            assert_eq!(original.bytes(), bytes);
+            assert!(report.iter().any(|d| d.path == "note"));
+        }
+        other => {
+            panic!("late unsupported content escaped the independent blocking report: {other:?}")
+        }
+    }
 }

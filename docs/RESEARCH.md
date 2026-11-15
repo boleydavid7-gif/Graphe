@@ -951,3 +951,82 @@ touch long-press/selection handles, physical Safari/Android/PWA validation and
 hosted CI runs that fail before runner allocation. Evidence, exact commands,
 counts, screenshots and release limitations are in
 [WRITER_STABILITY_AUDIT.md](WRITER_STABILITY_AUDIT.md).
+
+## Phase 2: mobile selection
+
+Research/retrospective preceded code, starting from latest audited PR #17 head
+`e501d76`, with the Lamplight bridge preserved. Compared visible native DOM
+selection with custom controls projecting the existing Rust SVG geometry. Native
+DOM reflow would introduce competing text layout, so use additive Rust word and
+endpoint actions with the existing pinned `unicode-segmentation` implementation.
+
+[Pointer Events](https://www.w3.org/TR/pointerevents3/) requires gesture policy
+at pointer start; a long hold cannot retroactively reclaim native scrolling.
+Keep page pan/pinch and separate captured handle drags. Respect pointercancel,
+multitouch, stale origins, same-revision selection changes and composition.
+[UAX #29](https://www.unicode.org/reports/tr29/) supplies the word/grapheme
+principles; [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport)
+and [WebKit activation](https://webkit.org/blog/13862/the-user-activation-api/)
+inform presentation and trusted focus/clipboard handling.
+
+Real-browser testing exposed implicit focus from restoring a blurred
+contenteditable range and overlapping touch targets on scaled paper. Guard focus,
+separate/resolve physical targets without changing logical endpoints, and avoid
+caret-reveal scrolling while a handle owns a drag. Deferred clipboard tests prove
+that changed selections at the same revision cannot receive old cuts or pastes.
+No new library, licensing choice, schema or integration protocol is introduced.
+Detailed contracts, results and device limits are in
+[PHASE2_MOBILE_SELECTION.md](PHASE2_MOBILE_SELECTION.md).
+
+## Phase 2: external producer compatibility
+
+Revisited the actual public LibreOffice resaves from the audit, alongside the
+existing adapters and original/source-aware copy paths. Official OOXML, ODF 1.3
+and RTF 1.9.1 specifications distinguish inactive authoring scaffolding from
+formatting and unsupported content. Active run RTL and script appearance are
+meaningful approximations, not metadata. Normalize known formatting with notices;
+retain strict structural, protection, hidden-content and unknown-markup checks.
+Independent notice/blocker budgets and a pre-truncation meaningful-loss summary
+prevent ordinary settings from concealing later unsafe content. No additional
+parser, editor engine or core format-specific structure is justified. Sources,
+accepted boundaries and actual verification are in
+[PHASE2_COMPATIBILITY.md](PHASE2_COMPATIBILITY.md).
+
+## Phase 2: PDF text representation
+
+Primary PDF 1.7/ISO 32000-1, existing `pdf-writer` APIs and OFL embedding guidance
+support evaluating Type 3 embedded fonts from the exact resolved Rust outlines.
+Raw catalog embedding would misrepresent variable instances; glyph-to-source
+provenance must come from Parley shaped atoms, including ligature continuations.
+No new dependency or core model change was introduced. Six Type 3 variants were
+generated; tested variants preserved source mappings but failed rendering
+acceptance, and one was untested. Their code and added transient metadata were
+removed from production. Keep outlined
+export and its warning. A mature CID/subsetting and exact font-instancing proposal
+needs separate review. Tagged PDF and PDF/A remain distinct investigations with
+no compliance claim.
+See [PHASE2_PDF.md](PHASE2_PDF.md).
+
+## Phase 2: measure before optimizing storage and layout
+
+MDN IndexedDB guidance confirms `getAll` structured clones and the transaction
+completion boundary. Actual Chromium measurements found full-body cloning plus
+redundant `decode` copies in metadata listing. Interleaved before/after tests
+justify cursor iteration with the same validation and no metadata-side byte copy;
+load/save ownership, corruption warnings, etags and completion guards remain.
+No database migration or extra dependency is needed. Separate real keyboard
+measurements identify full layout/transport and SVG footprint as important large-
+document limits; existing memoization is preserved and a larger cache/transport
+change requires a concrete review. Reproducible tools, counters and limitations
+are recorded in [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).
+
+## Phase 2: cross-platform execution boundaries
+
+Hosted job/check data proves no runner or step executed, while inaccessible
+annotations prevent classifying the cause. Direct API fallback fails at the
+proxy CONNECT stage; this does not diagnose account billing or source defects.
+Pinned Playwright 1.65.1 supports Firefox touch/mobile overrides, so old capability
+assumptions do not justify new skips. Keep all jobs/tests and extend portable
+coverage; report failed official browser downloads and launch probes separately
+from passed discovery or Chromium tests. Evidence and required infrastructure
+actions are in [PHASE2_CI.md](PHASE2_CI.md).

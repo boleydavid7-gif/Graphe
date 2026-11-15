@@ -1,9 +1,12 @@
 //! Conversion warnings are bounded and report meaningful visible losses.
 
-use office_core::{Block, Document, Id, Paragraph, Section, SectionProperties, TextRun};
+use office_core::{
+    Block, Document, Id, OriginalSource, Paragraph, Section, SectionProperties, TextRun,
+    WriterFile, deserialize_writer_file, serialize_writer_file,
+};
 use office_formats::{
     DocumentFormat, FormatDiagnostic, ImportOutcome, assess_export, assess_file, export_document,
-    export_file, import_document,
+    export_file, import_document, import_document_with_warnings,
 };
 
 #[test]
@@ -27,6 +30,270 @@ fn diagnostic_limits_preserve_unicode_boundaries() {
     let error = office_formats::FormatError::new("é".repeat(100), "👩🏽‍💻".repeat(1000));
     assert!(error.code.len() <= 64 && error.message.len() <= 4096);
     assert!(error.message.ends_with('…'));
+}
+
+const EXTERNAL_FORMATS: [DocumentFormat; 5] = [
+    DocumentFormat::Docx,
+    DocumentFormat::Odt,
+    DocumentFormat::Rtf,
+    DocumentFormat::Txt,
+    DocumentFormat::Pdf,
+];
+
+fn assert_source_formatting_warning_survives_native_reopen(file: &WriterFile) {
+    let native = serialize_writer_file(file).unwrap();
+    let reopened = deserialize_writer_file(&native).unwrap();
+    assert_eq!(&reopened, file);
+    for candidate in [file, &reopened] {
+        assert!(
+            assess_file(DocumentFormat::Writer, candidate)
+                .unwrap()
+                .warnings
+                .is_empty()
+        );
+        for format in EXTERNAL_FORMATS {
+            let expected = if format == DocumentFormat::Docx
+                && file.original_source().unwrap().format() == "docx"
+            {
+                "docx_formatting_changes"
+            } else {
+                "original_formatting_changes"
+            };
+            assert!(
+                assess_file(format, candidate)
+                    .unwrap()
+                    .warnings
+                    .iter()
+                    .any(|warning| warning.code == expected),
+                "{} source to {format:?}",
+                file.original_source().unwrap().format()
+            );
+        }
+    }
+    assert_eq!(serialize_writer_file(file).unwrap(), native);
+}
+
+#[test]
+fn normalized_docx_original_warns_for_every_external_copy_and_not_native_saving() {
+    let original = include_bytes!(
+        "../../../tests/fixtures/docx/relationships/phase2-libreoffice-unicode.docx"
+    );
+    let report = import_document_with_warnings(
+        DocumentFormat::Docx,
+        original,
+        Id::new("rtl-cross-format-assessment").unwrap(),
+        "original.docx",
+    )
+    .unwrap();
+    assert!(report.has_formatting_normalizations);
+    assert!(
+        report
+            .warnings
+            .iter()
+            .any(|notice| notice.path == "rPr/rtl")
+    );
+    let ImportOutcome::Editable(file) = report.outcome else {
+        panic!("known DOCX formatting must remain editable")
+    };
+    assert_source_formatting_warning_survives_native_reopen(&file);
+    assert_eq!(file.original_source().unwrap().bytes(), original);
+}
+
+#[test]
+fn truncated_rtf_notices_remain_meaningful_for_external_copies_after_native_reopen() {
+    let source = format!("{{\\rtf1 {}\\kerning1 text}}", "\\lang1033 ".repeat(140));
+    let report = import_document_with_warnings(
+        DocumentFormat::Rtf,
+        source.as_bytes(),
+        Id::new("rtf-warning-budget").unwrap(),
+        "original.rtf",
+    )
+    .unwrap();
+    assert_eq!(report.warnings.len(), 128);
+    assert!(report.omitted_warnings >= 13);
+    assert!(report.has_formatting_normalizations);
+    assert!(
+        !report
+            .warnings
+            .iter()
+            .any(|notice| notice.path == "kerning")
+    );
+    let ImportOutcome::Editable(file) = report.outcome else {
+        panic!("known RTF formatting must remain editable")
+    };
+    assert_source_formatting_warning_survives_native_reopen(&file);
+    assert_eq!(file.original_source().unwrap().bytes(), source.as_bytes());
+}
+
+#[test]
+fn ordinary_source_imports_do_not_create_original_formatting_warnings() {
+    let document = formatted_document(Default::default(), Default::default());
+    for source_format in [
+        DocumentFormat::Docx,
+        DocumentFormat::Odt,
+        DocumentFormat::Rtf,
+    ] {
+        let source = export_document(source_format, &document).unwrap();
+        let report = import_document_with_warnings(
+            source_format,
+            &source,
+            Id::new("ordinary-assessment").unwrap(),
+            &format!("ordinary.{}", source_format.extension()),
+        )
+        .unwrap();
+        assert!(!report.has_formatting_normalizations, "{source_format:?}");
+        let ImportOutcome::Editable(file) = report.outcome else {
+            panic!("ordinary generated source must be editable")
+        };
+        for format in EXTERNAL_FORMATS {
+            assert!(
+                !assess_file(format, &file)
+                    .unwrap()
+                    .warnings
+                    .iter()
+                    .any(|warning| matches!(
+                        warning.code.as_str(),
+                        "original_formatting_changes" | "docx_formatting_changes"
+                    )),
+                "{source_format:?} source to {format:?}"
+            );
+        }
+    }
+}
+
+fn assessment_xml_change(
+    source: &[u8],
+    part: &str,
+    update: impl FnOnce(String) -> String,
+) -> Vec<u8> {
+    use std::io::{Cursor, Read, Write};
+    let mut input = zip::ZipArchive::new(Cursor::new(source)).unwrap();
+    let mut output = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    let mut update = Some(update);
+    // Preserve package order and an uncompressed first ODT mimetype member.
+    for index in 0..input.len() {
+        let mut file = input.by_index(index).unwrap();
+        let name = file.name().unwrap().to_string();
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes).unwrap();
+        if name == part {
+            bytes = update.take().unwrap()(String::from_utf8(bytes).unwrap()).into_bytes();
+        }
+        output
+            .start_file(
+                name,
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored),
+            )
+            .unwrap();
+        output.write_all(&bytes).unwrap();
+    }
+    assert!(update.is_none(), "requested XML part exists");
+    output.finish().unwrap().into_inner()
+}
+
+#[test]
+fn odt_meaningful_normalization_after_inert_notice_truncation_survives_native_reopen() {
+    let document = formatted_document(Default::default(), Default::default());
+    let original = export_document(DocumentFormat::Odt, &document).unwrap();
+    let gallery = (0..70)
+        .map(|index| format!(
+            "<style:style style:name=\"Budget{index}\" style:family=\"paragraph\"><style:paragraph-properties style:contextual-spacing=\"false\" style:font-independent-line-spacing=\"false\"/></style:style>"
+        ))
+        .collect::<String>();
+    let inert = assessment_xml_change(&original, "styles.xml", |xml| {
+        xml.replace("</office:styles>", &format!("{gallery}</office:styles>"))
+    });
+    let inert_report = import_document_with_warnings(
+        DocumentFormat::Odt,
+        &inert,
+        Id::new("odt-inert-warning-budget").unwrap(),
+        "original.odt",
+    )
+    .unwrap();
+    assert_eq!(inert_report.warnings.len(), 128);
+    assert!(inert_report.omitted_warnings >= 12);
+    assert!(!inert_report.has_formatting_normalizations);
+    let ImportOutcome::Editable(inert_file) = inert_report.outcome else {
+        panic!("known inactive preferences must remain editable")
+    };
+    assert!(
+        !assess_file(DocumentFormat::Docx, &inert_file)
+            .unwrap()
+            .warnings
+            .iter()
+            .any(|notice| notice.code == "original_formatting_changes")
+    );
+    let source = assessment_xml_change(&inert, "styles.xml", |xml| {
+        xml.replace("</office:styles>", "<style:style style:name=\"LanguageStyle\" style:family=\"paragraph\"><style:text-properties fo:language=\"en\"/></style:style></office:styles>")
+    });
+    let report = import_document_with_warnings(
+        DocumentFormat::Odt,
+        &source,
+        Id::new("odt-meaningful-warning-budget").unwrap(),
+        "original.odt",
+    )
+    .unwrap();
+    assert_eq!(report.warnings.len(), 128);
+    assert!(report.omitted_warnings >= 13);
+    assert!(report.has_formatting_normalizations);
+    assert!(
+        !report
+            .warnings
+            .iter()
+            .any(|notice| notice.path.contains("language"))
+    );
+    let ImportOutcome::Editable(file) = report.outcome else {
+        panic!("known language formatting must remain editable")
+    };
+    assert_source_formatting_warning_survives_native_reopen(&file);
+    assert_eq!(file.original_source().unwrap().bytes(), source);
+}
+
+#[test]
+fn unusable_odt_and_rtf_originals_cannot_be_assessed_as_safe_external_copies() {
+    let document = formatted_document(Default::default(), Default::default());
+    let odt = export_document(DocumentFormat::Odt, &document).unwrap();
+    let unsupported_odt = assessment_xml_change(&odt, "content.xml", |xml| {
+        xml.replace(
+            "</office:text>",
+            "<text:p><text:note>Unsupported meaningful note</text:note></text:p></office:text>",
+        )
+    });
+    for (source_format, source) in [
+        (DocumentFormat::Odt, unsupported_odt.as_slice()),
+        (DocumentFormat::Rtf, b"{\\rtf1\\unknown42 text}".as_slice()),
+    ] {
+        for (media_type, expected) in [
+            ("application/zip", "invalid_original_source"),
+            (source_format.media_type(), "unsupported_original_source"),
+        ] {
+            let original = OriginalSource::new(
+                source_format.extension(),
+                media_type,
+                format!("original.{}", source_format.extension()),
+                source,
+            )
+            .unwrap();
+            let file = WriterFile::with_original_source(document.clone(), original).unwrap();
+            let before = serialize_writer_file(&file).unwrap();
+            assert!(
+                assess_file(DocumentFormat::Writer, &file)
+                    .unwrap()
+                    .warnings
+                    .is_empty()
+            );
+            for format in EXTERNAL_FORMATS {
+                assert_eq!(
+                    assess_file(format, &file).unwrap_err().code,
+                    expected,
+                    "{source_format:?} source to {format:?}"
+                );
+            }
+            assert_eq!(serialize_writer_file(&file).unwrap(), before);
+            assert_eq!(file.original_source().unwrap().bytes(), source);
+        }
+    }
 }
 
 #[test]

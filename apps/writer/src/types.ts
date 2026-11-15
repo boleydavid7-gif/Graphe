@@ -259,6 +259,8 @@ export interface LayoutView {
 /** A visual request interpreted against the Rust layout, never DOM text metrics. */
 export type LayoutAction =
   | { readonly type: 'hit'; readonly pageNumber: number; readonly x: number; readonly y: number; readonly extend?: boolean }
+  | { readonly type: 'select_word'; readonly pageNumber: number; readonly x: number; readonly y: number }
+  | { readonly type: 'drag_endpoint'; readonly endpoint: 'anchor' | 'focus'; readonly pageNumber: number; readonly x: number; readonly y: number }
   | { readonly type: 'move'; readonly direction: LayoutMoveDirection; readonly extend?: boolean }
   | { readonly type: 'select_all' };
 

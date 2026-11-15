@@ -53,11 +53,13 @@ and explicit approvals govern the task's scope.
   The save/export/mobile reliability correction was merged through PR #15 at
   `22dfe38`. Preserve its safeguards and disclosed device-testing limits.
   The document-menu correction was merged through PR #16 at `b3e879e`.
-  The current stability/file-compatibility audit is restricted to
-  `design/writer-lamplight-polish` (PR #17). Commit verified corrections there;
-  do not merge or deploy. Reuse the reviewed PR #18 Save As/source-preservation
-  fixes without discarding this branch's Lamplight work. Earlier merge approvals
-  do not authorize a merge or deployment for this audit.
+  The stability/file-compatibility audit was committed to PR #17 at `f78e3ba`.
+  Phase 2 starts on `dev/writer-stability-phase2` from latest audited PR #17
+  head `e501d76`, including the Lamplight bridge also merged through PR #19.
+  Preserve those corrections and integration boundaries. Complete mobile text
+  selection before proceeding to compatibility, PDF, performance or CI work.
+  Do not merge, deploy or modify unrelated applications. Earlier approvals do
+  not authorize a merge or deployment for Phase 2.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -71,6 +73,11 @@ and explicit approvals govern the task's scope.
   that every formatting value fit the native model exactly. Content, protection,
   revision, malformed-structure and unknown-markup guards remain strict; an
   independent warning budget must never hide a blocking finding.
+- Phase 2's bounded ODT/RTF normalization follows that same original-preservation
+  policy. Classify exact known settings before blocker budgeting, retain a
+  meaningful-loss summary before notice truncation, and use full-file copy
+  assessment across external destinations. Unknown/protected/content-bearing
+  constructs remain guarded. See `docs/PHASE2_COMPATIBILITY.md`.
 - Recognize inert DOCX auxiliary data by exact relationship URI/source role,
   content type and inspected payload, never by filename alone. Preserve it in
   the original. Known theme/script formatting and layout preferences may be
@@ -124,6 +131,17 @@ and explicit approvals govern the task's scope.
   compatibility click. Stale layout must retain the Rust selection, not prevent
   focus. Scroll/cancel must not summon input. VisualViewport adjustments only
   reveal Rust geometry; bound keyboard padding within the workspace allocation.
+- Mobile word/endpoint selection uses Rust layout actions and pinned Unicode
+  segmentation. JavaScript may track gesture coordinates and render handles,
+  but must not segment text or derive document offsets from browser layout.
+  Keep logical anchor/focus identity across crossings and bidi ranges. Cancel
+  gestures on changed identity/revision/selection, composition, conflicting
+  multi-touch or replacement. Selection-only changes do not advance revisions.
+- Clipboard cut/paste from custom selection controls must recheck the live Rust
+  identity, revision and exact directed selection after browser I/O, as well as
+  composition and control lifetime. Never cut before clipboard writing succeeds.
+  Never restore an unfocused contenteditable DOM range from a hold timer: that
+  can itself focus the editor. Use trusted release/Edit for focus.
 - Do not close a disclosure menu on ambiguous null-target blur: Safari may
   decline to focus a pointer-activated button, and closing before click swallows
   the command. Preserve outside-pointer, Escape and known-outside keyboard
@@ -133,6 +151,15 @@ and explicit approvals govern the task's scope.
   never guess legacy encodings or replace invalid Unicode silently. PDF export
   renders Rust page geometry, not browser print layout. Disclose vector-outline
   export's search/selection/accessibility limitations before download.
+- Phase 2's Type 3 PDF experiment failed independent rendering acceptance; keep
+  the verified outlined profile and warning. Do not revive experimental layout
+  metadata or claim searchable/tagged/archival PDF without the new acceptance
+  evidence described in `docs/PHASE2_PDF.md`.
+- Library metadata listing uses measured cursor traversal and shared validation,
+  without the owned body copies required by load/save. Keep completion, corruption,
+  sorting and etag guards. Do not infer one-record total memory or add a database
+  migration/cache from estimates; use the manual tools and recorded measurements
+  in `docs/PHASE2_PERFORMANCE.md`.
 - The planned comprehensive technical, security, DOCX-compatibility and commercial-
   licensing audit remains pending. The owner explicitly requested Step 7.5
   after Step 7; do not interpret that as completion of the audit or permission
