@@ -838,6 +838,9 @@ export default function App() {
     + (importWarnings?.omittedDiagnostics ?? 0);
   const visibleError = error || (saveState.error
     ? `${message(saveState.error)} Autosave is paused. Your document is still open; retry Save or export a backup.` : '');
+  const wordCountLabel = documentOpen && view
+    ? `${view.wordCount.toLocaleString()} ${view.wordCount === 1 ? 'word' : 'words'}`
+    : null;
   const saveLabel = !documentOpen ? 'No document open'
     : saveState.phase === 'error' ? 'Unsaved · autosave paused'
       : saveState.composing ? 'Composing · not saved'
@@ -857,7 +860,10 @@ export default function App() {
         <input aria-label="Document title" className="document-title" placeholder="Untitled document"
           value={documentOpen ? view?.title ?? '' : ''} disabled={unavailable} maxLength={250}
           onChange={(event) => command({ type: 'set_title', title: event.target.value })} />
-        <span className="mobile-save-state" aria-live="polite">{saveLabel}</span>
+        <div className="mobile-document-meta">
+          <span className="mobile-save-state" aria-live="polite">{saveLabel}</span>
+          {wordCountLabel && <output className="mobile-word-count" aria-label="Word count" aria-live="off">{wordCountLabel}</output>}
+        </div>
       </div>
       <nav className="file-actions" aria-label="Document actions">
         <button className="desktop-action" disabled={!view || busy || composing} onClick={newDocument}><WriterIcon name="new" /><span>New</span></button>
@@ -1081,7 +1087,7 @@ export default function App() {
           : pageInfo.status === 'loading' ? 'Preparing pages…'
             : pageInfo.pageCount === 0 ? 'No pages'
               : `Page ${pageInfo.currentPage ?? '—'} of ${pageInfo.pageCount ?? '—'}`}</span>
-      <span className="word-count">{documentOpen && view ? `${view.wordCount.toLocaleString()} ${view.wordCount === 1 ? 'word' : 'words'}` : 'Writer'}</span>
+      <span className="word-count">{wordCountLabel ?? 'Writer'}</span>
       <span role="status" className="status-message">{saveState.phase === 'error' ? saveLabel : notice || 'Your work stays in this browser · Export for a backup'}</span>
       <div className="zoom-controls" role="group" aria-label="Document zoom">
         {previewZoom === 'fit' && pageInfo.zoomPercent != null && documentOpen
