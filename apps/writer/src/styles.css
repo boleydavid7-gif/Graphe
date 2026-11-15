@@ -1600,3 +1600,19 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     display: flex;
   }
 }
+
+
+/* Semantic list tools live in the existing Write ribbon. On phones they use
+   the existing progressive-disclosure formatting row, never a new footer. */
+.list-controls { gap: 4px; padding-right: 10px; border-right: 1px solid var(--writer-border-subtle); }
+.list-controls .format-button { min-width: 36px; }
+.list-controls .format-button svg { width: 20px; height: 20px; }
+@media (max-width: 620px) {
+  .show-more-formatting .list-controls {
+    order: 7;
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding: 3px 0 0;
+    border-right: 0;
+  }
+}
