@@ -87,6 +87,13 @@ partial editable document. See [file formats](docs/FILE_FORMATS.md),
 [dependency licensing](docs/DEPENDENCIES.md). The planned comprehensive technical,
 security, DOCX and commercial-licensing audit remains pending; Step 8 is not begun.
 
+The save/export/mobile reliability correction is documented in
+[the workflow verification report](docs/WRITER_RELIABILITY.md). It repairs local
+storage recovery, replacement-session Save, modal shortcuts and mobile input
+focus. Prepared exports provide explicit download/open links while preserving
+the local save status. Physical iOS keyboard and installed-app behavior still
+require device verification; mobile Chromium checks do not establish that.
+
 The project does not use an existing complete Office or word-processing engine.
 Serde and serde_json support model serialization. The low-level
 unicode-segmentation library supplies Unicode grapheme boundaries. Native storage

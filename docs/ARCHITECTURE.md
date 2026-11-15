@@ -971,7 +971,7 @@ transform the supplied geometry. Immutable glyph subtrees are reused for
 selection-only updates; content layout requests coalesce on animation frames.
 
 The previously tested `EditorSurface` remains a controlled semantic DOM input
-projection. Its clipped, focusable paged-mode form supports browser input,
+projection. Its transparent, nonzero-size focusable paged-mode form supports browser input,
 composition, accessibility and clipboard events; it never determines visible
 line/page geometry. Native logical DOM selections still pass through core
 UTF-16/grapheme validation. Composition text is transient until one Rust
@@ -986,6 +986,27 @@ and session/document/revision plus replacement epochs reject stale completion.
 Errors pause retries and retain dirty memory; active IME pauses serialization
 and cannot be labeled saved. Visibility/unload handling remains best effort,
 and a pending IndexedDB transaction cannot be canceled after it starts.
+
+The reliability correction permits a failed IndexedDB open or abnormal connection
+close to reconnect on the next operation without changing record etags. Explicit
+close/version changes remain terminal. A replacement session's explicit Save
+starts a fresh bounded drain if it joined its predecessor's exhausted lane;
+errors still pause retries and stale completions cannot clear current work.
+
+External file handoff uses a connected anchor and retains one immutable Blob URL
+for explicit download/open links. Replacement, dismissal and unmount release it.
+The UI reports a prepared copy, since browser APIs cannot confirm delivery to
+disk. Conversion assessments and source privacy disclosures remain unchanged;
+modal shortcuts cannot reset acknowledgement or stack another file dialog.
+
+Completed touch taps focus input synchronously, with compatibility-click recovery;
+a stale hit retains the existing Rust selection. Scroll/cancel does not focus.
+VisualViewport scroll/resize reveals the Rust caret and clamps the proxy inside
+the visible region. Bounded trailing padding on the inner editor supplies scroll
+room above an overlay keyboard; the workspace flex item keeps its base padding,
+so keyboard/rotation cannot inflate its minimum height or alter Rust pagination.
+Physical Safari/PWA keyboard behavior is not established by emulation. See
+[workflow verification](WRITER_RELIABILITY.md).
 
 Find is a bounded Rust literal/case-sensitive paragraph search, returning
 origin-bound selections expanded to complete core graphemes without changing

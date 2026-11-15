@@ -85,13 +85,18 @@ function formatMediaType(format: string): string {
   return FILE_FORMATS.find((item) => item.format === format)?.mediaType ?? 'application/octet-stream';
 }
 
-function download(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
+function requestDownload(url: string, filename: string) {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.hidden = true;
+  // Keep the activation target connected and inside the active modal, rather
+  // than inert behind it. A browser that previews a file must not replace Writer.
+  (document.activeElement?.closest('dialog[open]') ?? document.body).append(link);
+  try { link.click(); }
+  finally { link.remove(); }
 }
 
 function safeFilename(title: string, extension: string): string {
@@ -124,6 +129,8 @@ export default function App() {
   const documentOpenRef = useRef(true);
   const saveController = useRef<WriterSaveController | null>(null);
   const pending = useRef<(() => void | Promise<void>) | null>(null);
+  const preparedExportUrl = useRef<string | null>(null);
+  const [preparedExport, setPreparedExport] = useState<{ url: string; filename: string; automaticFailed: boolean } | null>(null);
   const [view, setView] = useState<WriterView | null>(null);
   const [startupError, setStartupError] = useState('');
   const [error, setError] = useState('');
@@ -152,6 +159,29 @@ export default function App() {
   const [pageInfo, setPageInfo] = useState<PageInfo>({ pageCount: null, currentPage: null, status: 'loading', zoomPercent: null });
   const editingPageInfo = useRef(pageInfo);
   const previousPreview = useRef(false);
+
+  useEffect(() => () => {
+    if (preparedExportUrl.current) URL.revokeObjectURL(preparedExportUrl.current);
+  }, []);
+
+  function dismissPreparedExport() {
+    if (preparedExportUrl.current) URL.revokeObjectURL(preparedExportUrl.current);
+    preparedExportUrl.current = null;
+    setPreparedExport(null);
+  }
+
+  function download(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const previous = preparedExportUrl.current;
+    preparedExportUrl.current = url;
+    let automaticFailed = false;
+    try { requestDownload(url, filename); }
+    catch { automaticFailed = true; }
+    setPreparedExport({ url, filename, automaticFailed });
+    if (previous) URL.revokeObjectURL(previous);
+    // Keep this one immutable copy usable through a fresh, native link gesture.
+    // There is no browser API confirming that a download reached Files/disk.
+  }
 
   useLayoutEffect(() => {
     const enteringPreview = !previousPreview.current && pagePreview;
@@ -531,7 +561,7 @@ export default function App() {
       const bytes = engine.current.serialize();
       download(new Blob([bytes.slice().buffer], { type: 'application/json;charset=utf-8' }), safeFilename(viewRef.current.title, 'writer'));
       setExportDisclosure(false);
-      setNotice('Writer file exported. Export does not replace your local save.');
+      setNotice('Writer copy ready. Export does not replace your local save.');
     } catch (failure) { setError(message(failure)); }
   }
 
@@ -597,7 +627,7 @@ export default function App() {
       const filename = safeFilename(current.filename.replace(/\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
       download(new Blob([bytes.slice().buffer], { type: formatMediaType(current.format) }), filename);
       closeSaveAs();
-      setNotice(`${formatName(current.format)} copy downloaded. This does not replace your local Writer save.`);
+      setNotice(`${formatName(current.format)} copy ready. This does not replace your local Writer save.`);
     } catch (failure) {
       setSaveAs({ ...current, assessment: null, acknowledged: false, error: message(failure) });
     }
@@ -614,7 +644,7 @@ export default function App() {
       }
       const bytes = engine.current.exportFormat('docx', false, assessment);
       download(new Blob([bytes.slice().buffer], { type: DOCX_MEDIA_TYPE }), safeFilename(viewRef.current.title, 'docx'));
-      setNotice('Word file exported from current supported content. Export does not replace your local save.');
+      setNotice('Word copy ready from current supported content. Export does not replace your local save.');
     } catch (failure) { setError(message(failure)); }
   }
 
@@ -624,7 +654,7 @@ export default function App() {
     try {
       const bytes = engine.current.exportOriginal();
       download(new Blob([bytes.slice().buffer], { type: formatMediaType(source.format) }), source.filename);
-      setNotice('Exact original downloaded. Later edits are available through Save As and the local Writer save.');
+      setNotice('Exact original ready. Later edits are available through Save As and the local Writer save.');
     } catch (failure) { setError(message(failure)); }
   }
 
@@ -650,6 +680,12 @@ export default function App() {
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
       if (!(event.ctrlKey || event.metaKey) || event.altKey || composing) return;
+      // An application shortcut must not reset an active format review, stack
+      // another modal, or move focus behind the dialog into the editor.
+      if (document.querySelector('dialog[open]')) {
+        if (['s', 'o', 'f'].includes(event.key.toLowerCase())) event.preventDefault();
+        return;
+      }
       if (event.key.toLowerCase() === 's') {
         event.preventDefault();
         if (event.shiftKey) reviewSaveAs(); else void saveDocument();
@@ -804,6 +840,15 @@ export default function App() {
       {saveConflict && <button onClick={() => void saveCopy()} disabled={busy}>Save a separate copy</button>}
       {saveState.error && <button disabled={busy || composing} onClick={() => void saveDocument()}>Retry save</button>}
       {error && <button aria-label="Dismiss error" onClick={() => setError('')}>×</button>}</div>}
+    {preparedExport && <aside className="prepared-export" aria-label="Prepared export">
+      <p role="status"><strong>{preparedExport.filename}</strong> is ready. {preparedExport.automaticFailed
+        ? 'Your browser could not start the automatic download. Use a file link.'
+        : 'Check Downloads or Files. If no file appeared, use a file link.'}
+        <span>This copy does not include later edits and does not replace your local save.</span></p>
+      <a href={preparedExport.url} download={preparedExport.filename} target="_blank" rel="noopener">Download file</a>
+      <a href={preparedExport.url} target="_blank" rel="noopener">Open copy</a>
+      <button className="icon-button" aria-label="Dismiss prepared export" onClick={dismissPreparedExport}>×</button>
+    </aside>}
     {documentOpen && importWarnings && importWarningCount > 0 && <aside className="import-notice" aria-label="Import formatting notice" key={view?.sessionId}>
       <p role="status"><strong>Formatting adjusted for editing.</strong> Some original formatting uses disclosed approximations. Your exact original is retained.</p>
       <details>

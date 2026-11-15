@@ -83,6 +83,7 @@ export class WriterSaveController {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private deadline: ReturnType<typeof setTimeout> | undefined;
   private running: Promise<boolean> | undefined;
+  private runningEpoch: number | undefined;
   private followUp = false;
   private disposed = false;
 
@@ -217,17 +218,27 @@ export class WriterSaveController {
     }
     this.followUp = true;
     if (!this.running) {
+      this.runningEpoch = requestedEpoch;
       // Enter on a microtask so the shared lane exists before callbacks run.
       this.running = Promise.resolve().then(() => this.drain()).finally(() => {
         this.running = undefined;
+        this.runningEpoch = undefined;
         if (this.dirty && !this.timer) this.schedule();
       });
     }
+    const joinedEpoch = this.runningEpoch;
     return this.running.then(() => {
       if (this.disposed || requestedEpoch !== this.epoch) return false;
       const current = this.options.current();
-      return identityMatches(requestedOrigin, current) && !this.composing && !this.dirty
+      const saved = identityMatches(requestedOrigin, current) && !this.composing && !this.dirty
         && this.association !== null && this.savedRevision === current?.revision;
+      // The old session may have exhausted its two attempts before this request
+      // could run. A replacement's explicit Save must not be silently dropped,
+      // especially for an untouched blank document with no autosave timer.
+      if (!saved && joinedEpoch !== requestedEpoch && !this.composing && !this.error) {
+        return this.request(explicit);
+      }
+      return saved;
     });
   }
 

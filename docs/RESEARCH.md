@@ -776,3 +776,48 @@ producer/consumer commands and fixture hashes are in
 [cf-assets]: https://developers.cloudflare.com/workers/static-assets/
 [cf-config]: https://developers.cloudflare.com/cf/projects/cloudflare-config/
 [cdp-ime]: https://chromedevtools.github.io/devtools-protocol/tot/Input/#method-imeSetComposition
+
+## Save, export and mobile-input reliability review
+
+Questions: why can a retry remain broken, can explicit Save be lost during a
+document replacement, how long should an export URL survive, and do paged input
+focus/viewport updates interfere with touch editing?
+
+Primary sources reviewed:
+
+- [IndexedDB transaction completion](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/complete_event)
+  and [abnormal connection close](https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase/close_event):
+  keep completion/etag guards; reconnect a failed or unexpectedly closed connection.
+- [WebKit user activation](https://webkit.org/blog/13862/the-user-activation-api/):
+  non-mouse pointerup can trigger activation. Keep focus synchronous in the tap;
+  do not assume pointerup itself is forbidden. Compatibility mouse/click events
+  can subsequently move focus, so complete focus in that same gesture.
+- [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport):
+  layout and visible viewports differ with keyboards and zoom. Observe its scroll
+  and resize events; keep the input and Rust caret visible. Bound added scroll
+  padding to prevent feedback when almost none of the workspace is visible.
+- [Anchor download](https://developer.mozilla.org/en-US/docs/Web/API/HTMLAnchorElement/download),
+  [HTML downloading](https://html.spec.whatwg.org/multipage/links.html#downloading-resources)
+  and [Blob URL lifetime](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/blob):
+  the browser controls delivery and offers no success receipt. Keep one copy
+  alive with fresh native download/open links, then revoke on explicit lifecycle
+  boundaries. [WebKit's historical blob-download issue](https://bugs.webkit.org/show_bug.cgi?id=211234)
+  is context, not proof of current iOS behavior.
+
+Reviewed `WriterStorage`, `WriterSaveController`, App file dialogs/conversions,
+`PagedEditor`, `EditorSurface`, Rust/WASM export APIs and the existing workflow
+tests. Confirmed critical save-recovery defects: a rejected open was cached and
+a replacement blank document's explicit Save could be swallowed by an exhausted
+old save lane. Targeted fixes preserve transaction completion, conflict checking,
+source retention and current-session dirty state. Important browser defects:
+Save As shortcuts reset consent/stacked dialogs; a trusted touch tap could lose
+focus; stale geometry prevented focus; viewport reveal ignored the keyboard.
+Regression tests cover each. Review also found padding feedback under nearly
+complete occlusion; bound it without changing Rust geometry.
+
+Retain existing serializers and browser download support rather than introduce
+Web Share, File System Access, another storage library or a new editing layer.
+No new dependency or licensing decision. Native download/open links are a modest
+fallback for blocked automatic handoff, not a claim of OS-level success. Exact
+results, initial test-harness corrections and untested physical iOS/PWA behavior
+are recorded in [WRITER_RELIABILITY.md](WRITER_RELIABILITY.md).
