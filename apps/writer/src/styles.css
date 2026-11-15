@@ -540,3 +540,17 @@ dialog p { font-size: 13px; line-height: 1.6; }
   .formatting-bar:not(.show-more-formatting) > * { flex-shrink: 0; }
   .formatting-bar.show-more-formatting { height: auto; max-height: none; }
 }
+
+
+/* Soft Lamplight menu: no bright outline, no transparency or glossy treatment. */
+.document-menu-panel,
+:root[data-writer-appearance] .document-menu-panel {
+  border: 1px solid color-mix(in srgb, var(--line) 35%, var(--surface-raised));
+  border-radius: 16px;
+  overflow: auto;
+  box-shadow: 0 12px 28px rgb(0 0 0 / .22);
+}
+:root[data-writer-appearance] .document-menu-panel {
+  border-color: color-mix(in srgb, var(--writer-border) 32%, var(--writer-surface-raised));
+}
+.document-menu-panel > button { border-radius: 9px; }
