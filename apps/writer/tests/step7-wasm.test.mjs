@@ -178,6 +178,23 @@ test('actual WASM soft-break navigation uses downstream carets and End before th
   assert.equal(next.geometry.focus.position.paragraphId, end.geometry.focus.position.paragraphId);
 });
 
+test('actual WASM Replace All is one undoable command with stale revision protection', (context) => {
+  const instance = engine(context);
+  const original = dispatch(instance, { type: 'replace_text', text: 'red red\nred' });
+  const replaced = dispatch(instance, { type: 'replace_all', query: 'red', text: 'blue',
+    expectedRevision: original.revision });
+  assert.deepEqual(replaced.paragraphs.map((p) => p.runs.map((r) => r.text).join('')), ['blue blue', 'blue']);
+  const bytes = instance.export_document();
+  const stale = JSON.parse(instance.dispatch(JSON.stringify({ type: 'replace_all',
+    query: 'blue', text: 'green', expectedRevision: original.revision })));
+  assert.equal(stale.ok, false);
+  assert.equal(stale.error.code, 'stale_revision');
+  assert.deepEqual(instance.export_document(), bytes);
+  const undone = dispatch(instance, { type: 'undo' });
+  assert.deepEqual(undone.paragraphs.map((p) => p.runs.map((r) => r.text).join('')), ['red red', 'red']);
+  assert.equal(undone.canUndo, true);
+});
+
 test('actual WASM literal find preserves content and expands partial Unicode hits to complete core graphemes', (context) => {
   const instance = engine(context);
   dispatch(instance, { type: 'replace_text', text: 'Writer writer Ae\u0301\u0301 👩🏽‍💻\nwriter' });
