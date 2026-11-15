@@ -678,6 +678,7 @@ export default function App() {
   }
 
   const [proairetosFileId, setProairetosFileId] = useState<string | null>(null);
+  const proairetosSession = useRef<string | null>(null);
 
   async function saveCopyInProairetos() {
     const current = saveAs;
@@ -686,8 +687,13 @@ export default function App() {
     try {
       const bytes = engine.current.exportFormat(current.format, current.assessment.warnings.length > 0, current.assessment);
       const filename = safeFilename(current.filename.replace(/\\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
-      const savedId = await saveToProairetos(filename, current.format, bytes, proairetosFileId ?? undefined);
-      setProairetosFileId(savedId);
+      const sessionId = viewRef.current?.sessionId;
+      const existingId = proairetosSession.current === sessionId ? proairetosFileId : null;
+      const savedId = await saveToProairetos(filename, current.format, bytes, existingId ?? undefined);
+      if (viewRef.current?.sessionId === sessionId) {
+        setProairetosFileId(savedId);
+        proairetosSession.current = sessionId ?? null;
+      }
       closeSaveAs();
       setNotice(filename + ' saved in ProairetOS Files / Documents.');
     } catch (failure) {
