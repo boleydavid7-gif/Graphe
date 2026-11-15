@@ -41,10 +41,10 @@ const STYLES_CONTENT_TYPE: &str =
 const CORE_CONTENT_TYPE: &str = "application/vnd.openxmlformats-package.core-properties+xml";
 const MAX_IMPORT_ID_BYTES: usize = 256;
 
-struct PartGraph {
-    styles: Option<String>,
-    core_properties: Option<String>,
-    ancillary: BTreeMap<AncillaryKind, String>,
+pub(crate) struct PartGraph {
+    pub(crate) styles: Option<String>,
+    pub(crate) core_properties: Option<String>,
+    pub(crate) ancillary: BTreeMap<AncillaryKind, String>,
 }
 
 #[derive(Default)]
@@ -129,7 +129,7 @@ pub(crate) fn import_document(
     }))
 }
 
-fn inspect_semantic_graph(
+pub(crate) fn inspect_semantic_graph(
     package: &Package,
     original: &DocxSource,
     report: &mut CompatibilityReport,

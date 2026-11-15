@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { inflateRawSync } from 'node:zlib';
 import { test, expect, type Download, type Page } from '@playwright/test';
 import { documentAction, focusEditor, readyPages } from './step7-test-helpers';
 
@@ -35,13 +36,10 @@ async function saveAs(page: Page, format: 'writer' | 'docx') {
   await documentAction(page, 'Save As…');
   const dialog = page.getByRole('dialog', { name: 'Save As', exact: true });
   await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption(format);
-  const acknowledgement = dialog.getByRole('checkbox', { name: 'I understand the format limitations', exact: true });
-  await expect(acknowledgement).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Download copy', exact: true })).toBeDisabled();
-  if (format === 'docx') await expect(dialog).toContainText('metadata and auxiliary package parts');
-  await acknowledgement.check();
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Save copy', exact: true })).toBeEnabled();
   const downloading = page.waitForEvent('download');
-  await dialog.getByRole('button', { name: 'Download copy', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Save copy', exact: true }).click();
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(new RegExp(`\\.${format}$`, 'i'));
   await expect(dialog).toHaveCount(0);
@@ -49,6 +47,31 @@ async function saveAs(page: Page, format: 'writer' | 'docx') {
 }
 
 const input = (page: Page) => page.getByRole('textbox', { name: 'Document content', exact: true });
+
+/** Inspect actual copied ZIP parts independently of the Rust adapter. */
+function zipPart(bytes: Buffer, name: string): string {
+  const end = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (end < 0) throw new Error('Missing ZIP end record');
+  let cursor = bytes.readUInt32LE(end + 16);
+  for (let index = 0; index < bytes.readUInt16LE(end + 10); index += 1) {
+    if (bytes.readUInt32LE(cursor) !== 0x02014b50) throw new Error('Invalid ZIP central entry');
+    const method = bytes.readUInt16LE(cursor + 10);
+    const size = bytes.readUInt32LE(cursor + 20);
+    const nameLength = bytes.readUInt16LE(cursor + 28);
+    const extraLength = bytes.readUInt16LE(cursor + 30);
+    const commentLength = bytes.readUInt16LE(cursor + 32);
+    const path = bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+    if (path === name) {
+      const local = bytes.readUInt32LE(cursor + 42);
+      const data = local + 30 + bytes.readUInt16LE(local + 26) + bytes.readUInt16LE(local + 28);
+      const payload = bytes.subarray(data, data + size);
+      if (method !== 0 && method !== 8) throw new Error('Unsupported ZIP compression');
+      return (method === 8 ? inflateRawSync(payload) : payload).toString('utf8');
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  throw new Error(`Missing copied ZIP part ${name}`);
+}
 
 test('harmless DOCX auxiliaries open through the real UI, preserve originals locally and export current edited content', async ({ page }) => {
   const original = await readFile(new URL('supported-strict-authoring-metadata.docx', directory));
@@ -91,6 +114,19 @@ test('harmless DOCX auxiliaries open through the real UI, preserve originals loc
   expect(JSON.parse((await saveAs(page, 'writer')).toString('utf8'))).toEqual(persisted);
   const copy = await saveAs(page, 'docx');
   expect(copy).not.toEqual(original);
+  expect(zipPart(copy, 'docProps/core.xml')).toContain('Fixture Author');
+  expect(zipPart(copy, 'docProps/core.xml')).toContain('Auxiliary relationship recovery');
+  expect(zipPart(copy, 'docProps/custom.xml')).toContain('Relationship regression');
+  expect(zipPart(copy, 'docProps/app.xml')).toContain('Writer relationship fixture');
+  expect(zipPart(copy, 'word/theme/theme1.xml')).toContain('Office Theme');
+  expect(zipPart(copy, 'word/fontTable.xml')).toContain('Arimo');
+  expect(zipPart(copy, 'word/settings.xml')).toContain('zoom');
+  expect(zipPart(copy, 'word/_rels/document.xml.rels')).toContain('/theme');
+  expect(zipPart(copy, '_rels/.rels')).toContain('/custom-properties');
+  // Strict input roles are recreated as coherent Transitional relationships;
+  // edited body/title win while retained metadata remains available.
+  expect(zipPart(copy, 'word/theme/theme1.xml')).not.toContain('purl.oclc.org/ooxml/drawingml');
+  expect(JSON.parse((await saveAs(page, 'writer')).toString('utf8'))).toEqual(persisted);
   await openFile(page, copy, 'edited-copy.docx');
   await expect(page.getByRole('dialog', { name: 'Open document', exact: true })).toHaveCount(0);
   await expect(input(page)).toHaveText(updated);

@@ -610,7 +610,9 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                     // after pointerup. Complete focus in this same tap gesture.
                     input.current?.focus();
                   }}
-                  style={{ touchAction: 'pan-y', userSelect: 'none', cursor: 'text' }}>
+                  // Keep native magnification available alongside document
+                  // scrolling; pan-y alone disables the browser's pinch zoom.
+                  style={{ touchAction: 'pan-y pinch-zoom', userSelect: 'none', cursor: 'text' }}>
                   {selection?.rectangles.filter((rectangle) => rectangle.pageNumber === page.number).map((rectangle, index) =>
                     <rect key={`selection-${index}`} className="paged-editor-selection" {...rectangle.rect} data-editor-selection="true" />)}
                   <GlyphLines lines={page.lines} namespace={namespace} />

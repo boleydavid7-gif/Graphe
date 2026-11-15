@@ -68,7 +68,9 @@ and rejected imports leave all prior content, history and notices intact.
 The browser activates a detached imported document only after its full native
 file and exact original have been saved in the existing IndexedDB transaction.
 An accessible **Formatting adjusted for editing** notice explains approximations
-and offers bounded details. Save As continues requiring loss acknowledgement.
+and offers bounded details. Save As now uses brief meaningful-loss warnings;
+Save copy confirms the current assessment without an acknowledgment checkbox.
+Source-aware DOCX preservation is described in [SAVE_COPY.md](SAVE_COPY.md).
 Native save/reopen retains original bytes; regenerated external copies use the
 current model and omit unmodeled original features. Original download is a
 separate operation and may include text removed by editing.

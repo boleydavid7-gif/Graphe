@@ -390,7 +390,7 @@ fn nested_groups_and_style_chains_are_bounded_without_recursion_overflow() {
 }
 
 #[test]
-fn export_reports_native_losses_and_rejects_unrepresentable_controls_without_mutation() {
+fn export_rejects_unrepresentable_controls_but_plain_rich_output_needs_no_warning() {
     let document = native("safe\0unsafe");
     let before = document.clone();
     let error = export_document(DocumentFormat::Rtf, &document).unwrap_err();
@@ -400,8 +400,7 @@ fn export_reports_native_losses_and_rejects_unrepresentable_controls_without_mut
         assess_export(DocumentFormat::Rtf, &native("plain"))
             .unwrap()
             .warnings
-            .iter()
-            .any(|warning| warning.code == "native_information")
+            .is_empty()
     );
 }
 

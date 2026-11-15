@@ -51,6 +51,12 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, Conversion
             core_properties(&document.metadata().title)?,
         ),
     ];
+    write_parts(parts)
+}
+
+pub(crate) fn write_parts<N: AsRef<str>>(
+    parts: impl IntoIterator<Item = (N, Vec<u8>)>,
+) -> Result<Vec<u8>, ConversionError> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default()
         .system(System::Unix)
@@ -61,8 +67,25 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, Conversion
                 .expect("the fixed ZIP timestamp is valid"),
         )
         .unix_permissions(0o644);
-    for (name, bytes) in parts {
-        writer.start_file(name, options).map_err(zip_error)?;
+    let mut expanded = 0_usize;
+    for (index, (name, bytes)) in parts.into_iter().enumerate() {
+        if index >= crate::MAX_PACKAGE_ENTRIES {
+            return Err(limit(
+                "package_entries",
+                crate::MAX_PACKAGE_ENTRIES,
+                index + 1,
+            ));
+        }
+        if bytes.len() > crate::MAX_PART_BYTES {
+            return Err(limit("part_bytes", crate::MAX_PART_BYTES, bytes.len()));
+        }
+        expanded = expanded.saturating_add(bytes.len());
+        if expanded > crate::MAX_EXPANDED_BYTES {
+            return Err(limit("expanded_bytes", crate::MAX_EXPANDED_BYTES, expanded));
+        }
+        writer
+            .start_file(name.as_ref(), options)
+            .map_err(zip_error)?;
         writer.write_all(&bytes).map_err(zip_error)?;
     }
     let bytes = writer.finish().map_err(zip_error)?.into_inner();

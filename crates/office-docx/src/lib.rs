@@ -13,6 +13,7 @@
 
 mod ancillary;
 mod conversion;
+mod copy;
 mod error;
 mod export;
 mod import;
@@ -25,6 +26,7 @@ pub use conversion::{
     CompatibilityDiagnostic, CompatibilityIssueKind, CompatibilityReport, ConversionError,
     DOCX_MEDIA_TYPE, DocxImportOutcome, ImportedDocx, export_docx, import_docx,
 };
+pub use copy::{DocxCopyAssessment, assess_docx_copy, export_docx_with_source};
 pub use error::DocxError;
 
 /// Maximum compressed input accepted by this prototype, in bytes (16 MiB).

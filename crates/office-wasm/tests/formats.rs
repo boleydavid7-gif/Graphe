@@ -155,17 +155,41 @@ fn all_editable_external_formats_retain_original_edit_save_and_reopen() {
 }
 
 #[test]
-fn export_warnings_require_acknowledgement_and_stale_confirmation_is_rejected() {
+fn only_meaningful_export_losses_require_review_and_stale_copies_are_rejected() {
     let mut engine = formatted_engine("loss-guard");
     let before = engine.snapshot();
+    let native = engine.export_document().unwrap();
     let revision = view(&engine)["revision"].as_str().unwrap().to_owned();
-    for format in ["docx", "odt", "rtf", "txt", "pdf"] {
+    for format in ["writer", "docx", "odt", "rtf"] {
         let report: Value =
             serde_json::from_str(&engine.export_assessment(format, Some(&revision)).unwrap())
                 .unwrap();
         assert_eq!(report["format"], format);
         assert_eq!(report["revision"], revision);
-        assert!(!report["warnings"].as_array().unwrap().is_empty());
+        assert_eq!(report["warnings"], json!([]), "{format}: {report}");
+        assert!(
+            !engine
+                .export_format(format, false, Some(&revision))
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(engine.snapshot(), before, "{format}");
+        assert_eq!(engine.export_document().unwrap(), native, "{format}");
+    }
+    for (format, warning_code) in [("txt", "plain_text_only"), ("pdf", "outlined_pdf")] {
+        let report: Value =
+            serde_json::from_str(&engine.export_assessment(format, Some(&revision)).unwrap())
+                .unwrap();
+        assert_eq!(report["format"], format);
+        assert_eq!(report["revision"], revision);
+        assert!(
+            report["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|warning| warning["code"] == warning_code),
+            "{format}: {report}"
+        );
         assert_eq!(
             engine
                 .export_format(format, false, Some(&revision))
@@ -174,6 +198,14 @@ fn export_warnings_require_acknowledgement_and_stale_confirmation_is_rejected() 
             "export_confirmation_required"
         );
         assert_eq!(engine.snapshot(), before);
+        assert!(
+            !engine
+                .export_format(format, true, Some(&revision))
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(engine.snapshot(), before, "{format}");
+        assert_eq!(engine.export_document().unwrap(), native, "{format}");
     }
     let native_report: Value =
         serde_json::from_str(&engine.export_assessment("writer", Some(&revision)).unwrap())
@@ -190,48 +222,62 @@ fn export_warnings_require_acknowledgement_and_stale_confirmation_is_rejected() 
         json!({"type":"set_title", "title":"New revision"}),
     );
     let after = engine.snapshot();
-    assert_eq!(
-        engine
-            .export_assessment("txt", Some(&revision))
-            .unwrap_err()
-            .code,
-        "stale_revision"
-    );
-    assert_eq!(
-        engine
-            .export_format("txt", true, Some(&revision))
-            .unwrap_err()
-            .code,
-        "stale_revision"
-    );
+    for format in ["writer", "docx", "odt", "rtf", "txt", "pdf"] {
+        assert_eq!(
+            engine
+                .export_assessment(format, Some(&revision))
+                .unwrap_err()
+                .code,
+            "stale_revision",
+            "{format}"
+        );
+        for acknowledge_loss in [false, true] {
+            assert_eq!(
+                engine
+                    .export_format(format, acknowledge_loss, Some(&revision))
+                    .unwrap_err()
+                    .code,
+                "stale_revision",
+                "{format}"
+            );
+        }
+    }
     assert_eq!(engine.snapshot(), after);
 }
 
 #[test]
-fn native_save_as_discloses_retained_original_without_changing_internal_saving() {
+fn native_save_copy_keeps_the_original_without_a_loss_warning_or_state_change() {
     let mut engine = BrowserEngine::new("retained-warning").unwrap();
     let opened: Value =
         serde_json::from_str(&engine.import_format(b"Sensitive original", "txt", "original.txt"))
             .unwrap();
     assert_eq!(opened["ok"], true);
+    let paragraph = opened["view"]["paragraphs"][0]["id"].clone();
+    let current = dispatch(
+        &mut engine,
+        json!({"type":"replace_text","text":"Current text only","selection":{
+            "anchor":{"paragraphId":paragraph,"utf16":0},
+            "focus":{"paragraphId":paragraph,"utf16":"Sensitive original".encode_utf16().count()}
+        }}),
+    );
+    let before = engine.snapshot();
     let report: Value =
         serde_json::from_str(&engine.export_assessment("writer", None).unwrap()).unwrap();
-    assert!(
-        report["warnings"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|warning| warning["code"] == "retained_original")
-    );
-    assert_eq!(
-        engine
-            .export_format("writer", false, None)
-            .unwrap_err()
-            .code,
-        "export_confirmation_required"
-    );
+    assert_eq!(report["warnings"], json!([]));
+    assert!(!current["originalSource"].is_null());
     let native = engine.export_document().unwrap();
+    assert_eq!(engine.export_format("writer", false, None).unwrap(), native);
     assert_eq!(engine.export_format("writer", true, None).unwrap(), native);
+    let file = deserialize_writer_file(&native).unwrap();
+    let Block::Paragraph(current_paragraph) = &file.document().sections()[0].blocks()[0];
+    assert_eq!(
+        current_paragraph
+            .runs()
+            .iter()
+            .map(|run| run.text.as_str())
+            .collect::<String>(),
+        "Current text only"
+    );
     assert_eq!(
         deserialize_writer_file(&native)
             .unwrap()
@@ -240,6 +286,65 @@ fn native_save_as_discloses_retained_original_without_changing_internal_saving()
             .bytes(),
         b"Sensitive original"
     );
+    assert_eq!(engine.snapshot(), before);
+    assert_eq!(engine.export_original().unwrap(), b"Sensitive original");
+    dispatch(&mut engine, json!({"type":"undo"}));
+    assert_eq!(
+        paragraph_text(&view(&engine)["paragraphs"][0]),
+        "Sensitive original"
+    );
+}
+
+#[test]
+fn plain_text_save_warns_only_after_meaningful_formatting_is_applied() {
+    let mut engine = BrowserEngine::new("conditional-text-warning").unwrap();
+    let text = "Plain e\u{301} 👩🏽‍💻";
+    let opened: Value =
+        serde_json::from_str(&engine.import_format(text.as_bytes(), "txt", "plain.txt")).unwrap();
+    assert_eq!(opened["ok"], true, "{opened}");
+    let paragraph = opened["view"]["paragraphs"][0]["id"].clone();
+    let selection = json!({
+        "anchor":{"paragraphId":paragraph,"utf16":0},
+        "focus":{"paragraphId":paragraph,"utf16":text.encode_utf16().count()}
+    });
+    let report: Value =
+        serde_json::from_str(&engine.export_assessment("txt", None).unwrap()).unwrap();
+    assert_eq!(report["warnings"], json!([]));
+    assert_eq!(
+        engine.export_format("txt", false, None).unwrap(),
+        text.as_bytes()
+    );
+    dispatch(
+        &mut engine,
+        json!({"type":"format_character","bold":true,"selection":selection}),
+    );
+    let before = engine.snapshot();
+    let report: Value =
+        serde_json::from_str(&engine.export_assessment("txt", None).unwrap()).unwrap();
+    assert!(
+        report["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|warning| warning["code"] == "plain_text_only")
+    );
+    assert_eq!(
+        engine.export_format("txt", false, None).unwrap_err().code,
+        "export_confirmation_required"
+    );
+    assert_eq!(engine.snapshot(), before);
+    dispatch(
+        &mut engine,
+        json!({"type":"format_character","bold":false,"selection":selection}),
+    );
+    let report: Value =
+        serde_json::from_str(&engine.export_assessment("txt", None).unwrap()).unwrap();
+    assert_eq!(report["warnings"], json!([]));
+    assert_eq!(
+        engine.export_format("txt", false, None).unwrap(),
+        text.as_bytes()
+    );
+    assert_eq!(engine.export_original().unwrap(), text.as_bytes());
 }
 
 #[test]

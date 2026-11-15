@@ -1000,3 +1000,42 @@ cause. There were no unfinished menu actions to replace.
 semantics, dependency or document-engine change. Existing consent, composition,
 history, conflict and source-preservation guards remain. Browser/device testing
 limits are explicit in [WRITER_MENU_RELIABILITY.md](WRITER_MENU_RELIABILITY.md).
+
+## 048: Confirm meaningful copy losses with Save copy
+
+**Decision:** Save As contains filename, format and Save copy. Remove ordinary-save
+technical panels and acknowledgment checkboxes. Rust reports short warnings only
+for meaningful conversion loss; clicking Save copy confirms that displayed
+assessment. Keep backend confirmation and session/document/revision checks.
+
+**Reason:** Blanket notices about IDs, run partitions and original archives made
+every foreign save appear risky. They obscured real loss such as plain-text
+formatting, outlined PDF text/accessibility or omitted source properties/bookmarks.
+
+**Consequences:** Ordinary supported copies are warning-free. Native originals
+receive a compact privacy hint rather than a loss warning. Mobile fields stack
+at 16px and the dialog follows VisualViewport bounds. Copies never change the
+live document, original, history, local association or etag. See [SAVE_COPY.md](SAVE_COPY.md).
+
+## 049: Preserve validated DOCX source properties around regenerated content
+
+**Decision:** Full-file export routes through `office-formats::export_file` to
+the DOCX source-aware adapter. Regenerate current body/styles; carry validated
+descriptive/custom metadata and safe auxiliary parts with fresh relationships
+and content types. Require final package validation and equality with the
+freshly regenerated semantic projection.
+
+**Reason:** The document-only exporter could not see original metadata. Copying
+the entire original package would risk stale/deleted text, dangling references
+and unsupported content. A bounded source-aware adapter preserves useful data
+without coupling the shared model to DOCX or pretending arbitrary OOXML is editable.
+
+**Consequences:** Original bytes remain exact. Drop stale caches/audit counters,
+previews and XML comments/PIs; omit unsafe opaque themes with a specific brief
+warning. Normalize known Strict namespace declarations without changing property
+values. Block malformed packages and unsupported body/relationship graphs.
+An additive runtime `CompatibilityReport.has_formatting_normalizations` flag
+tracks real approximations before bounded notices overflow; no native schema,
+browser transport, dependency or editing-history format changes are needed.
+Existing document-only APIs remain available; source preservation requires a full
+file. This is a bounded compatibility profile, not full OOXML/XSD validation.

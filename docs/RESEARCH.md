@@ -865,3 +865,89 @@ Verify both native attribution links and every command, along with the mobile
 formatting overflow, disabled composition states and normal editing after export.
 See [WRITER_MENU_RELIABILITY.md](WRITER_MENU_RELIABILITY.md) for the action map,
 executed tests and unverified physical Safari/PWA behavior.
+
+## Compact Save As and source-aware DOCX copies
+
+Questions: which warnings indicate actual loss, why does a DOCX copy omit source
+properties, and which original parts can survive editing safely?
+
+Sources reviewed:
+
+- [Microsoft OPC overview](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/opc/open-packaging-conventions-overview)
+  and [relationships](https://learn.microsoft.com/en-us/previous-versions/windows/desktop/opc/relationships-overview):
+  parts, content types and relationship targets must remain consistent. A fresh
+  package must not inherit arbitrary paths or IDs without rebuilding the graph.
+- [WordprocessingML structure](https://learn.microsoft.com/en-us/office/open-xml/word/structure-of-a-wordprocessingml-document)
+  and [custom properties](https://learn.microsoft.com/en-us/office/open-xml/word/how-to-set-a-custom-property-in-a-word-processing-document):
+  document text and package metadata occupy distinct parts. Preserve known typed
+  properties without grafting the original body or unsupported relationships.
+- [ECMA-376](https://ecma-international.org/publications-and-standards/standards/ecma-376/):
+  namespace families and packaging profiles matter; Strict auxiliaries cannot be
+  silently mixed into regenerated Transitional output.
+- [React native form submission](https://react.dev/reference/react-dom/components/form)
+  and [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport):
+  use synchronous local submission with default navigation prevented, retain
+  native focus handling, and size the compact dialog to the visible keyboard area.
+
+Review found blanket `native_information`, `plain_text_only` and DOCX-source
+warnings in Rust; they forced checkbox confirmation even when ordinary content
+and formatting survived. The browser also called the document-only exporter,
+which intentionally regenerated six parts and could not recover source metadata.
+Replace blanket notices with effective-format/geometry/source-aware assessments,
+preserving stale-origin guards. Save copy itself confirms a shown meaningful
+warning; no JavaScript filtering of unknown loss codes or second document model.
+
+Preserve recognized descriptive/core/custom properties, safe themes/font tables
+and inert settings around regenerated content. Keep originals immutable outside
+history. Independent code review caught semantic-validation-only checks, incomplete
+Strict namespace rewriting, opaque theme relationship attributes and copied XML
+comments/PIs. Correct these with same-ID projection equality, exact namespace
+declaration mapping, guarded theme omission with warning, and cache/comment removal.
+Final source-copy and format tests cover each correction. Metadata/property and
+bookmark losses in other formats also receive brief proven-source warnings.
+
+A runtime meaningful-formatting flag is set before bounded normalization notices
+can overflow: a large unused style gallery neither creates a false warning nor
+hides a later real formatting approximation. No new library, licensing choice,
+core/native schema or cloud/storage subsystem was introduced. Existing low-level
+ZIP/XML libraries remain in the adapter. The narrowed theme profile is not a
+general OOXML/XSD validator; scalar lexical/schema completeness and independent
+Office application interoperability remain subjects for the planned audit.
+
+See [SAVE_COPY.md](SAVE_COPY.md) for the preservation contract, tests, screenshots
+and physical iOS/hosted verification limits.
+
+## PR #17 stability and file-compatibility audit
+
+Reviewed this branch's App dialogs/save lane, IndexedDB records, semantic input,
+SVG interaction/viewport code, WASM sessions and all concrete file adapters.
+Reused the verified PR #18 source-aware copy and warning corrections, preserving
+the branch's UI/theme and native filename/MIME behavior. No replacement storage,
+input or document engine was justified.
+
+[MDN touch-action](https://developer.mozilla.org/en-US/docs/Web/CSS/touch-action)
+explains that `pan-y` permits vertical panning and must be combined with
+`pinch-zoom` to permit native magnification. Identical real Chromium two-finger
+events reproduced scale 1 before correction and magnification after correction.
+Retain Rust page geometry and selection; the browser changes only its viewport.
+The tested dialog entrance keyframes separately overrode viewport-centering
+transforms; disable that animation only for the positioned Save As modal.
+
+The [IndexedDB transaction-complete contract](https://developer.mozilla.org/en-US/docs/Web/API/IDBTransaction/complete_event)
+remains the right save boundary. New real-browser tests abort after successful
+`put`, proving that request success alone does not mark the document saved.
+Corrupt native records and identity mismatches cannot replace live content.
+
+Actual LibreOfficeDev independently consumed edited DOCX/ODT/RTF exports with
+verified Unicode and supported character formatting. Its resaved files expose
+remaining restrictive import profiles; preserve these read-only with diagnostics
+rather than equating self-roundtrips with unrestricted compatibility. Strict
+PDF parsing and Poppler rasterization check exported page geometry/outlines.
+No installed complete editor is embedded in Writer; LibreOffice is an external
+audit consumer only, and no dependency or licensing decision was introduced.
+
+Important remaining gaps include external-producer editable interoperability,
+touch long-press/selection handles, physical Safari/Android/PWA validation and
+hosted CI runs that fail before runner allocation. Evidence, exact commands,
+counts, screenshots and release limitations are in
+[WRITER_STABILITY_AUDIT.md](WRITER_STABILITY_AUDIT.md).

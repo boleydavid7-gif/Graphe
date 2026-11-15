@@ -61,8 +61,10 @@ The subsequent [relationship correction](DOCX_RELATIONSHIPS.md) accepts inspecte
 inert metadata, unused themes, font descriptors, cached package thumbnails and
 view/proofing/session preferences. It does not resolve theme formatting, ignore
 active settings, prune unused styles or implement general markup compatibility.
-Original bytes survive native save/reopen; regenerated DOCX exports explicitly
-warn about unmodeled auxiliary parts and metadata omitted from that copy.
+Original bytes survive native save/reopen. The subsequent [source-aware copy
+path](SAVE_COPY.md) preserves validated static metadata and safe auxiliaries
+around regenerated current body/styles, warning briefly about proven meaningful
+omissions. The lower-level document-only exporter still has no original to copy.
 
 Nonfinal section properties belong to the last paragraph of that section;
 final properties belong at body end. Automatic line spacing uses 1/240-line

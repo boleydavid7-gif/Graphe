@@ -149,7 +149,7 @@ fn export_assessment_discloses_outlines_and_keeps_layout_warnings() {
             .any(|warning| warning.code == "outlined_pdf")
     );
     assert!(
-        ordinary
+        !ordinary
             .warnings
             .iter()
             .any(|warning| warning.code == "native_information")
@@ -161,6 +161,59 @@ fn export_assessment_discloses_outlines_and_keeps_layout_warnings() {
             .iter()
             .any(|warning| warning.code == "pdf_layout_missing_glyph")
     );
+}
+
+#[test]
+fn repeated_pdf_layout_findings_become_at_most_three_short_meaningful_warnings() {
+    use office_core::{Block, CharacterFormat, Document, Id, Paragraph, Section, TextRun};
+    let paragraphs = (0..24)
+        .map(|index| {
+            Block::Paragraph(Paragraph::new(
+                Id::new(format!("p{index}")).unwrap(),
+                vec![TextRun {
+                    text: "漢字".into(),
+                    format: CharacterFormat {
+                        font_family: Some("Unavailable export font".into()),
+                        ..Default::default()
+                    },
+                }],
+            ))
+        })
+        .collect();
+    let document = Document::from_parts(
+        Id::new("warnings").unwrap(),
+        Default::default(),
+        vec![Section::new(Id::new("s").unwrap(), paragraphs)],
+        vec![],
+    )
+    .unwrap();
+    let before = document.clone();
+    let warnings = assess_export(DocumentFormat::Pdf, &document)
+        .unwrap()
+        .warnings;
+    assert_eq!(warnings.len(), 3);
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.code == "outlined_pdf")
+    );
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.code == "pdf_layout_missing_glyph")
+    );
+    assert!(
+        warnings
+            .iter()
+            .any(|warning| warning.code == "pdf_layout_changes")
+    );
+    assert!(warnings.iter().all(|warning| warning.message.len() < 100));
+    assert!(
+        warnings
+            .iter()
+            .all(|warning| !warning.message.contains("Unavailable export font"))
+    );
+    assert_eq!(document, before);
 }
 
 #[test]

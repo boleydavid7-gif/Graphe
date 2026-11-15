@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
+import { inflateRawSync } from 'node:zlib';
 import test from 'node:test';
 import { URL } from 'node:url';
 import { TextDecoder, TextEncoder } from 'node:util';
@@ -51,6 +52,31 @@ function importFile(value, bytes, generic = true) {
   return generic ? value.import_format(bytes, 'docx', '元の文書.docx') : value.import_docx(bytes, '元の文書.docx');
 }
 
+function zipPart(input, name) {
+  const bytes = Buffer.from(input);
+  const end = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  assert.ok(end >= 0, 'Missing ZIP end record');
+  let cursor = bytes.readUInt32LE(end + 16);
+  for (let index = 0; index < bytes.readUInt16LE(end + 10); index += 1) {
+    assert.equal(bytes.readUInt32LE(cursor), 0x02014b50);
+    const method = bytes.readUInt16LE(cursor + 10);
+    const size = bytes.readUInt32LE(cursor + 20);
+    const nameLength = bytes.readUInt16LE(cursor + 28);
+    const extraLength = bytes.readUInt16LE(cursor + 30);
+    const commentLength = bytes.readUInt16LE(cursor + 32);
+    const path = bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+    if (path === name) {
+      const local = bytes.readUInt32LE(cursor + 42);
+      const data = local + 30 + bytes.readUInt16LE(local + 26) + bytes.readUInt16LE(local + 28);
+      const payload = bytes.subarray(data, data + size);
+      assert.ok(method === 0 || method === 8, 'Unsupported ZIP compression');
+      return (method === 8 ? inflateRawSync(payload) : payload).toString('utf8');
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  assert.fail(`Missing copied ZIP part ${name}`);
+}
+
 test('actual WASM accepts harmless auxiliary parts through both DOCX APIs and retains exact ownership', async (context) => {
   for (const name of ['supported-auxiliary-parts.docx', 'supported-authoring-metadata.docx',
     'supported-strict-auxiliary-parts.docx', 'supported-strict-authoring-metadata.docx']) {
@@ -94,16 +120,31 @@ test('actual WASM edits and formats auxiliary-bearing DOCX while current-content
   assert.equal(text(view(value).paragraphs[0]), originalText);
   command(value, { type: 'redo' });
   command(value, { type: 'redo' });
+  command(value, { type: 'set_title', title: 'Current copied title' });
   const current = view(value);
+  const nativeBefore = value.export_document();
+  const snapshotBefore = value.snapshot();
   const report = JSON.parse(value.export_assessment('docx', current.revision));
   assert.equal(report.sessionId, current.sessionId);
   assert.equal(report.documentId, current.documentId);
   assert.equal(report.revision, current.revision);
-  assert.ok(report.warnings.some((warning) => warning.code === 'docx_original_parts'));
-  assert.throws(() => value.export_format('docx', false, current.revision),
-    (error) => JSON.parse(error).code === 'export_confirmation_required');
-  const exported = value.export_format('docx', true, current.revision);
+  assert.ok(report.warnings.every((warning) => !['native_information', 'docx_original_parts'].includes(warning.code)));
+  if (report.warnings.length) {
+    assert.throws(() => value.export_format('docx', false, current.revision),
+      (error) => JSON.parse(error).code === 'export_confirmation_required');
+  }
+  const exported = value.export_format('docx', report.warnings.length > 0, current.revision);
   assert.notDeepEqual(exported, new Uint8Array(safe));
+  assert.match(zipPart(exported, 'docProps/core.xml'), /Fixture Author/);
+  assert.match(zipPart(exported, 'docProps/core.xml'), /Current copied title/);
+  assert.match(zipPart(exported, 'docProps/custom.xml'), /Relationship regression/);
+  assert.match(zipPart(exported, 'docProps/app.xml'), /Writer relationship fixture/);
+  assert.match(zipPart(exported, 'word/theme/theme1.xml'), /Office Theme/);
+  assert.match(zipPart(exported, 'word/fontTable.xml'), /Arimo/);
+  assert.match(zipPart(exported, 'word/settings.xml'), /zoom/);
+  assert.match(zipPart(exported, 'word/_rels/document.xml.rels'), /\/theme/);
+  assert.equal(value.snapshot(), snapshotBefore);
+  assert.deepEqual(value.export_document(), nativeBefore);
   const copy = instance(context);
   const copyView = accept(importFile(copy, exported));
   assert.equal(text(copyView.paragraphs[0]), edited);

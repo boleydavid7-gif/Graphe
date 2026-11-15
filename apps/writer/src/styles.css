@@ -201,11 +201,6 @@ dialog p { font-size: 13px; line-height: 1.6; }
 .save-as-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; margin-block: 20px; }
 .save-as-fields > label { font-size: 12px; color: var(--muted); }
 .save-as-fields > input, .save-as-fields > select { width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--writer-border-control); border-radius: 3px; background: var(--writer-control); font-size: 13px; }
-.format-warning { padding: 1px 12px 12px; border-left: 3px solid var(--accent); background: #423728; margin-block: 16px; font-size: 12px; }
-.format-warning > ul { padding-left: 20px; line-height: 1.6; }
-.format-warning li + li { margin-top: 6px; }
-.format-acknowledgement { display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
-.format-acknowledgement > input { accent-color: var(--accent); margin-top: 3px; }
 .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 980px) {
   .top-bar { gap: 18px; padding-inline: 20px; }
@@ -1095,4 +1090,31 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 }
 @media (prefers-reduced-motion: reduce) {
   .formatting-bar > :not(.history-controls) { animation: none; }
+}
+
+/* Keep copy controls inside the visible viewport during keyboard resizing.
+   This overrides decorative dialog transforms without moving the editor. */
+.save-copy-dialog {
+  position: fixed;
+  width: min(440px, calc(100vw - 24px));
+  max-height: calc(var(--save-copy-height, 100dvh) - 24px);
+  top: calc(var(--save-copy-top, 0px) + var(--save-copy-height, 100dvh) / 2);
+  bottom: auto;
+  transform: translateY(-50%);
+  margin: 0 auto;
+  padding: 18px;
+  animation: none;
+}
+.save-copy-dialog .dialog-actions { margin-top: 18px; }
+.save-copy-dialog[open] { animation: none; }
+.save-copy-dialog .dialog-actions button { min-height: 38px; }
+.save-copy-dialog .save-as-fields { gap: 10px 12px; margin-block: 18px; }
+.save-copy-dialog .save-copy-warning { margin: 12px 0 0; color: var(--accent); font-size: 12px; line-height: 1.5; }
+.save-copy-dialog .save-copy-hint { margin: 12px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+@media (max-width: 620px) {
+  .save-copy-dialog .save-as-fields { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .save-copy-dialog .save-as-fields > input,
+  .save-copy-dialog .save-as-fields > select { font-size: 16px; min-height: 40px; }
+  .save-copy-dialog .save-as-fields > label:not(:first-child) { margin-top: 6px; }
+  .document-title { font-size: 16px; }
 }

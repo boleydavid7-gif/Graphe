@@ -137,6 +137,11 @@ test('working page input is Rust SVG and the desktop/mobile interface is an actu
   await expect(page.locator('.save-state')).toHaveText('Saved on this device');
   await page.screenshot({ path: '../../docs/images/writer-lamplight-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 420, height: 844 });
+  // This branch gives editing more mobile space while the input is focused.
+  // Document actions must return when the user leaves the writing surface.
+  await expect(input(page)).toBeFocused();
+  await expect(page.locator('.mobile-document-actions')).toBeHidden();
+  await title(page).click();
   await expect(page.getByRole('navigation', { name: 'Mobile document actions', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: '/tmp/writer-step7-first-mobile.png', fullPage: true });

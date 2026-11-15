@@ -52,10 +52,12 @@ and explicit approvals govern the task's scope.
   The focused DOCX correction was merged through PR #14 at `8ed5144`.
   The save/export/mobile reliability correction was merged through PR #15 at
   `22dfe38`. Preserve its safeguards and disclosed device-testing limits.
-  The current focused document-menu correction is on
-  `fix/writer-document-menu-actions`; the owner explicitly authorizes merging
-  this fix after verification. This does not authorize deployment commands,
-  Cloudflare changes, unrelated features or future merges.
+  The document-menu correction was merged through PR #16 at `b3e879e`.
+  The current stability/file-compatibility audit is restricted to
+  `design/writer-lamplight-polish` (PR #17). Commit verified corrections there;
+  do not merge or deploy. Reuse the reviewed PR #18 Save As/source-preservation
+  fixes without discarding this branch's Lamplight work. Earlier merge approvals
+  do not authorize a merge or deployment for this audit.
 - Keep file-format structures and parser dependencies in their adapters. Generic
   page geometry and native source records must not introduce DOCX structures
   into the shared semantic model or copy source bytes into undo snapshots.
@@ -73,8 +75,10 @@ and explicit approvals govern the task's scope.
   content type and inspected payload, never by filename alone. Preserve it in
   the original. Known theme/script formatting and layout preferences may be
   normalized with notices; content, embedded fonts and unknown relationships
-  remain guarded. See `docs/DOCX_RELATIONSHIPS.md`; current-content
-  export must disclose omitted unmodeled metadata and auxiliary parts.
+  remain guarded. Source-aware DOCX copies may carry validated static metadata
+  and auxiliary parts around regenerated content; never graft old body/styles,
+  caches or active relationships. Disclose meaningful omissions. See
+  `docs/SAVE_COPY.md` and `docs/DOCX_RELATIONSHIPS.md`.
 - Use full `WriterFile` APIs when source state is present. Document-only loaders
   must reject source loss. Preserve strict legacy decoding and explicit migrations;
   do not accept newer fields under old schema/envelope version labels.
@@ -108,7 +112,9 @@ and explicit approvals govern the task's scope.
   epoch. Do not clear newer dirty work, overwrite conflicts, serialize transient
   IME text, or label active composition saved. Lifecycle flushing is best effort.
 - Save As converts immutable Rust state with origin-bound assessments and
-  explicit acknowledgement of losses. Downloading an external copy does not
+  brief meaningful-loss warnings confirmed by Save copy. Ordinary copies have
+  no checkbox. Use full `WriterFile` source-aware APIs at this boundary.
+  Downloading an external copy does not
   mark the local native save current or replace its etag. Native exports retain
   sources, which may include deleted text; external copies do not retain them.
 - Keep a prepared export's Blob URL valid for a fresh native download/open link;
