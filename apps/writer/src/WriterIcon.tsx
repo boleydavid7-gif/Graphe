@@ -1,6 +1,6 @@
 /** Small local interface icons. Document glyphs are rendered separately by Rust. */
 export function WriterIcon({ name, className = '' }: {
-  name: 'lantern' | 'new' | 'open' | 'save' | 'search' | 'more' | 'undo' | 'redo' | 'export' | 'minus' | 'plus';
+  name: 'lantern' | 'new' | 'open' | 'save' | 'search' | 'more' | 'text-format' | 'undo' | 'redo' | 'export' | 'minus' | 'plus';
   className?: string;
 }) {
   const paths: Record<typeof name, string> = {
@@ -10,6 +10,7 @@ export function WriterIcon({ name, className = '' }: {
     save: 'M4 3h14l3 3v15H3V3h1zm3 0v6h10V3M7 21v-8h10v8M14 5v2',
     search: 'M16 16l5 5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
     more: 'M5 12h.01M12 12h.01M19 12h.01',
+    'text-format': 'M2.5 19 8 5l5.5 14M4.8 13.5h6.4M16 7h5M16 12h5M16 17h5',
     undo: 'm8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12',
     redo: 'm16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12',
     export: 'M12 16V2m-5 5 5-5 5 5M5 11H3v10h18V11h-2',
