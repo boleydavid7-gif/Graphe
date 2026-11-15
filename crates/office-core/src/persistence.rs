@@ -1,7 +1,7 @@
 //! Filesystem-independent, versioned native Writer serialization.
 //!
 //! The full-file API retains original-source state outside the semantic model.
-//! Legacy format 1 is migrated explicitly; format 2 is the current writer.
+//! Legacy formats 1 and 2 migrate explicitly; format 3 carries semantic lists.
 
 use std::{borrow::Cow, error::Error, fmt, io, str::Utf8Error};
 
@@ -17,7 +17,7 @@ use crate::{
 /// Identifier of the provisional native Writer envelope.
 pub const WRITER_FORMAT_NAME: &str = "office-writer";
 /// Current native envelope version, independent of engine and model versions.
-pub const WRITER_FORMAT_VERSION: u32 = 2;
+pub const WRITER_FORMAT_VERSION: u32 = 3;
 /// Maximum serialized native file accepted or emitted, including retained source.
 pub const MAX_WRITER_FILE_BYTES: usize = 32 * 1024 * 1024;
 /// Provisional filename extension; serialization never changes supplied paths.
@@ -218,7 +218,7 @@ fn check_format(format: &str, version: u64) -> Result<(), PersistenceError> {
             found: format.into(),
         });
     }
-    if !matches!(version, 1 | 2) {
+    if !matches!(version, 1 | 2 | 3) {
         return Err(PersistenceError::UnsupportedFormatVersion {
             found: version,
             supported: WRITER_FORMAT_VERSION,
@@ -229,13 +229,9 @@ fn check_format(format: &str, version: u64) -> Result<(), PersistenceError> {
 
 fn load_model(raw: &RawValue, format_version: u32) -> Result<Document, PersistenceError> {
     let header: ModelHeader = serde_json::from_str(raw.get()).map_err(DocumentError::Json)?;
-    let expected = if format_version == 1 {
-        1
-    } else {
-        SCHEMA_VERSION
-    };
+    let expected = format_version;
     if header.schema_version != u64::from(expected) {
-        if header.schema_version != 1 && header.schema_version != u64::from(SCHEMA_VERSION) {
+        if !matches!(header.schema_version, 1 | 2 | 3) {
             return Err(DocumentError::UnsupportedSchemaVersion {
                 found: header.schema_version,
                 supported: SCHEMA_VERSION,
@@ -254,7 +250,7 @@ fn load_model(raw: &RawValue, format_version: u32) -> Result<Document, Persisten
 
 /// Validates and serializes a complete Writer file, including its exact original.
 ///
-/// Current output is UTF-8 JSON format 2, fixed field order, two-space indentation
+/// Current output is UTF-8 JSON format 3, fixed field order, two-space indentation
 /// and one trailing LF. The retained source uses strict standard padded base64.
 /// Output is capped during serialization, not after an unbounded allocation.
 /// No history, session revisions, engine version or timestamps are added.
@@ -325,8 +321,8 @@ fn serialize_parts(
 
 /// Decodes a complete Writer file without dropping retained original-source data.
 ///
-/// Legacy format 1 accepts only schema 1 and performs the model's explicit
-/// migration. Current format 2 accepts the current schema. Envelope/model
+/// Legacy format 1 accepts schema 1; format 2 accepts schema 2 via migration.
+/// Current format 3 accepts schema 3. Envelope/model
 /// versions remain separate checks. Future versions, unknown/duplicate fields,
 /// malformed base64 and exceeded budgets are errors; nothing is repaired.
 /// Generic source identification does not validate a particular external format.
@@ -344,7 +340,7 @@ pub fn deserialize_writer_file(bytes: &[u8]) -> Result<WriterFile, PersistenceEr
     }
     let envelope: InputEnvelope<'_> = serde_json::from_str(json)?;
     check_format(&envelope.format, envelope.format_version)?;
-    let document = load_model(envelope.document, WRITER_FORMAT_VERSION)?;
+    let document = load_model(envelope.document, envelope.format_version as u32)?;
     match envelope.source {
         Some(source) => WriterFile::with_original_source(document, decode_source(source)?),
         None => Ok(WriterFile::new(document)),
@@ -354,7 +350,7 @@ pub fn deserialize_writer_file(bytes: &[u8]) -> Result<WriterFile, PersistenceEr
 /// Loads a source-free native document, or explicitly refuses original-data loss.
 ///
 /// Legacy version-1 documents migrate through the model loader. A source-bearing
-/// current file returns [`PersistenceError::SourcePresent`]; callers must use
+/// source-bearing file returns [`PersistenceError::SourcePresent`]; callers must use
 /// [`deserialize_writer_file`] and retain both returned parts instead.
 pub fn deserialize_document(bytes: &[u8]) -> Result<Document, PersistenceError> {
     let file = deserialize_writer_file(bytes)?;
