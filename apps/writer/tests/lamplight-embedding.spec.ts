@@ -103,10 +103,13 @@ test.describe('trusted embedded mobile Writer', () => {
     await title.fill('Embedded merge regression');
     await frame.locator('svg[data-layout-page]').first().tap({ position: { x: 90, y: 90 } });
     await expect(content(frame)).toBeFocused();
-    await expect(frame.locator('.status-bar')).toBeHidden();
+    await expect(frame.locator('.status-bar')).toBeVisible();
     await expect(frame.locator('.mobile-document-actions')).toHaveCount(0);
     await page.keyboard.insertText(text);
     await expect(content(frame)).toHaveText(text);
+    await expect(frame.locator('.mobile-word-count')).toHaveCount(0);
+    await expect(frame.locator('.status-bar .word-count')).toBeVisible();
+    await expect.poll(async () => Number((await frame.locator('.status-bar .word-count').textContent())?.split(' ')[0])).toBeGreaterThan(1);
     await expect(frame.getByTestId('paged-editor')).toHaveAttribute('aria-busy', 'false');
     await title.tap();
     await expect(frame.locator('.status-bar')).toBeVisible();
