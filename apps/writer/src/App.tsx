@@ -1006,6 +1006,8 @@ export default function App() {
       {saveAs.error && <div className="dialog-error" role="alert"><p>{saveAs.error}</p>
         <button type="button" disabled={busy} onClick={() => reviewSaveAs(saveAs.format, saveAs.filename)}>Review current document</button></div>}
       <div className="dialog-actions"><button type="button" disabled={busy} onClick={closeSaveAs}>Cancel</button>
+        {canSaveToProairetos() && <button type="button" className="primary-button" disabled={busy || !saveAs.assessment}
+          onClick={() => void saveCopyInProairetos()}>Save to ProairetOS Files</button>}
         <button type="submit" className="primary-button" disabled={busy || !saveAs.assessment}
           aria-describedby={saveAs.assessment?.warnings.length ? 'save-copy-warning' : undefined}>Save copy</button></div>
       </form>
