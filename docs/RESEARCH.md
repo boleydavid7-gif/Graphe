@@ -1064,3 +1064,15 @@ the intended same-site `proairetos.com` / `writer.proairetos.com` fixture passed
 save/reload/reopen. This does not verify live routing/access restrictions or all
 browser third-party storage policies. Tests also cover immutable paper geometry,
 trusted token updates, mobile focus chrome and Rust touch selection/format/undo.
+
+
+Main's subsequent PR #25/#26 introduced a CSS-driven shared indicator and generic
+control motion. Retain that accepted implementation rather than competing with
+legacy inline measurements; keep the independent ribbon effect. Specificity
+review identified dialog-animation and handle-motion collisions, corrected with
+narrow exclusions while retaining fixed document/selection geometry. New browser
+regressions verify the accepted chrome geometry and real captured touch behavior;
+a separate forced CSS pseudo-state probe is labeled as such, since preventing
+touch defaults can suppress native `:active`. No document-layout algorithm moved
+to JavaScript. Main's later tab/ribbon/menu refinements are presentation-only and
+must retain viewport and selection safeguards.

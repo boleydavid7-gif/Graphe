@@ -71,9 +71,9 @@ a { color: inherit; text-underline-offset: 3px; }
 .document-menu-panel > a { font-size: 11px; padding: 10px; color: var(--muted); border-top: 1px solid var(--line); margin-top: 5px; }
 .menu-caption { font-size: 10px; color: var(--muted); padding: 6px 10px 8px; text-transform: uppercase; letter-spacing: .7px; }
 .editor-tabs { display: flex; align-items: stretch; flex-shrink: 0; gap: 12px; min-height: 39px; padding: 0 34px; background: var(--writer-shell); }
-.editor-tabs > button { position: relative; min-width: 82px; font-size: 13px; border: 0; border-radius: 0; padding: 8px 12px; }
-.editor-tabs > button[aria-pressed='true'] { color: var(--accent); font-weight: 600; }
-.editor-tabs > button[aria-pressed='true']::after { position: absolute; content: ''; bottom: 0; left: 10px; right: 10px; height: 2px; background: var(--accent); }
+.editor-tabs .editor-tab-options > button { position: relative; min-width: 82px; font-size: 13px; border: 0; border-radius: 0; padding: 8px 12px; }
+.editor-tabs .editor-tab-options > button[aria-pressed='true'] { color: var(--accent); font-weight: 600; }
+.editor-tabs .editor-tab-options > button[aria-pressed='true']::after { position: absolute; content: ''; bottom: 0; left: 10px; right: 10px; height: 2px; background: var(--accent); }
 .save-state { align-self: center; margin-left: auto; padding-left: 12px; color: #c5bbaa; font-size: 10px; white-space: nowrap; }
 .save-state.is-unsaved { color: var(--accent); }
 .formatting-bar { flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 13px; min-height: 51px; margin: 4px 24px 0; padding: 7px 12px; border: 1px solid #3b3127; border-radius: 5px; background: var(--surface); }
@@ -221,7 +221,7 @@ dialog p { font-size: 13px; line-height: 1.6; }
   .file-actions { grid-column: 2; grid-row: 1; }
   .file-actions .desktop-action, .file-actions .find-action { display: none; }
   .editor-tabs { justify-content: space-between; min-height: 40px; padding-inline: 9px; gap: 0; }
-  .editor-tabs > button { min-width: 0; flex: 1; padding: 10px 5px; font-size: 13px; }
+  .editor-tabs .editor-tab-options > button { min-width: 0; flex: 1; padding: 10px 5px; font-size: 13px; }
   .save-state { display: none; }
   .formatting-bar { margin: 7px 9px 0; min-height: 45px; padding: 5px 7px; gap: 9px; flex-wrap: wrap; }
   .formatting-bar .history-controls { gap: 1px; padding-right: 7px; }
@@ -309,7 +309,7 @@ button.primary-button:not(:disabled):active {
 dialog[open] {
   animation: lamplight-dialog-in 190ms var(--lamplight-ease) both;
 }
-.editor-tabs > button[aria-pressed='true']::after {
+.editor-tabs .editor-tab-options > button[aria-pressed='true']::after {
   box-shadow: 0 1px 4px rgb(237 198 105 / 20%);
 }
 .library-entry:hover:not(:disabled) {
@@ -333,8 +333,8 @@ dialog[open] {
 .identity { letter-spacing: -.75px; }
 .document-title { transition: background-color 170ms ease, border-color 170ms ease; }
 .editor-tabs { border-bottom: 1px solid rgb(255 239 206 / 6%); }
-.editor-tabs > button { font-weight: 500; letter-spacing: .01em; }
-.editor-tabs > button[aria-pressed='true'] { font-weight: 650; }
+.editor-tabs .editor-tab-options > button { font-weight: 500; letter-spacing: .01em; }
+.editor-tabs .editor-tab-options > button[aria-pressed='true'] { font-weight: 650; }
 .formatting-bar { border-color: #514234; }
 .format-group select, .zoom-controls select {
   border-color: #655341;
@@ -370,7 +370,7 @@ dialog {
   .document-title { font-size: 16px; }
   .file-actions > button, .document-menu > summary { min-width: 40px; min-height: 40px; }
   .editor-tabs { padding-inline: 7px; }
-  .editor-tabs > button { min-height: 43px; }
+  .editor-tabs .editor-tab-options > button { min-height: 43px; }
   .formatting-bar { margin: 6px 9px 0; padding: 6px 8px; gap: 7px; }
   .format-button, .history-controls > button { min-height: 36px; }
   .workspace { padding: 16px 10px 28px; }
@@ -445,15 +445,15 @@ dialog {
   outline: 2px solid var(--writer-focus-ring);
   outline-offset: 1px;
 }
-.editor-tabs > button {
+.editor-tabs .editor-tab-options > button {
   color: #c9beb0;
   transition: color 140ms ease-out, background-color 140ms ease-out;
 }
-.editor-tabs > button:hover:not(:disabled) {
+.editor-tabs .editor-tab-options > button:hover:not(:disabled) {
   color: #f1e7d7;
   background-color: #322a22;
 }
-.editor-tabs > button[aria-pressed='true'] {
+.editor-tabs .editor-tab-options > button[aria-pressed='true'] {
   color: #f1d48e;
 }
 .formatting-bar {
@@ -517,7 +517,7 @@ dialog {
 @media (max-width: 620px) {
   .top-bar { border-bottom-color: #483b2e; }
   .editor-tabs { gap: 2px; }
-  .editor-tabs > button { min-width: 0; padding-inline: 11px; }
+  .editor-tabs .editor-tab-options > button { min-width: 0; padding-inline: 11px; }
   .formatting-bar {
     background-color: #2e271f;
     box-shadow: 0 2px 9px rgb(0 0 0 / 12%);
@@ -528,7 +528,7 @@ dialog {
 }
 @media (prefers-reduced-motion: reduce) {
   .file-actions > button, .history-controls > button, .format-button,
-  .zoom-controls button, .editor-tabs > button { transition: none; }
+  .zoom-controls button, .editor-tabs .editor-tab-options > button { transition: none; }
 }
 
 /* Floating formatting ribbon — matching desktop depth on mobile. */
@@ -609,8 +609,8 @@ dialog { border-radius: var(--writer-radius-lg); }
 .import-notice,
 .prepared-export { border-radius: var(--writer-radius-sm); }
 .library-entry { border-radius: var(--writer-radius-sm); }
-.editor-tabs > button { border-radius: var(--writer-radius-sm) var(--writer-radius-sm) 0 0; }
-.editor-tabs > button[aria-pressed='true']::after { border-radius: 2px 2px 0 0; }
+.editor-tabs .editor-tab-options > button { border-radius: var(--writer-radius-sm) var(--writer-radius-sm) 0 0; }
+.editor-tabs .editor-tab-options > button[aria-pressed='true']::after { border-radius: 2px 2px 0 0; }
 button:not(:disabled),
 summary,
 .document-title,
@@ -621,7 +621,7 @@ summary,
 .layout-preview-controls select,
 .save-as-fields > input,
 .save-as-fields > select,
-.editor-tabs > button {
+.editor-tabs .editor-tab-options > button {
   transition-property: background-color, border-color, color, box-shadow, opacity;
   transition-duration: var(--writer-motion-fast);
   transition-timing-function: var(--writer-motion-curve);
@@ -658,7 +658,7 @@ dialog::backdrop { background: rgb(12 9 6 / 54%); }
 @media (prefers-reduced-motion: reduce) {
   .document-menu-panel, dialog[open] { animation: none; }
   button, summary, .document-title, .library-entry, select, input,
-  .editor-tabs > button, .formatting-bar { transition: none !important; }
+  .editor-tabs .editor-tab-options > button, .formatting-bar { transition: none !important; }
 }
 
 /* Ribbon controls enter gently when their section changes; the shared tab
@@ -693,8 +693,8 @@ dialog::backdrop { background: rgb(12 9 6 / 54%); }
     width 290ms cubic-bezier(.22, 1, .36, 1),
     opacity 140ms ease-out;
 }
-.editor-tabs > button::after,
-.editor-tabs > button[aria-pressed='true']::after { content: none; }
+.editor-tabs .editor-tab-options > button::after,
+.editor-tabs .editor-tab-options > button[aria-pressed='true']::after { content: none; }
 @media (prefers-reduced-motion: reduce) {
   .editor-tab-indicator { transition: none; }
 }
@@ -731,9 +731,9 @@ dialog::backdrop { background: rgb(12 9 6 / 54%); }
 .document-title:focus { background: var(--writer-control); border-color: var(--writer-border-control); }
 .file-actions .desktop-action { color: var(--writer-text-muted); }
 .save-state { color: var(--writer-text-muted); }
-.editor-tabs > button { color: var(--writer-text-muted); }
-.editor-tabs > button:hover:not(:disabled) { color: var(--writer-text-strong); background: var(--writer-control-hover); }
-.editor-tabs > button[aria-pressed='true'] { color: var(--writer-accent); }
+.editor-tabs .editor-tab-options > button { color: var(--writer-text-muted); }
+.editor-tabs .editor-tab-options > button:hover:not(:disabled) { color: var(--writer-text-strong); background: var(--writer-control-hover); }
+.editor-tabs .editor-tab-options > button[aria-pressed='true'] { color: var(--writer-accent); }
 .editor-tab-indicator { background: var(--writer-accent); box-shadow: 0 1px 6px color-mix(in srgb, var(--writer-accent) 22%, transparent); }
 .formatting-bar {
   gap: 10px;
@@ -1034,7 +1034,7 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     min-height: 39px;
     padding-inline: 5px;
   }
-  .editor-tabs > button {
+  .editor-tabs .editor-tab-options > button {
     flex: 1 1 0;
     min-width: 0;
     min-height: 39px;
@@ -1274,7 +1274,7 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     padding-inline: 10px;
     border-bottom: 1px solid var(--writer-border-subtle);
   }
-  :root[data-writer-appearance] .editor-tabs > button {
+  :root[data-writer-appearance] .editor-tabs .editor-tab-options > button {
     padding-block: 9px;
   }
   :root[data-writer-appearance] .formatting-bar {
@@ -1333,3 +1333,129 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     display: none;
   }
 }
+
+
+/* Lamplight Solid Mica — Writer design refinement.
+   Opaque surfaces only. Editing canvas, document pagination, caret, text selection,
+   and scroll containers are deliberately excluded from motion. */
+:root {
+  --writer-motion-fast: 125ms;
+  --writer-motion-control: 185ms;
+  --writer-motion-menu: 230ms;
+  --writer-motion-ease: cubic-bezier(.2,.8,.2,1);
+}
+.top-bar {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, currentColor 7%, transparent);
+}
+.formatting-bar {
+  border-color: var(--line);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, currentColor 6%, transparent);
+}
+.document-menu-panel {
+  transform-origin: top right;
+  background: var(--surface-raised);
+  border-color: var(--line);
+  box-shadow: 0 10px 26px rgb(0 0 0 / .20), inset 0 1px 0 color-mix(in srgb, currentColor 8%, transparent);
+}
+:root[data-writer-appearance] .document-menu-panel {
+  background: var(--writer-surface-raised);
+  border-color: var(--writer-border);
+}
+:root[data-writer-appearance] .top-bar,
+:root[data-writer-appearance] .formatting-bar {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--writer-text) 7%, transparent);
+}
+:root[data-writer-appearance] .document-menu-panel {
+  box-shadow: 0 10px 26px rgb(0 0 0 / .20), inset 0 1px 0 color-mix(in srgb, var(--writer-text) 8%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .writer-app button:not(.touch-selection-handle),
+  .writer-app select,
+  .writer-app summary {
+    transition: background-color var(--writer-motion-control) var(--writer-motion-ease),
+      border-color var(--writer-motion-control) var(--writer-motion-ease),
+      color var(--writer-motion-control) var(--writer-motion-ease);
+  }
+  .writer-app button:not(.touch-selection-handle):active:not(:disabled) { scale: .97; }
+  .writer-app button:not(.touch-selection-handle) {
+    transition: background-color var(--writer-motion-control) var(--writer-motion-ease),
+      border-color var(--writer-motion-control) var(--writer-motion-ease),
+      color var(--writer-motion-control) var(--writer-motion-ease),
+      scale var(--writer-motion-fast) var(--writer-motion-ease);
+  }
+  .document-menu[open] > .document-menu-panel {
+    animation: writer-menu-enter var(--writer-motion-menu) var(--writer-motion-ease) both;
+  }
+  .writer-app dialog[open] {
+    animation: writer-dialog-enter var(--writer-motion-menu) var(--writer-motion-ease) both;
+  }
+}
+@keyframes writer-menu-enter {
+  from { opacity:.65; translate:0 -5px; scale:.985; }
+  to { opacity:1; translate:0 0; scale:1; }
+}
+@keyframes writer-dialog-enter {
+  from { opacity:.65; translate:0 8px; scale:.99; }
+  to { opacity:1; translate:0 0; scale:1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .writer-app button:not(.touch-selection-handle), .writer-app select, .writer-app summary { transition:none !important; }
+}
+
+
+/* One traveling Lamplight indicator, rather than four independently appearing lines.
+   Equal tab columns make the line position deterministic at every viewport width. */
+.editor-tab-options {
+  --writer-tab-index: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 0 1 auto;
+  width: min(100%, 376px);
+  min-width: 0;
+}
+.editor-tab-options--insert { --writer-tab-index: 1; }
+.editor-tab-options--layout { --writer-tab-index: 2; }
+.editor-tab-options--review { --writer-tab-index: 3; }
+.editor-tabs .editor-tab-options > button {
+  min-width: 0;
+  z-index: 1;
+}
+.editor-tabs .editor-tab-options > button[aria-pressed='true']::after { display: none; }
+.editor-tab-indicator {
+  position: absolute;
+  pointer-events: none;
+  bottom: 0;
+  left: 0;
+  width: 25%;
+  height: 2px;
+  background: var(--accent);
+  transform: translateX(calc(var(--writer-tab-index) * 100%));
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .editor-tab-indicator {
+    transition: transform 480ms cubic-bezier(.22,1.4,.36,1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-tab-indicator { transition: none; }
+}
+
+
+/* Preserve audited fixed geometry while integrating main's control motion. */
+.writer-app dialog.save-copy-dialog[open] {
+  animation: none;
+  translate: none;
+  scale: none;
+}
+.writer-app button.touch-selection-handle,
+.writer-app button.touch-selection-handle:hover,
+.writer-app button.touch-selection-handle:active {
+  background: transparent;
+  box-shadow: none;
+  scale: none;
+  transition: none;
+}
+/* Main's equal-column indicator supersedes the previous measured inline line. */
+.editor-tab-options > .editor-tab-indicator { opacity: 1; }

@@ -172,3 +172,33 @@ integration and affected-suite results are recorded separately below. The
 UI commits. Hosted CI, unavailable browser engines and real-device limitations
 remain as disclosed in this report and PHASE2_CI.md; no unexecuted check is a pass.
 No deployment command was run.
+
+
+### Latest-main surfaces and indicator (`2ad7865`)
+
+Preserved main PR #25/#26 surfaces and CSS-driven equal-column spring indicator.
+Removed the superseded imperative indicator sizing only; kept the separate ribbon
+animation. Updated tab selectors for the new wrapper, made the shared line
+visible, excluded handles from generic control motion, and preserved unanimated
+keyboard-centred Save copy geometry. No engine or storage code changed.
+
+`npm run typecheck`, `npm run lint`, `npm run build`, and `npm run test:build`
+passed on this combined tree. The affected production browser command was:
+
+```sh
+npm run test:browser -- tests/main-ui-integration.spec.ts tests/lamplight-embedding.spec.ts tests/touch-selection.spec.ts tests/save-as.spec.ts tests/document-menu.spec.ts tests/step7.spec.ts tests/audit-inspector.spec.ts --project=chromium --output=/tmp/writer-main-latest-ui-final-browser-results --reporter=list
+```
+
+Actual result: **79 passed, zero failed/skipped, 3.7min**. This overlaps the earlier
+187-case run and is not added to it as independent suite coverage. The five new
+main-UI tests also passed as a targeted file. The initial affected run had 78
+passes and one test-driver assumption failure: Chromium need not set `:active`
+when Writer prevents the touch default. The corrected test verifies actual
+pointer capture, then explicitly forces active/hover CSS states for the separate
+style probe, without changing input behavior or claiming native-device testing.
+It checks geometry, transparent targets, stable endpoints, tab alignment/resize/
+reduced motion, and native Save copy after viewport resizing.
+
+Logs: `/tmp/writer-main-latest-ui-*.log` and
+`/tmp/writer-main-ui-regressions.log`. Main subsequently received CSS-only
+PR #27/#28/#29; their preservation and final focused results follow below.
