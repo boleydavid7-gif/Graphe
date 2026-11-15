@@ -1,3 +1,4 @@
+import { announceFilesReady, canSaveToProairetos, saveToProairetos, requestProairetosSaveDialog, sendProairetosExport, type FilesOpenPayload } from './proairetosFilesBridge';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import type { EditorSurfaceHandle } from './EditorSurface';
@@ -562,7 +563,7 @@ export default function App() {
     });
   }
 
-  function importFile(file: File) {
+  function importFile(file: File, filesId?: string) {
     guardReplacement(async () => {
       const active = engine.current;
       const local = storage.current;
@@ -600,10 +601,12 @@ export default function App() {
           candidate = null;
           replaceSession(next, { sessionId: next.sessionId, id: saved.id, etag: saved.etag },
             `${formatName(selectedFormat)} imported. ${next.originalSource ? 'The document and its exact original are' : 'The document is'} saved on this device.`);
+          if (filesId) { setProairetosFileId(filesId); proairetosSession.current = next.sessionId; }
           active.dispose();
         } else {
           const next = active.open(bytes);
           replaceSession(next, null, 'Imported Writer file. Save a local copy to keep it on this device.');
+          if (filesId) { setProairetosFileId(filesId); proairetosSession.current = next.sessionId; }
         }
       } catch (failure) {
         if (selectedFormat && selectedFormat !== 'writer' && failure instanceof EngineError
@@ -618,6 +621,40 @@ export default function App() {
       }
     });
   }
+
+  useEffect(() => {
+    const open = (event: Event) => {
+      const payload = (event as CustomEvent<FilesOpenPayload>).detail;
+      if (!payload) return;
+      importFile(new File([payload.data], payload.name, { type: payload.mime }), payload.fileId);
+    };
+    window.addEventListener('proairetos:files-open', open);
+    announceFilesReady();
+    return () => window.removeEventListener('proairetos:files-open', open);
+  });
+
+  useEffect(() => {
+    const exportRequest = (event: MessageEvent) => {
+      if (event.source !== window.parent || !canSaveToProairetos()
+        || !['https://proairetos.com','https://research-and-development-proairetos.boleydavid7.workers.dev'].includes(event.origin)
+        || event.data?.type !== 'proairetos:files-export-request' || event.data.version !== 1) return;
+      const {requestId,name,format} = event.data;
+      if (typeof requestId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(requestId)
+        || typeof name !== 'string' || name.length > 120
+        || !['writer','docx','odt','rtf','txt','pdf'].includes(format)
+        || !name.toLowerCase().endsWith('.'+format)) return;
+      try {
+        if (!engine.current) throw new Error('Writer is not ready.');
+        const assessment=engine.current.assessExport(format as DocumentFormat);
+        const bytes=engine.current.exportFormat(format as DocumentFormat,assessment.warnings.length>0,assessment);
+        const session=viewRef.current?.sessionId;
+        const fileId=proairetosSession.current === session ? proairetosFileId : null;
+        sendProairetosExport(requestId,name,format,bytes,fileId ?? undefined);
+      } catch (failure) { setError(message(failure)); }
+    };
+    window.addEventListener('message',exportRequest);
+    return () => window.removeEventListener('message',exportRequest);
+  });
 
   function exportWriterFile() {
     if (!engine.current || !viewRef.current || !documentOpen || composing) return;
@@ -647,6 +684,18 @@ export default function App() {
     let failureMessage = '';
     try { assessment = client.assessExport(format); }
     catch (failure) { failureMessage = message(failure); }
+    if (canSaveToProairetos()) {
+      const warnings: Record<string,string[]> = {};
+      for (const item of FILE_FORMATS) {
+        try { warnings[item.format] = client.assessExport(item.format).warnings.map((warning) => warning.message); }
+        catch (failure) { warnings[item.format] = [message(failure)]; }
+      }
+      const sourceId = proairetosSession.current === current.sessionId ? proairetosFileId : null;
+      void requestProairetosSaveDialog(filename ?? safeFilename(current.title,format),format,warnings,sourceId ?? undefined)
+        .then((id)=>{ if (viewRef.current?.sessionId === current.sessionId) {setProairetosFileId(id);proairetosSession.current=current.sessionId;} setNotice('Saved in ProairetOS Files.'); })
+        .catch((failure)=>{ if (message(failure) !== 'Save cancelled.') setError(message(failure)); });
+      return;
+    }
     rememberSaveAsFocus();
     setError('');
     setSaveAs({ format, filename: filename ?? safeFilename(current.title, format), assessment, error: failureMessage });
@@ -693,6 +742,32 @@ export default function App() {
       setNotice(`${formatName(current.format)} copy ready. This does not replace your local Writer save.`);
     } catch (failure) {
       setSaveAs({ ...current, assessment: null, error: message(failure) });
+    }
+  }
+
+  const [proairetosFileId, setProairetosFileId] = useState<string | null>(null);
+  const proairetosSession = useRef<string | null>(null);
+
+  async function saveCopyInProairetos() {
+    const current = saveAs;
+    if (!engine.current || !current?.assessment || !documentOpen || composing || busy) return;
+    setBusy(true);
+    try {
+      const bytes = engine.current.exportFormat(current.format, current.assessment.warnings.length > 0, current.assessment);
+      const filename = safeFilename(current.filename.replace(/\.(writer|docx|odt|rtf|txt|pdf)$/i, ''), current.format);
+      const sessionId = viewRef.current?.sessionId;
+      const existingId = proairetosSession.current === sessionId ? proairetosFileId : null;
+      const savedId = await saveToProairetos(filename, current.format, bytes, existingId ?? undefined);
+      if (viewRef.current?.sessionId === sessionId) {
+        setProairetosFileId(savedId);
+        proairetosSession.current = sessionId ?? null;
+      }
+      closeSaveAs();
+      setNotice(filename + ' saved in ProairetOS Files / Documents.');
+    } catch (failure) {
+      setSaveAs((previous) => previous ? { ...previous, error: message(failure) } : null);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1072,6 +1147,8 @@ export default function App() {
       {saveAs.error && <div className="dialog-error" role="alert"><p>{saveAs.error}</p>
         <button type="button" disabled={busy} onClick={() => reviewSaveAs(saveAs.format, saveAs.filename)}>Review current document</button></div>}
       <div className="dialog-actions"><button type="button" disabled={busy} onClick={closeSaveAs}>Cancel</button>
+        {canSaveToProairetos() && <button type="button" className="primary-button" disabled={busy || !saveAs.assessment}
+          onClick={() => void saveCopyInProairetos()}>Save to ProairetOS Files</button>}
         <button type="submit" className="primary-button" disabled={busy || !saveAs.assessment}
           aria-describedby={saveAs.assessment?.warnings.length ? 'save-copy-warning' : undefined}>Save copy</button></div>
       </form>
