@@ -1076,3 +1076,11 @@ a separate forced CSS pseudo-state probe is labeled as such, since preventing
 touch defaults can suppress native `:active`. No document-layout algorithm moved
 to JavaScript. Main's later tab/ribbon/menu refinements are presentation-only and
 must retain viewport and selection safeguards.
+
+
+Preserved subsequent main PR #27/#28/#29 CSS: flat sticky-hover-safe tabs, stable
+52px collapsed mobile ribbon and opaque menu refinements. Final focused browser
+coverage checks their mobile page baseline, all section controls, viewport-limited
+menus, safe-copy behavior and captured touch geometry. The scoped motion exclusions
+remain necessary. Exact successive-tree verification and overlapping-suite counts
+are recorded in PHASE2_REPORT.md; this is not live-host or device certification.

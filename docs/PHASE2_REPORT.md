@@ -202,3 +202,28 @@ reduced motion, and native Save copy after viewport resizing.
 Logs: `/tmp/writer-main-latest-ui-*.log` and
 `/tmp/writer-main-ui-regressions.log`. Main subsequently received CSS-only
 PR #27/#28/#29; their preservation and final focused results follow below.
+
+
+### Final main CSS reconciliation (`e040254`)
+
+Preserved PR #27/#28/#29 in full: flat iOS-hover-safe tabs, stable collapsed mobile
+ribbon height and the softer opaque menu. Retained the audited scroll/viewport,
+Save copy and touch-handle safeguards. Expanded the existing tab regression to
+verify stable mobile paper position across all four sections and transparent
+hover states. No additional engine, storage, dependency or schema change.
+
+`npm run typecheck`, `npm run lint`, `npm run build` and `npm run test:build`
+passed again (all four build tests executed). Final affected-browser command:
+
+```sh
+npm run test:browser -- tests/main-ui-integration.spec.ts tests/lamplight-embedding.spec.ts tests/touch-selection.spec.ts tests/document-menu.spec.ts --project=chromium --output=/tmp/writer-main-current-browser-results --reporter=list
+```
+
+Actual result: **52 passed, zero failed/skipped, 2.4min**, against the final
+production build incorporating main `e040254`. Logs are
+`/tmp/writer-main-current-*.log`. These cases overlap the prior 79/187 runs; do not
+sum them as additional full-suite passes. The 187-case full run predates the
+later main UI commits; their affected workflows were rechecked as recorded here.
+Native/WASM engine sources and binary remain unchanged throughout those UI
+integrations. Hosted checks, Firefox/WebKit and physical-device limitations remain
+unverified; see PHASE2_CI.md. No deployment command was run.

@@ -81,12 +81,20 @@ for (const touch of [false, true]) {
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await start(page);
       const navigation = page.getByRole('navigation', { name: 'Editor sections', exact: true });
+      const paper = page.locator('.paged-editor-paper').first();
+      const initialPaperTop = (await paper.boundingBox())!.y;
       for (const name of tabs) {
         const button = navigation.getByRole('button', { name, exact: true });
         await activate(button, touch);
         await expect(button).toHaveAttribute('aria-pressed', 'true');
         await expect(button).toBeInViewport();
         await indicatorMatchesActiveTab(page);
+        await button.hover();
+        await expect(button).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+        if (touch) {
+          await expect(page.locator('.formatting-bar')).toHaveCSS('height', '52px');
+          expect(Math.abs((await paper.boundingBox())!.y - initialPaperTop)).toBeLessThan(1);
+        }
       }
       await page.setViewportSize(touch ? { width: 430, height: 760 } : { width: 980, height: 720 });
       await indicatorMatchesActiveTab(page);

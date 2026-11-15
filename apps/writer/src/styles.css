@@ -1443,6 +1443,65 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 }
 
 
+/* Keep section tabs flat: iOS can retain :hover after tapping a button.
+   The moving underline is the only selected surface. */
+.editor-tabs .editor-tab-options { flex: 1 1 auto; }
+.editor-tabs .editor-tab-options > button {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  font-size: 13px;
+  padding: 9px 5px;
+}
+.editor-tabs .editor-tab-options > button[aria-pressed='true'] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.editor-tabs .editor-tab-indicator { z-index: 2; }
+@media (max-width: 620px) {
+  .editor-tabs .editor-tab-options { width: 100%; }
+}
+
+
+/* Keep the mobile ribbon and paper at a stable vertical position when changing
+   Write / Insert / Layout / Review. Expanded formatting may grow intentionally. */
+@media (max-width: 620px) {
+  .editor-tabs { height: 40px; min-height: 40px; }
+  .editor-tabs .editor-tab-options { height: 100%; align-self: stretch; }
+  .editor-tabs .editor-tab-options > button { height: 100%; }
+  .editor-tabs .editor-tab-indicator { bottom: 0; }
+  .formatting-bar:not(.show-more-formatting) {
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .formatting-bar:not(.show-more-formatting)::-webkit-scrollbar { display: none; }
+  .formatting-bar:not(.show-more-formatting) > * { flex-shrink: 0; }
+  .formatting-bar.show-more-formatting { height: auto; max-height: none; }
+}
+
+
+/* Soft Lamplight menu: no bright outline, no transparency or glossy treatment. */
+.document-menu-panel,
+:root[data-writer-appearance] .document-menu-panel {
+  border: 1px solid color-mix(in srgb, var(--line) 35%, var(--surface-raised));
+  border-radius: 16px;
+  overflow: auto;
+  box-shadow: 0 12px 28px rgb(0 0 0 / .22);
+}
+:root[data-writer-appearance] .document-menu-panel {
+  border-color: color-mix(in srgb, var(--writer-border) 32%, var(--writer-surface-raised));
+}
+.document-menu-panel > button { border-radius: 9px; }
+
+
 /* Preserve audited fixed geometry while integrating main's control motion. */
 .writer-app dialog.save-copy-dialog[open] {
   animation: none;
