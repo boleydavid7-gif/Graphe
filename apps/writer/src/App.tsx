@@ -12,6 +12,7 @@ import type { Alignment, CompatibilityReport, DocumentFormat, ExportAssessment, 
 import './styles.css';
 import fontLicensesUrl from '../../../crates/office-layout/fonts/NOTICE.txt?url';
 import formatLicensesUrl from '../../../crates/office-formats/THIRD_PARTY_NOTICES.txt?url';
+import grapheLicenseUrl from '../../../LICENSE?url';
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
@@ -880,6 +881,8 @@ export default function App() {
             {view?.originalSource && <button disabled={unavailable} onClick={() => documentAction(downloadOriginal)}>Download original</button>}
             <button disabled={unavailable} onClick={() => documentAction(togglePagePreview)} aria-pressed={pagePreview}>Page preview</button>
             <button disabled={unavailable} onClick={() => documentAction(closeDocument)}>Close</button>
+            <span className="menu-caption">About Graphe · Licenses</span>
+            <a href={grapheLicenseUrl} target="_blank" rel="noreferrer">Graphe license</a>
             <a href={fontLicensesUrl} target="_blank" rel="noreferrer">Font licenses</a>
             <a href={formatLicensesUrl} target="_blank" rel="noreferrer">Format library notices</a>
           </div>
