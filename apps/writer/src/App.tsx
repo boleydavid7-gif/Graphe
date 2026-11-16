@@ -105,7 +105,20 @@ function numericParagraphValue(value: number | null): string {
   return value === null ? '' : String(Number(value.toFixed(3)));
 }
 
-// Names below are backed by the pinned Rust font catalog, not system fonts.
+// The displayed compatibility names are saved as requested, while rendering
+// uses the pinned open-source substitute. No proprietary font is bundled.
+// Names below in FONT_GROUPS are actual pinned font files.
+const COMMON_FONT_SUBSTITUTIONS = [
+  { name: 'Times New Roman', substitute: 'Tinos' },
+  { name: 'Arial', substitute: 'Arimo' },
+  { name: 'Calibri', substitute: 'Carlito' },
+  { name: 'Cambria', substitute: 'Caladea' },
+] as const;
+const COMMON_FONT_NAMES = new Set<string>(COMMON_FONT_SUBSTITUTIONS.map(({ name }) => name));
+function commonFontSubstitute(font: string | null | undefined): string | null {
+  return COMMON_FONT_SUBSTITUTIONS.find(({ name }) => name.toLowerCase() === font?.toLowerCase())?.substitute ?? null;
+}
+
 // Unknown names from imported documents remain selectable and are preserved.
 const FONT_GROUPS = [
   { label: 'Sans serif', names: ['Arimo', 'Carlito', 'Source Sans 3', 'Inter', 'Montserrat', 'DM Sans', 'Work Sans'] },
@@ -118,14 +131,20 @@ const FONT_GROUPS = [
 ] as const;
 const BUNDLED_FONTS = new Set<string>(FONT_GROUPS.flatMap((group) => [...group.names]));
 function bundledFontPreview(font: string | null | undefined): string {
+  const substitute = commonFontSubstitute(font);
+  if (substitute) return substitute;
   switch (font?.toLowerCase()) {
-    case 'arial': case 'helvetica': return 'Arimo';
-    case 'times new roman': case 'times': case 'serif': return 'Tinos';
-    case 'calibri': return 'Carlito';
-    case 'cambria': return 'Caladea';
+    case 'helvetica': return 'Arimo';
+    case 'times': case 'serif': return 'Tinos';
     case 'source sans pro': return 'Source Sans 3';
     default: return font && BUNDLED_FONTS.has(font) ? font : 'Arimo';
   }
+}
+function fontPreviewDescription(font: string | null | undefined): string {
+  const substitute = commonFontSubstitute(font);
+  if (substitute) return `Uses ${substitute} — substitute, not the original font`;
+  if (font && !BUNDLED_FONTS.has(font)) return 'Closest bundled preview';
+  return font ?? 'Mixed fonts';
 }
 function bundledFontSample(font: string | null | undefined): string {
   switch (font) {
@@ -139,11 +158,15 @@ function bundledFontSample(font: string | null | undefined): string {
 function fontOptions(current: string | null | undefined) {
   return <>
     <option value="" disabled>{current === null ? 'Mixed fonts' : 'Select font'}</option>
+    <optgroup label="Common fonts (licensed substitutes)">
+      {COMMON_FONT_SUBSTITUTIONS.map(({ name, substitute }) => <option key={name} value={name}
+        style={{ fontFamily: `"${substitute}", sans-serif` }}>{name} (uses {substitute})</option>)}
+    </optgroup>
     {FONT_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
       {group.names.map((name) => <option key={name} value={name}
-        style={{ fontFamily: `"${name}", sans-serif` }}>{name}</option>)}
+        style={{ fontFamily: `"${bundledFontPreview(name)}", sans-serif` }}>{name}</option>)}
     </optgroup>)}
-    {current && !BUNDLED_FONTS.has(current) &&
+    {current && !BUNDLED_FONTS.has(current) && !COMMON_FONT_NAMES.has(current) &&
       <optgroup label="From document (using a substitute)">
         <option value={current}>{current}</option>
       </optgroup>}
@@ -1271,8 +1294,7 @@ export default function App() {
         <div className="font-family-preview" aria-label="Typeface sample"
           style={{ fontFamily: `"${bundledFontPreview(formatState?.fontFamily)}", sans-serif` }}>
           <span>{bundledFontSample(formatState?.fontFamily)}</span>
-          <small>{formatState?.fontFamily && !BUNDLED_FONTS.has(formatState.fontFamily)
-            ? 'Closest bundled preview' : formatState?.fontFamily ?? 'Mixed fonts'}</small>
+          <small>{fontPreviewDescription(formatState?.fontFamily)}</small>
         </div>
         <label htmlFor="inspector-font-size">Font size</label>
         <select id="inspector-font-size" disabled={unavailable} value={formatState?.fontSizePt ?? ''}

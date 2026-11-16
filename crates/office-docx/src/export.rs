@@ -929,6 +929,23 @@ mod tests {
     }
 
     #[test]
+    fn common_font_compatibility_names_are_preserved_in_docx_xml() {
+        for name in ["Times New Roman", "Arial", "Calibri", "Cambria"] {
+            let mut run = TextRun::new("Word compatibility");
+            run.format.font_family = Some(name.into());
+            let bytes = export_document(&document(vec![Paragraph::new(id("p"), vec![run])])).unwrap();
+            let xml = part(&bytes, "word/document.xml");
+            let parsed = roxmltree::Document::parse(&xml).unwrap();
+            let fonts = parsed.descendants()
+                .find(|node| node.has_tag_name((W, "rFonts")))
+                .unwrap();
+            for attribute in ["ascii", "hAnsi", "eastAsia", "cs"] {
+                assert_eq!(fonts.attribute((W, attribute)), Some(name));
+            }
+        }
+    }
+
+    #[test]
     fn mixed_character_and_paragraph_properties_have_explicit_units() {
         let mut first = TextRun::new("Bold");
         first.format = CharacterFormat {

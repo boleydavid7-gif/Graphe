@@ -87,6 +87,8 @@ fn variable_faces_support_italic_and_weight_selection() {
 #[test]
 fn common_word_font_names_resolve_without_rewriting_document_family() {
     for (name, resolved) in [
+        ("Times New Roman", "Tinos"),
+        ("Arial", "Arimo"),
         ("Calibri", "Carlito"),
         ("Cambria", "Caladea"),
         ("Source Sans Pro", "SourceSans3"),

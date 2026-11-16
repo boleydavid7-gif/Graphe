@@ -968,6 +968,9 @@ fn validate_spacing(spacing: LineSpacing) -> Result<(), LayoutError> {
 
 fn resolved_family(requested: &str) -> &'static str {
     match requested.to_ascii_lowercase().as_str() {
+        // These compatibility names are retained in the document; only glyph
+        // selection uses their pinned, freely redistributable substitutes.
+        "arimo" | "arial" | "helvetica" | "sans-serif" => "Arimo",
         "tinos" | "times" | "times new roman" | "serif" => "Tinos",
         "caladea" | "cambria" => "Caladea",
         "carlito" | "calibri" => "Carlito",
