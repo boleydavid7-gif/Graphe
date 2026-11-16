@@ -4,6 +4,7 @@ import { expect, test, type Frame, type Page } from '@playwright/test';
 // The trusted host is fulfilled locally. Its iframe loads the actual production
 // Writer preview, engine and IndexedDB; this is not a live ProairetOS/device test.
 const host = 'https://proairetos.com/__writer_merge_regression';
+const isolatedHost = 'https://feature-graphe-integration-isolated-20261116-proairetos.boleydavid7.workers.dev/__writer_merge_regression';
 // Both HTTPS origins are intercepted locally; no live requests are sent.
 const writer = 'https://writer.proairetos.com';
 const tokens = {
@@ -14,7 +15,7 @@ const tokens = {
 const text = 'Embedded Café e\u0301 👩🏽‍💻';
 const content = (frame: Frame) => frame.getByRole('textbox', { name: 'Document content', exact: true });
 
-async function openHost(page: Page): Promise<Frame> {
+async function openHost(page: Page, hostUrl = host): Promise<Frame> {
   // Serve the unchanged production preview under an intercepted HTTPS origin.
   // HTTPS host -> HTTP loopback iframes are blocked by modern local-network
   // protections; keep those protections and model actual HTTPS embedding.
@@ -23,13 +24,13 @@ async function openHost(page: Page): Promise<Frame> {
     const response = await route.fetch({ url: `http://127.0.0.1:4173${url.pathname}${url.search}` });
     await route.fulfill({ response });
   });
-  await page.route(host, (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
+  await page.route(hostUrl, (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
     <style>html,body{margin:0;height:100%;overflow:hidden}iframe{display:block;border:0;width:100%;height:100%}</style></head>
     <body><script>window.writerReady=[];addEventListener('message',event=>{
       if(event.data?.type==='writer:lamplight-ready')window.writerReady.push({origin:event.origin,data:event.data});
     });</script><iframe title="Writer integration test" referrerpolicy="origin" src="${writer}/"></iframe></body></html>` }));
-  await page.goto(host);
+  await page.goto(hostUrl);
   await expect.poll(() => page.frames().filter((frame) => frame.url() === `${writer}/`).length).toBe(1);
   const frame = page.frames().find((candidate) => candidate.url() === `${writer}/`)!;
   await expect(frame.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
@@ -57,6 +58,19 @@ test('standalone Writer keeps its identity and fallback palette', async ({ page 
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
   await expect(page.locator('.top-bar .identity')).toBeVisible();
   expect(await page.locator('html').getAttribute('data-writer-appearance')).toBeNull();
+});
+
+test('isolated Graphe Worker Preview can embed the real editor and exchange Lamplight and Files handshakes', async ({ page }) => {
+  const frame = await openHost(page, isolatedHost);
+  await expect.poll(() => page.evaluate(() => (window as Window & { writerReady?: unknown[] }).writerReady?.length)).toBe(1);
+  await theme(page);
+  await expect(frame.locator('html')).toHaveAttribute('data-writer-appearance', 'dark');
+  // An unrelated origin is never accepted even when it claims to be the host frame.
+  await frame.evaluate((palette) => {
+    window.dispatchEvent(new MessageEvent('message', { source: window.parent, origin: 'https://untrusted.invalid',
+      data: { type: 'proairetos:lamplight', version: 1, app: 'writer', mode: 'light', tokens: palette } }));
+  }, tokens);
+  await expect(frame.locator('html')).toHaveAttribute('data-writer-appearance', 'dark');
 });
 
 test('trusted parent theme updates chrome without changing paper or Rust page geometry', async ({ page }) => {
