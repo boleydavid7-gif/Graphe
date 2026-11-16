@@ -3,7 +3,7 @@
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The 22 pinned fonts total **11,372,728 bytes** (10.85 MiB). The new families
+operating system and browser. The 24 pinned fonts total **12,978,372 bytes** (12.38 MiB). The new families
 increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
@@ -31,6 +31,7 @@ face.
 | Carlito-Italic.ttf / Carlito-BoldItalic.ttf | Google Fonts pinned | Sans, actual italic 400/700 |
 | SourceSans3-Regular.ttf / SourceSans3-Italic.ttf | Google Fonts pinned | Sans, `wght` 200–900; normal/italic |
 | JetBrainsMono-Regular.ttf / JetBrainsMono-Italic.ttf | Google Fonts pinned | Monospace, `wght` 100–800; normal/italic |
+| EBGaramond-Regular.ttf / EBGaramond-Italic.ttf | Google Fonts pinned | Serif, `wght` 400–800; normal/italic |
 
 Choose regular weight 400 or bold 700 explicitly, and width 100 for the script
 fallbacks. Noto Sans Hebrew's file default is **100 (Thin)**, so relying on its
@@ -50,13 +51,13 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   [official Tinos source](https://github.com/googlefonts/tinos/blob/3b4482a99b80ea5fc75f187b1be3120a3f5905b3/OFL.txt).
 - Noto Sans Arabic, Devanagari, Hebrew and Noto Emoji come from the same pinned
   [google/fonts commit](https://github.com/google/fonts/tree/29b4ec6df2522a8aee279414b78a07910b065874/ofl).
-- Carlito, Caladea, Source Sans 3 and JetBrains Mono come from
+- Carlito, Caladea, Source Sans 3, JetBrains Mono and EB Garamond come from
   [google/fonts at `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl).
   The new files are original upstream bytes; only the local names of four
   variable-font files omit their `[wght]` suffix for asset tooling. The source
   filenames and Git blob identities remain recorded in `manifest.json`.
 
-All ten families use **SIL Open Font License 1.1**. Each complete upstream
+All eleven families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
 distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
 No font binaries or internal font names have been modified, and the original
@@ -68,7 +69,8 @@ No font has been subsetted, internally renamed or otherwise modified.
 
 ## Coverage and limitations
 
-Arimo, Tinos, Carlito, Caladea, Source Sans 3 and JetBrains Mono provide
+Arimo, Tinos, Carlito, Caladea, Source Sans 3, JetBrains Mono and
+EB Garamond provide
 additional sans, serif and monospace choices. The original Arimo and Tinos
 faces provide distinct sans-serif and serif measurements, including
 Latin, Greek, Cyrillic and Hebrew coverage. Dedicated Noto faces provide Arabic,
