@@ -27,9 +27,9 @@
       "axes": [
         {
           "tag": "wght",
-          "minimum": 400.0,
-          "default": 400.0,
-          "maximum": 700.0
+          "minimum": 400,
+          "default": 400,
+          "maximum": 700
         }
       ],
       "weight": 400,
@@ -60,9 +60,9 @@
       "axes": [
         {
           "tag": "wght",
-          "minimum": 400.0,
-          "default": 400.0,
-          "maximum": 700.0
+          "minimum": 400,
+          "default": 400,
+          "maximum": 700
         }
       ],
       "weight": 400,
@@ -197,15 +197,15 @@
       "axes": [
         {
           "tag": "wght",
-          "minimum": 100.0,
-          "default": 400.0,
-          "maximum": 900.0
+          "minimum": 100,
+          "default": 400,
+          "maximum": 900
         },
         {
           "tag": "wdth",
           "minimum": 62.5,
-          "default": 100.0,
-          "maximum": 100.0
+          "default": 100,
+          "maximum": 100
         }
       ],
       "weight": 400,
@@ -236,15 +236,15 @@
       "axes": [
         {
           "tag": "wght",
-          "minimum": 100.0,
-          "default": 400.0,
-          "maximum": 900.0
+          "minimum": 100,
+          "default": 400,
+          "maximum": 900
         },
         {
           "tag": "wdth",
           "minimum": 62.5,
-          "default": 100.0,
-          "maximum": 100.0
+          "default": 100,
+          "maximum": 100
         }
       ],
       "weight": 400,
@@ -275,15 +275,15 @@
       "axes": [
         {
           "tag": "wght",
-          "minimum": 100.0,
-          "default": 100.0,
-          "maximum": 900.0
+          "minimum": 100,
+          "default": 100,
+          "maximum": 900
         },
         {
           "tag": "wdth",
           "minimum": 62.5,
-          "default": 100.0,
-          "maximum": 100.0
+          "default": 100,
+          "maximum": 100
         }
       ],
       "weight": 100,
@@ -314,9 +314,9 @@
       "axes": [
         {
           "tag": "wght",
-          "minimum": 300.0,
-          "default": 400.0,
-          "maximum": 700.0
+          "minimum": 300,
+          "default": 400,
+          "maximum": 700
         }
       ],
       "weight": 400,
@@ -393,15 +393,481 @@
       "kind": "license",
       "spdx": "OFL-1.1",
       "sha256": "500bb1ccf43df7bbb522112f9133a52b16e1c35e809632f5d8609b179152de5b"
+    },
+    {
+      "file": "Caladea-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/caladea/Caladea-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/caladea/Caladea-Regular.ttf",
+      "git_blob_sha1": "a490e8f0ee259187614fb36ff3e6fae98dc5b355",
+      "byte_length": 81600,
+      "kind": "font",
+      "family": "Caladea",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Caladea.OFL.txt",
+      "sha256": "f1e899278b7b4491aba5b6a8253c4b04c050cc59b21865be5c37559a775153cd",
+      "font_version": "Version 1.001",
+      "internal_family": "Caladea",
+      "internal_subfamily": "Regular",
+      "postscript_name": "Caladea-Regular",
+      "units_per_em": 1000,
+      "glyph_count": 464,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Caladea-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/caladea/Caladea-Italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/caladea/Caladea-Italic.ttf",
+      "git_blob_sha1": "2c910c61f92637fd3ec1332340f14f80a0f82573",
+      "byte_length": 83780,
+      "kind": "font",
+      "family": "Caladea",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Caladea.OFL.txt",
+      "sha256": "4359a8e24f748b6447b1ff6d7a174febe70961d29f8bb8634b56dacd740a3deb",
+      "font_version": "Version 1.001",
+      "internal_family": "Caladea",
+      "internal_subfamily": "Italic",
+      "postscript_name": "Caladea-Italic",
+      "units_per_em": 1000,
+      "glyph_count": 459,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Caladea-Bold.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/caladea/Caladea-Bold.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/caladea/Caladea-Bold.ttf",
+      "git_blob_sha1": "a4a9703fbce8958e5dc141a5b498255d9e7a3d97",
+      "byte_length": 84492,
+      "kind": "font",
+      "family": "Caladea",
+      "style": "normal",
+      "weight": 700,
+      "license_file": "Caladea.OFL.txt",
+      "sha256": "ae3cb2dcbc925809dd29d2a44e9802211cab66be541bacbfc9c08c74b27c3742",
+      "font_version": "Version 1.001",
+      "internal_family": "Caladea",
+      "internal_subfamily": "Bold",
+      "postscript_name": "Caladea-Bold",
+      "units_per_em": 1000,
+      "glyph_count": 464,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Caladea-BoldItalic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/caladea/Caladea-BoldItalic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/caladea/Caladea-BoldItalic.ttf",
+      "git_blob_sha1": "a9bb487022313de900d5c665baf9ebb166d38c84",
+      "byte_length": 83356,
+      "kind": "font",
+      "family": "Caladea",
+      "style": "italic",
+      "weight": 700,
+      "license_file": "Caladea.OFL.txt",
+      "sha256": "ccabaa7b7e2fdf253d2b1a5fa699dd8a3df8d835a9eb285ad82631a677eb76c0",
+      "font_version": "Version 1.001",
+      "internal_family": "Caladea",
+      "internal_subfamily": "Bold Italic",
+      "postscript_name": "Caladea-BoldItalic",
+      "units_per_em": 1000,
+      "glyph_count": 459,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Carlito-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/carlito/Carlito-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/carlito/Carlito-Regular.ttf",
+      "git_blob_sha1": "427b95989fee609ab683d800ad00e22a4b14ecad",
+      "byte_length": 628032,
+      "kind": "font",
+      "family": "Carlito",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Carlito.OFL.txt",
+      "sha256": "f6418f708baede9789daef5d458c0f53d2a888af9820e8062934e504fedc6595",
+      "font_version": "Version 1.104",
+      "internal_family": "Carlito",
+      "internal_subfamily": "Regular",
+      "postscript_name": "Carlito-Regular",
+      "units_per_em": 2048,
+      "glyph_count": 2783,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Carlito-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/carlito/Carlito-Italic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/carlito/Carlito-Italic.ttf",
+      "git_blob_sha1": "8dc3c84edfc8f0b6c6acdbd112abfda827b484ac",
+      "byte_length": 615236,
+      "kind": "font",
+      "family": "Carlito",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Carlito.OFL.txt",
+      "sha256": "0b019225e58d702bfedcbd35c21696769f8ee115cb6343f84c2f240312450d1c",
+      "font_version": "Version 1.104",
+      "internal_family": "Carlito",
+      "internal_subfamily": "Italic",
+      "postscript_name": "Carlito-Italic",
+      "units_per_em": 2048,
+      "glyph_count": 2783,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Carlito-Bold.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/carlito/Carlito-Bold.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/carlito/Carlito-Bold.ttf",
+      "git_blob_sha1": "67543b5a1efe4b910317116b02e8e9e01659692e",
+      "byte_length": 682468,
+      "kind": "font",
+      "family": "Carlito",
+      "style": "normal",
+      "weight": 700,
+      "license_file": "Carlito.OFL.txt",
+      "sha256": "bb5d20f79b82599ec72983597437373a80f2d2085fa91fc144fd74e876a594db",
+      "font_version": "Version 1.104",
+      "internal_family": "Carlito",
+      "internal_subfamily": "Bold",
+      "postscript_name": "Carlito-Bold",
+      "units_per_em": 2048,
+      "glyph_count": 2783,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "Carlito-BoldItalic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/carlito/Carlito-BoldItalic.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/carlito/Carlito-BoldItalic.ttf",
+      "git_blob_sha1": "e2c5d8803828d9a3373459d71cf18ec06753cef5",
+      "byte_length": 808508,
+      "kind": "font",
+      "family": "Carlito",
+      "style": "italic",
+      "weight": 700,
+      "license_file": "Carlito.OFL.txt",
+      "sha256": "b32928186c119599e03ca6a1ffc680fdcb7fac95772f4b95d989cf6cd3861517",
+      "font_version": "Version 1.104",
+      "internal_family": "Carlito",
+      "internal_subfamily": "Bold Italic",
+      "postscript_name": "Carlito-BoldItalic",
+      "units_per_em": 2048,
+      "glyph_count": 2782,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [],
+      "face_index": 0
+    },
+    {
+      "file": "SourceSans3-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/sourcesans3/SourceSans3[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/sourcesans3/SourceSans3%5Bwght%5D.ttf",
+      "git_blob_sha1": "d259aa494fe7117141a2752a998a52c172bbd42b",
+      "byte_length": 646340,
+      "kind": "font",
+      "family": "Source Sans 3",
+      "style": "normal",
+      "weight": 200,
+      "license_file": "SourceSans3.OFL.txt",
+      "sha256": "042fe2cc0b933e328410d7acbd0aa6a1873dca5aef81875f4bc214b08825c7b9",
+      "font_version": "Version 3.052;hotconv 1.1.0;makeotfexe 2.6.0",
+      "internal_family": "Source Sans 3 ExtraLight",
+      "internal_subfamily": "Regular",
+      "postscript_name": "SourceSans3-Roman",
+      "units_per_em": 1000,
+      "glyph_count": 2478,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 200,
+          "default": 200,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "SourceSans3-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/sourcesans3/SourceSans3-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/sourcesans3/SourceSans3-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "ee54b36fd07749f63466845ae14d533be06f3c22",
+      "byte_length": 395372,
+      "kind": "font",
+      "family": "Source Sans 3",
+      "style": "italic",
+      "weight": 200,
+      "license_file": "SourceSans3.OFL.txt",
+      "sha256": "39e3ab05ccd7cb94907c31005bb5bec1d5432f0b096a2b782976e217a540eb6c",
+      "font_version": "Version 3.052;hotconv 1.1.0;makeotfexe 2.6.0",
+      "internal_family": "Source Sans 3 ExtraLight",
+      "internal_subfamily": "Italic",
+      "postscript_name": "SourceSans3-Italic",
+      "units_per_em": 1000,
+      "glyph_count": 1998,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 200,
+          "default": 200,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "EBGaramond-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/ebgaramond/EBGaramond[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/ebgaramond/EBGaramond%5Bwght%5D.ttf",
+      "git_blob_sha1": "52d34b86ec20977f222ce37e8158e6b3002c0a31",
+      "byte_length": 851176,
+      "kind": "font",
+      "family": "EB Garamond",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "EBGaramond.OFL.txt",
+      "sha256": "ef9512f92f6d579e5dc75af59a5a4b1b8b47d2eda89e00b954d44520e5369027",
+      "font_version": "Version 1.003",
+      "internal_family": "EB Garamond",
+      "internal_subfamily": "Regular",
+      "postscript_name": "EBGaramond-Regular",
+      "units_per_em": 1000,
+      "glyph_count": 3247,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "default": 400,
+          "maximum": 800
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "EBGaramond-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/ebgaramond/EBGaramond-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/ebgaramond/EBGaramond-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "f9ad996001c8ee72fd43b4b8e67c8924b7f615b1",
+      "byte_length": 754468,
+      "kind": "font",
+      "family": "EB Garamond",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "EBGaramond.OFL.txt",
+      "sha256": "bba2c4499c93c9612b90b9825d32b07da52fce2fe57562a1eb6b833553f93c4e",
+      "font_version": "Version 1.003",
+      "internal_family": "EB Garamond",
+      "internal_subfamily": "Italic",
+      "postscript_name": "EBGaramond-Italic",
+      "units_per_em": 1000,
+      "glyph_count": 3075,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "default": 400,
+          "maximum": 800
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "JetBrainsMono-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/jetbrainsmono/JetBrainsMono[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/jetbrainsmono/JetBrainsMono%5Bwght%5D.ttf",
+      "git_blob_sha1": "aa310be8b717fe3774f9444dd89d5f4101cc6d10",
+      "byte_length": 187208,
+      "kind": "font",
+      "family": "JetBrains Mono",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "JetBrainsMono.OFL.txt",
+      "sha256": "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda",
+      "font_version": "Version 2.211",
+      "internal_family": "JetBrains Mono",
+      "internal_subfamily": "Regular",
+      "postscript_name": "JetBrainsMono-Regular",
+      "units_per_em": 1000,
+      "glyph_count": 1179,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "default": 400,
+          "maximum": 800
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "JetBrainsMono-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/jetbrainsmono/JetBrainsMono-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/jetbrainsmono/JetBrainsMono-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "5210f7350c95eef62d53de85b5953f4d5ff022ec",
+      "byte_length": 191556,
+      "kind": "font",
+      "family": "JetBrains Mono",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "JetBrainsMono.OFL.txt",
+      "sha256": "85ae2a5cd3f56baf1ce1c21a851322c58e3d8fbe8e8ad4a4d090a820dd7fe558",
+      "font_version": "Version 2.211",
+      "internal_family": "JetBrains Mono",
+      "internal_subfamily": "Italic",
+      "postscript_name": "JetBrainsMono-Italic",
+      "units_per_em": 1000,
+      "glyph_count": 1179,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "default": 400,
+          "maximum": 800
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "Carlito.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/carlito/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/carlito/OFL.txt",
+      "git_blob_sha1": "8d6b170e4d9a5580a34471dc4ac3e8fc5fbbd712",
+      "byte_length": 4424,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "58402f82a7c332a700294988fe7554fbb0a63a8d27ccc1ee3bbc640311990a00"
+    },
+    {
+      "file": "Caladea.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/caladea/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/caladea/OFL.txt",
+      "git_blob_sha1": "b9d685b2fb49216f452fc0cf9728ce6673d910cb",
+      "byte_length": 4393,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "ccdab61d371d8c8683a128a92cd7d498dbdb1d37689f7cb21f1bf6b16658d213"
+    },
+    {
+      "file": "SourceSans3.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/sourcesans3/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/sourcesans3/OFL.txt",
+      "git_blob_sha1": "50ee76cf00fbfe42fb7c74a9b95c9508dec5bb8f",
+      "byte_length": 4579,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "09746787287a289323b0ec3cff4d1a4a801331b82b7207c1e186f5d26619a392"
+    },
+    {
+      "file": "EBGaramond.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/ebgaramond/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/ebgaramond/OFL.txt",
+      "git_blob_sha1": "c1ec5e1818415eab6f8fca95a230af477d64eb61",
+      "byte_length": 4398,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "0985066662eb755ed3683ae5482a81a9195b49ce3f7e165cc2388b3dbece7dd7"
+    },
+    {
+      "file": "JetBrainsMono.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/jetbrainsmono/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/jetbrainsmono/OFL.txt",
+      "git_blob_sha1": "821a3dac22aff15a1f1c9689a1d79c45bb58ca39",
+      "byte_length": 4399,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d"
     }
   ],
-  "retrieved_on": "2026-11-14",
-  "font_bytes": 6884780,
+  "retrieved_on": "2026-11-15",
+  "font_bytes": 12978372,
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 28101,
-      "sha256": "1a8a2851f64ba9d73e3fd778c4db82180faebfa480aec380f538dd4aab52b6c4",
+      "byte_length": 51720,
+      "sha256": "ac8ed85de3d60e79332d069f051ff5519b0817bfc27b2f2562b8a32dd48a2ac5",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]
