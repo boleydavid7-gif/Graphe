@@ -1,5 +1,5 @@
 {
-  "catalog_id": "writer-fonts-v3",
+  "catalog_id": "writer-fonts-v4",
   "format_version": 1,
   "entries": [
     {
@@ -970,15 +970,257 @@
       "kind": "license",
       "spdx": "OFL-1.1",
       "sha256": "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72"
+    },
+    {
+      "file": "Lora-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/lora/Lora[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/lora/Lora%5Bwght%5D.ttf",
+      "git_blob_sha1": "ee1914c3746140523de2940d267ec2215bd85d5b",
+      "byte_length": 212196,
+      "kind": "font",
+      "family": "Lora",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Lora.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0,
+      "sha256": "822a6621ccbe8d97d20ac88c1c41f5615c9c2c202eaa75f272cd452aac6475a7"
+    },
+    {
+      "file": "Lora-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/lora/Lora-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/lora/Lora-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "e973ccf7e5c69a831090c729a0dc2c592f42f4cc",
+      "byte_length": 221232,
+      "kind": "font",
+      "family": "Lora",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Lora.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0,
+      "sha256": "22d8d8854b53807aa664ca34f2031a9ed57a1d0dea296b8b96cdd3aad937a2b3"
+    },
+    {
+      "file": "Montserrat-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/montserrat/Montserrat[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/montserrat/Montserrat%5Bwght%5D.ttf",
+      "git_blob_sha1": "c97aca18592834d8706549c279cb8d5ac5d85f69",
+      "byte_length": 744936,
+      "kind": "font",
+      "family": "Montserrat",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Montserrat.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "0f7b311b2f3279e4eef9b2f968bcdbab6e28f4daeb1f049f4f278a902bcd82f7"
+    },
+    {
+      "file": "Montserrat-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/montserrat/Montserrat-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/montserrat/Montserrat-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "c8b8441744f2092ea8cbeb7b6f881e53bfe9c623",
+      "byte_length": 762376,
+      "kind": "font",
+      "family": "Montserrat",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Montserrat.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "51607f316bc020e59f03cbf51543eecffbea501c0b31d73e5b82927c5cca442c"
+    },
+    {
+      "file": "DMSans-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/dmsans/DMSans[opsz,wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/dmsans/DMSans%5Bopsz,wght%5D.ttf",
+      "git_blob_sha1": "c672f98060af9b2c85fca704ebd5ad9a8717c1df",
+      "byte_length": 240164,
+      "kind": "font",
+      "family": "DM Sans",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "DMSans.OFL.txt",
+      "axes": [
+        {
+          "tag": "opsz",
+          "minimum": 9,
+          "maximum": 40
+        },
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 1000
+        }
+      ],
+      "face_index": 0,
+      "sha256": "8cd08d97e89c24d0aa92edd2f0f4c8ee6195eee9b7c9f154865a58b02f0c1c0d"
+    },
+    {
+      "file": "DMSans-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/dmsans/DMSans-Italic[opsz,wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/dmsans/DMSans-Italic%5Bopsz,wght%5D.ttf",
+      "git_blob_sha1": "bf6819b0f811026ecf98d66183509b7302c0bf61",
+      "byte_length": 285040,
+      "kind": "font",
+      "family": "DM Sans",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "DMSans.OFL.txt",
+      "axes": [
+        {
+          "tag": "opsz",
+          "minimum": 9,
+          "maximum": 40
+        },
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 1000
+        }
+      ],
+      "face_index": 0,
+      "sha256": "22259c0cc8237221b80f44c76ba8d36e6bce3cda72779f5b2773643d499720ae"
+    },
+    {
+      "file": "Bitter-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/bitter/Bitter[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/bitter/Bitter%5Bwght%5D.ttf",
+      "git_blob_sha1": "7f6d58e633e22ab99597e0c0c17bd21c11630d99",
+      "byte_length": 328636,
+      "kind": "font",
+      "family": "Bitter",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Bitter.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "ef2b9a711fb02f1e5823b34da1b7450e0fc76793b7d733a8b41006e24916d4a7"
+    },
+    {
+      "file": "Bitter-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/bitter/Bitter-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/bitter/Bitter-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "39180c778f100c7d378198d7d570b4cea8c1d829",
+      "byte_length": 317652,
+      "kind": "font",
+      "family": "Bitter",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Bitter.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "5e6e0af503171c9d7b4be7a22c16f474d7a638cf83a80051d825bcc58d664bc3"
+    },
+    {
+      "file": "Lora.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/lora/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/lora/OFL.txt",
+      "git_blob_sha1": "d0ce7fe062e60eaa92c4af3ee1bebe81c5141b4e",
+      "byte_length": 4423,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "1d9a970809ac804b582a6ce7f0ebc4e7fefcbfd7ff6299cad35ee656a21be716"
+    },
+    {
+      "file": "Montserrat.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/montserrat/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/montserrat/OFL.txt",
+      "git_blob_sha1": "fe576a2ee1f96353b05d030c0b7620d525cc53a8",
+      "byte_length": 4400,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "8b7141c03fa4f8d44e6345d5d4931709290f0f67875e452e95ac1fd3a027802e"
+    },
+    {
+      "file": "DMSans.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/dmsans/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/dmsans/OFL.txt",
+      "git_blob_sha1": "4430b85ac62998e2edb914360f9ebdfe43f4deaa",
+      "byte_length": 4482,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "9af36190332437f5ecd09974de43c1f7c77a310a996cdd8ceb25628b458840e1"
+    },
+    {
+      "file": "Bitter.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/bitter/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/bitter/OFL.txt",
+      "git_blob_sha1": "dccc3f4a882cd04852985be1ecc2849eb4338410",
+      "byte_length": 4424,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "152a1e283e23b42c4940da4c72f2f5bebaa17969cb77c76d7af05903846006f1"
     }
   ],
-  "retrieved_on": "2026-11-15",
-  "font_bytes": 15816988,
+  "retrieved_on": "2026-11-16",
+  "font_bytes": 18929220,
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 70752,
-      "sha256": "42ce950cfa5b210f47cb653688a3b9ee253348d55697b471752271dff19d3f3c",
+      "byte_length": 89508,
+      "sha256": "3e90a64a0d559437d8802b10052f1b4a9b54dea9635151123f5f59ef6ce64623",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]
