@@ -18,7 +18,7 @@ const TOKEN_MAP = {
 type TokenName = keyof typeof TOKEN_MAP;
 const HEX = /^#[0-9a-f]{6}$/i;
 const NAMES = Object.keys(TOKEN_MAP) as TokenName[];
-const TRUSTED_PARENTS = new Set(['https://proairetos.com', 'https://research-and-development-proairetos.boleydavid7.workers.dev']);
+const TRUSTED_PARENTS = new Set(['https://proairetos.com', 'https://research-and-development-proairetos.boleydavid7.workers.dev https://feature-graphe-integration-isolated-20261116-proairetos.boleydavid7.workers.dev']);
 
 export function installLamplightBridge(): () => void {
   if (window.parent === window) return () => {};
