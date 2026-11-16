@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v5";
+const CATALOG_ID: &str = "writer-fonts-v6";
 
 struct PinnedFont {
     id: &'static str,
@@ -117,8 +117,6 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("WorkSans-Italic.ttf", include_bytes!("../fonts/WorkSans-Italic.ttf")),
     ("CrimsonPro-Regular.ttf", include_bytes!("../fonts/CrimsonPro-Regular.ttf")),
     ("CrimsonPro-Italic.ttf", include_bytes!("../fonts/CrimsonPro-Italic.ttf")),
-    ("Fraunces-Regular.ttf", include_bytes!("../fonts/Fraunces-Regular.ttf")),
-    ("Fraunces-Italic.ttf", include_bytes!("../fonts/Fraunces-Italic.ttf")),
     ("RobotoMono-Regular.ttf", include_bytes!("../fonts/RobotoMono-Regular.ttf")),
     ("RobotoMono-Italic.ttf", include_bytes!("../fonts/RobotoMono-Italic.ttf")),
     ("Oswald-Regular.ttf", include_bytes!("../fonts/Oswald-Regular.ttf")),
@@ -987,7 +985,8 @@ fn resolved_family(requested: &str) -> &'static str {
         "bitter" => "Bitter",
         "work sans" => "Work Sans",
         "crimson pro" => "Crimson Pro",
-        "fraunces" => "Fraunces",
+        // Retain the requested family in documents but substitute a pinned display serif.
+        "fraunces" => "Playfair Display",
         "roboto mono" => "Roboto Mono",
         "oswald" => "Oswald",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
