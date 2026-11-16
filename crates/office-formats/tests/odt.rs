@@ -149,6 +149,7 @@ fn multiple_sections_mixed_runs_paragraph_properties_geometry_and_title_roundtri
             green: 127,
             blue: 239,
         }),
+        hyperlink: None,
     };
     let format = ParagraphFormat {
         alignment: Some(Alignment::Justify),
