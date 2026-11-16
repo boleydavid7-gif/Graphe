@@ -343,6 +343,8 @@ impl BrowserEngine {
                 ..
             } => self.format_paragraph(alignment, selection),
             Command::SetList { list, selection, .. } => self.set_list(list, selection),
+            Command::SetHyperlink { url, text, selection, .. } =>
+                self.set_hyperlink(url, text, selection),
             Command::AssignStyle {
                 style_id,
                 selection,
