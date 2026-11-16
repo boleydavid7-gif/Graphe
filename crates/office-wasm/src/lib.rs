@@ -731,6 +731,7 @@ fn character_patch(
         font_family,
         font_size,
         color: None,
+        hyperlink: None,
     })
 }
 
