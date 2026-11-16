@@ -444,6 +444,12 @@ impl Document {
             style
                 .paragraph_format
                 .validate(&format!("{path}.paragraph_format"))?;
+            if style.character_format.hyperlink.is_some() {
+                return Err(ValidationError::InvalidFormatting {
+                    path: format!("{path}.character_format.hyperlink"),
+                    reason: "hyperlinks belong to text runs, not named style defaults".into(),
+                });
+            }
             styles.insert(style.id.as_str(), style);
         }
         let resolve = |id: &Id, path: &str| -> Result<(), ValidationError> {
