@@ -1670,3 +1670,63 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     min-height: 44px; font-size: 16px;
   }
 }
+
+
+/* Read-only dropdown previews. Real document text and pagination use the
+   identical pinned Rust font bytes; these CSS faces never define page geometry.
+   Vite emits font assets only as requested by the browser's rendered UI. */
+@font-face {
+  font-family: "Graphe Preview Carlito";
+  src: url("../../../crates/office-layout/fonts/Carlito-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphe Preview Caladea";
+  src: url("../../../crates/office-layout/fonts/Caladea-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphe Preview Source Sans 3";
+  src: url("../../../crates/office-layout/fonts/SourceSans3-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphe Preview EB Garamond";
+  src: url("../../../crates/office-layout/fonts/EBGaramond-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Graphe Preview JetBrains Mono";
+  src: url("../../../crates/office-layout/fonts/JetBrainsMono-Regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+}
+.font-selectors .font-family-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 29px;
+  height: 28px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--writer-text-control);
+  border-left: 1px solid var(--writer-border-control);
+  padding-left: 7px;
+  pointer-events: none;
+}
+@media (max-width: 620px) {
+  .font-selectors .font-family-preview {
+    min-width: 26px;
+    height: 32px;
+    padding-left: 6px;
+  }
+}
