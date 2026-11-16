@@ -89,10 +89,10 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("Carlito-Bold.ttf", include_bytes!("../fonts/Carlito-Bold.ttf")),
     ("Carlito-Italic.ttf", include_bytes!("../fonts/Carlito-Italic.ttf")),
     ("Carlito-BoldItalic.ttf", include_bytes!("../fonts/Carlito-BoldItalic.ttf")),
-    ("SourceSans3[wght].ttf", include_bytes!("../fonts/SourceSans3[wght].ttf")),
-    ("SourceSans3-Italic[wght].ttf", include_bytes!("../fonts/SourceSans3-Italic[wght].ttf")),
-    ("JetBrainsMono[wght].ttf", include_bytes!("../fonts/JetBrainsMono[wght].ttf")),
-    ("JetBrainsMono-Italic[wght].ttf", include_bytes!("../fonts/JetBrainsMono-Italic[wght].ttf")),
+    ("SourceSans3-Regular.ttf", include_bytes!("../fonts/SourceSans3-Regular.ttf")),
+    ("SourceSans3-Italic.ttf", include_bytes!("../fonts/SourceSans3-Italic.ttf")),
+    ("JetBrainsMono-Regular.ttf", include_bytes!("../fonts/JetBrainsMono-Regular.ttf")),
+    ("JetBrainsMono-Italic.ttf", include_bytes!("../fonts/JetBrainsMono-Italic.ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
