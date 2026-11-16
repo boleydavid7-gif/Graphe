@@ -94,7 +94,7 @@ fn serialization_is_deterministic_pretty_utf8_with_one_final_newline() {
     let second = serialize_document(&document).unwrap();
     assert_eq!(first, second);
     assert!(first.starts_with(
-        b"{\n  \"format\": \"office-writer\",\n  \"format_version\": 3,\n  \"document\": {"
+        b"{\n  \"format\": \"office-writer\",\n  \"format_version\": 4,\n  \"document\": {"
     ));
     assert!(first.ends_with(b"}\n"));
     assert!(!first.ends_with(b"\n\n"));
@@ -468,8 +468,8 @@ fn duplicate_object_keys_are_rejected_without_value_based_overwriting() {
             1,
         ),
         valid.replacen(
-            "\"format_version\": 3",
-            "\"format_version\": 3, \"format_version\": 3",
+            "\"format_version\": 4",
+            "\"format_version\": 4, \"format_version\": 4",
             1,
         ),
         valid.replacen("\"document\": {", "\"document\": {}, \"document\": {", 1),
@@ -481,8 +481,8 @@ fn duplicate_object_keys_are_rejected_without_value_based_overwriting() {
     }
     for duplicate in [
         valid.replacen(
-            "\"schema_version\": 3",
-            "\"schema_version\": 3, \"schema_version\": 3",
+            "\"schema_version\": 4",
+            "\"schema_version\": 4, \"schema_version\": 4",
             1,
         ),
         valid.replacen(
