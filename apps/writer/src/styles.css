@@ -128,6 +128,35 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  src: url('../../../crates/office-layout/fonts/NotoSansArabic.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  src: url('../../../crates/office-layout/fonts/NotoSansDevanagari.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans Hebrew';
+  src: url('../../../crates/office-layout/fonts/NotoSansHebrew.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Emoji';
+  src: url('../../../crates/office-layout/fonts/NotoEmoji.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 /* Lamplight interface surfaces are opaque. Document geometry comes from Rust. */
 
 /* ProairetOS theme adapter contract.
