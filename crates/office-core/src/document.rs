@@ -11,11 +11,13 @@ mod legacy;
 mod v2;
 #[path = "v3.rs"]
 mod v3;
+#[path = "v4.rs"]
+mod v4;
 
 /// Current document JSON schema, independent of crate and native-file versions.
 ///
-/// Schemas 1 through 3 migrate strictly into the hyperlink-aware schema 4.
-pub const SCHEMA_VERSION: u32 = 4;
+/// Schemas 1–4 migrate strictly into schema 5 with semantic table cells.
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// An opaque, caller-assigned identifier preserved across copies and serialization.
 ///
@@ -129,6 +131,22 @@ pub enum ListKind {
     Numbered,
 }
 
+/// A cell in a rectangular, single-paragraph-per-cell semantic table.
+/// All consecutive cells with the same table ID are one table, in row-major
+/// order. No merged cells, nested tables, or hidden HTML document are stored.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TableCell {
+    /// Stable identifier for the table as a whole.
+    pub table_id: Id,
+    /// Zero-based row index.
+    pub row: u16,
+    /// Zero-based column index.
+    pub column: u8,
+    /// Total number of columns; identical for every cell in the table.
+    pub columns: u8,
+}
+
 /// A paragraph containing an ordered sequence of text runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -139,6 +157,8 @@ pub struct Paragraph {
     format: ParagraphFormat,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     list: Option<ListKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    table: Option<TableCell>,
 }
 
 impl Paragraph {
@@ -151,6 +171,7 @@ impl Paragraph {
             style: None,
             format: ParagraphFormat::default(),
             list: None,
+            table: None,
         }
     }
 
@@ -179,6 +200,19 @@ impl Paragraph {
     #[must_use]
     pub fn list(&self) -> Option<ListKind> {
         self.list
+    }
+
+    /// Assigns or removes the semantic table location of this paragraph.
+    #[must_use]
+    pub fn with_table(mut self, table: Option<TableCell>) -> Self {
+        self.table = table;
+        self
+    }
+
+    /// Returns the table cell location, if this paragraph belongs to a table.
+    #[must_use]
+    pub fn table(&self) -> Option<&TableCell> {
+        self.table.as_ref()
     }
 
     /// Returns the stable paragraph identifier.
@@ -342,7 +376,7 @@ impl<'de> Deserialize<'de> for Document {
 }
 
 fn check_schema(found: u64) -> Result<(), DocumentError> {
-    if !matches!(found, 1 | 2 | 3 | 4) {
+    if !matches!(found, 1 | 2 | 3 | 4 | 5) {
         return Err(DocumentError::UnsupportedSchemaVersion {
             found,
             supported: SCHEMA_VERSION,
@@ -463,6 +497,10 @@ impl Document {
             Ok(())
         };
         for (section_index, section) in self.sections.iter().enumerate() {
+            // Consecutive table cells must form a complete rectangular matrix.
+            // This preserves text editing's paragraph-index coordinate model
+            // without letting a malformed table corrupt layout or DOCX output.
+            let mut table_state: Option<(Id, u16, u8, u8)> = None;
             let path = format!("sections[{section_index}]");
             register_id(&mut ids, &section.id, &format!("{path}.id"))?;
             if let Some(properties) = &section.properties {
@@ -472,6 +510,53 @@ impl Document {
                 let Block::Paragraph(paragraph) = block;
                 let path = format!("{path}.blocks[{block_index}].content");
                 register_id(&mut ids, &paragraph.id, &format!("{path}.id"))?;
+                if let Some(table) = &paragraph.table {
+                    if table.columns == 0 || table.columns > 8
+                        || table.column >= table.columns || table.row >= 32
+                        || paragraph.list.is_some()
+                    {
+                        return Err(ValidationError::InvalidFormatting {
+                            path: format!("{path}.table"),
+                            reason: "tables require 1–8 columns, at most 32 rows, and no list markers".into(),
+                        });
+                    }
+                    let expected = match &table_state {
+                        Some((id, row, column, columns)) if id == &table.table_id => {
+                            if *column + 1 == *columns {
+                                (row + 1, 0, *columns)
+                            } else {
+                                (*row, column + 1, *columns)
+                            }
+                        }
+                        Some((_, _, previous_column, columns)) if *previous_column + 1 != *columns => {
+                            return Err(ValidationError::InvalidFormatting {
+                                path: format!("{path}.table"),
+                                reason: "previous table ended with an incomplete row".into(),
+                            });
+                        }
+                        _ => {
+                            register_id(&mut ids, &table.table_id, &format!("{path}.table.table_id"))?;
+                            (0, 0, table.columns)
+                        }
+                    };
+                    if (table.row, table.column, table.columns) != expected {
+                        return Err(ValidationError::InvalidFormatting {
+                            path: format!("{path}.table"),
+                            reason: "table cells must be consecutive, row-major, and rectangular".into(),
+                        });
+                    }
+                    table_state = Some((table.table_id.clone(), table.row, table.column, table.columns));
+                } else {
+                    if let Some((_, _, column, columns)) = &table_state
+                        && column + 1 != *columns
+                    {
+                        return Err(ValidationError::InvalidFormatting {
+                            path: format!("{path}.table"),
+                            reason: "table row cannot be incomplete".into(),
+                        });
+                    }
+                    table_state = None;
+                }
                 if let Some(style) = &paragraph.style {
                     resolve(style, &format!("{path}.style"))?;
                 }
@@ -480,6 +565,14 @@ impl Document {
                     run.format
                         .validate(&format!("{path}.runs[{run_index}].format"))?;
                 }
+            }
+            if let Some((_, _, column, columns)) = table_state
+                && column + 1 != columns
+            {
+                return Err(ValidationError::InvalidFormatting {
+                    path: format!("{path}.blocks"),
+                    reason: "table must end with a complete row".into(),
+                });
             }
         }
         for (index, style) in self.styles.iter().enumerate() {
@@ -534,6 +627,7 @@ impl Document {
             1 => legacy::from_json(json),
             2 => v2::from_json(json),
             3 => v3::from_json(json),
+            4 => v4::from_json(json),
             _ => serde_json::from_str::<DocumentInput>(json)?.into_document(),
         }
     }
