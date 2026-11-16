@@ -1,9 +1,9 @@
-# Writer font catalog `writer-fonts-v4`
+# Writer font catalog `writer-fonts-v5`
 
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The 39 pinned fonts total **18,929,220 bytes** (18.05 MiB). The new families
+operating system and browser. The 48 pinned fonts total **21,454,472 bytes** (20.46 MiB). The new families
 increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
@@ -40,6 +40,11 @@ face.
 | Montserrat-Regular.ttf / Montserrat-Italic.ttf | Google Fonts pinned | Sans, `wght` 100–900; upright and genuine italic |
 | DMSans-Regular.ttf / DMSans-Italic.ttf | Google Fonts pinned | Sans, `opsz` 9–40 and `wght` 100–1000; upright and genuine italic |
 | Bitter-Regular.ttf / Bitter-Italic.ttf | Google Fonts pinned | Slab serif, `wght` 100–900; upright and genuine italic |
+| WorkSans-Regular.ttf / WorkSans-Italic.ttf | Google Fonts pinned | Sans serif, `wght` 100–900; upright and genuine italic |
+| CrimsonPro-Regular.ttf / CrimsonPro-Italic.ttf | Google Fonts pinned | Classical serif, `wght` 200–900; upright and genuine italic |
+| Fraunces-Regular.ttf / Fraunces-Italic.ttf | Google Fonts pinned | Display serif, `wght` 100–900, `opsz` 9–144, `SOFT` 0–100, `WONK` 0–1; upright/italic |
+| RobotoMono-Regular.ttf / RobotoMono-Italic.ttf | Google Fonts pinned | Monospace, `wght` 100–700; upright and genuine italic |
+| Oswald-Regular.ttf | Google Fonts pinned | Condensed display sans, `wght` 200–700; upright only (no bundled italic) |
 
 Choose regular weight 400 or bold 700 explicitly, and width 100 for the script
 fallbacks. Noto Sans Hebrew's file default is **100 (Thin)**, so relying on its
@@ -68,7 +73,7 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   pinned from the same [google/fonts `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl) revision.
   Their complete, unmodified OFL licenses are appended to the existing `NOTICE.txt`.
 
-All nineteen families use **SIL Open Font License 1.1**. Each complete upstream
+All twenty-four families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
 distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
 No font binaries or internal font names have been modified, and the original
@@ -157,3 +162,13 @@ They are exact upstream Google Fonts binaries pinned to commit `cc39c4c` with
 SHA-256 and Git blob identity verification, plus four complete OFL licenses.
 The existing default, substitution and international fallback chains stay
 unchanged. No browser-font measurement or runtime font download is introduced.
+
+Catalog v5 adds nine pinned original font files across five families
+(Work Sans, Crimson Pro, Fraunces, Roboto Mono and Oswald), totalling
+2,525,252 additional uncompressed bytes. All five complete SIL OFL 1.1
+licenses are included in the existing combined notice and as separate
+unmodified files. Oswald is bundled upright only: an italic request is not
+a genuine Oswald italic. Fraunces has additional optical-size, softness and
+WONK variation axes; Graphe currently exposes only normal/italic and bold
+controls (other axes remain at their file defaults). This is an opt-in
+catalog expansion with no change to the fallback chain or document format.
