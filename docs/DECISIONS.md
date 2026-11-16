@@ -1158,3 +1158,18 @@ do not copy stale links from source DOCX documents. Unsupported Word link
 semantics must remain preserved read-only. Other external formats must disclose
 loss of click targets. This foundation can be extended with mailto and anchors
 only after separate validation and format adapter work.
+
+
+## 2026-11-16 — Transactional paragraph geometry controls
+
+Expose existing `ParagraphFormat` via `set_paragraph_metrics`, with
+`ParagraphMetricsPatch` that touches only supplied fields, merges individual
+indentation components per paragraph, and preserves style, list, page-break,
+alignment and text. Rust validates unit ranges, converts to canonical twips,
+and commits one undoable transaction. The UI displays Rust's readonly
+mixed-selection state and sends only changed fields on Apply; dialog input
+cannot become an independent document model.
+
+Do not change native schema version or regenerate document content to achieve
+paragraph spacing. Native pages and DOCX already support these properties.
+This release deliberately excludes page margins, style editing and tab stops.
