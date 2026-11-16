@@ -76,6 +76,12 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    SetHyperlink {
+        url: Option<String>,
+        text: Option<String>,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     AssignStyle {
         style_id: Option<String>,
         selection: Option<BrowserSelection>,
@@ -135,6 +141,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::SetList {
+                expected_revision, ..
+            }
+            | Self::SetHyperlink {
                 expected_revision, ..
             }
             | Self::AssignStyle {
@@ -222,6 +231,7 @@ pub(crate) struct CharacterView {
     pub font_family: String,
     pub font_size_pt: f64,
     pub color: String,
+    pub hyperlink: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -249,6 +259,7 @@ pub(crate) struct FormatSummary {
     pub style_mixed: bool,
     pub list: Option<ListKind>,
     pub list_mixed: bool,
+    pub hyperlink: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
