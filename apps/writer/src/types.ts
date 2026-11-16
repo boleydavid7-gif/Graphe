@@ -34,6 +34,7 @@ export interface CharacterView {
   readonly fontFamily: string;
   readonly fontSizePt: number;
   readonly color: string;
+  readonly hyperlink: string | null;
 }
 
 export interface RunView {
@@ -78,6 +79,7 @@ export interface WriterView {
     readonly styleMixed: boolean;
     readonly list: ListKind | null;
     readonly listMixed: boolean;
+    readonly hyperlink: string | null;
   };
   readonly canUndo: boolean;
   readonly canRedo: boolean;
@@ -112,6 +114,7 @@ export type WriterCommand =
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
   | ({ readonly type: 'format_paragraph'; readonly alignment: Alignment } & EditOrigin)
   | ({ readonly type: 'set_list'; readonly list: ListKind | null } & EditOrigin)
+  | ({ readonly type: 'set_hyperlink'; readonly url: string | null; readonly text?: string } & EditOrigin)
   | ({ readonly type: 'assign_style'; readonly styleId: string | null } & EditOrigin)
   | { readonly type: 'undo'; readonly expectedRevision?: string }
   | { readonly type: 'redo'; readonly expectedRevision?: string };
