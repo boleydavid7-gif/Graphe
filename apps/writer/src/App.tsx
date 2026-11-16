@@ -1,4 +1,4 @@
-import { announceFilesReady, canSaveToProairetos, requestProairetosSaveDialog, sendProairetosExport, type FilesOpenPayload } from './proairetosFilesBridge';
+import { announceFilesReady, announceFontsReady, announceFontResult, canSaveToProairetos, requestProairetosSaveDialog, sendProairetosExport, type FilesOpenPayload, type RndFontPayload } from './proairetosFilesBridge';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { EngineClient, EngineError } from './engine';
 import type { EditorSurfaceHandle } from './EditorSurface';
@@ -155,18 +155,21 @@ function bundledFontSample(font: string | null | undefined): string {
     default: return 'Aa Bb Cc 123';
   }
 }
-function fontOptions(current: string | null | undefined) {
+function fontOptions(current: string | null | undefined, external: readonly string[] = []) {
   return <>
     <option value="" disabled>{current === null ? 'Mixed fonts' : 'Select font'}</option>
     <optgroup label="Common fonts (licensed substitutes)">
       {COMMON_FONT_SUBSTITUTIONS.map(({ name, substitute }) => <option key={name} value={name}
         style={{ fontFamily: `"${substitute}", sans-serif` }}>{name} (uses {substitute})</option>)}
     </optgroup>
+    {external.length > 0 && <optgroup label="Added fonts (R&D)">
+      {external.map((name) => <option key={name} value={name} style={{ fontFamily: `"${name}", sans-serif` }}>{name}</option>)}
+    </optgroup>}
     {FONT_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
       {group.names.map((name) => <option key={name} value={name}
         style={{ fontFamily: `"${bundledFontPreview(name)}", sans-serif` }}>{name}</option>)}
     </optgroup>)}
-    {current && !BUNDLED_FONTS.has(current) && !COMMON_FONT_NAMES.has(current) &&
+    {current && !BUNDLED_FONTS.has(current) && !COMMON_FONT_NAMES.has(current) && !external.includes(current) &&
       <optgroup label="From document (using a substitute)">
         <option value={current}>{current}</option>
       </optgroup>}
@@ -258,6 +261,10 @@ export default function App() {
   const preparedExportUrl = useRef<string | null>(null);
   const [preparedExport, setPreparedExport] = useState<{ url: string; filename: string; automaticFailed: boolean } | null>(null);
   const [view, setView] = useState<WriterView | null>(null);
+  const [externalFonts, setExternalFonts] = useState<string[]>([]);
+  // Rust clients created during external-file import need the same session fonts.
+  const loadedExternalFontBytes = useRef(new Map<string, { family: string; bytes: Uint8Array }>());
+  const [fontVersion, setFontVersion] = useState(0);
   const [startupError, setStartupError] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -442,6 +449,43 @@ export default function App() {
   }
 
   useEffect(() => {
+    const ready = () => { if (engine.current) announceFontsReady(); };
+    const receive = (event: Event) => {
+      const value = (event as CustomEvent<RndFontPayload>).detail;
+      if (!value || !engine.current) return;
+      try {
+        // Rust validates font format and budgets and owns final glyph layout.
+        const incoming = new Uint8Array(value.data);
+        engine.current.registerExternalFont(value.id, value.family, incoming);
+        loadedExternalFontBytes.current.set(value.id, { family: value.family, bytes: incoming.slice() });
+        // Layout must refresh immediately after Rust registration even if
+        // FontFace preview validation is slow or unsupported by this browser.
+        setExternalFonts(current => current.includes(value.family) ? current : [...current, value.family].sort());
+        setFontVersion(version => version + 1);
+        const style = /italic/i.test(value.filename) ? 'italic' : 'normal';
+        const weight = /bold/i.test(value.filename) ? '700' : '400';
+        try {
+          const face = new FontFace(value.family, new Uint8Array(value.data), { style, weight });
+          void face.load().then(loaded => {
+            document.fonts.add(loaded);
+            announceFontResult(value.id, true);
+          }).catch(error => {
+            announceFontResult(value.id, true, `Rust installed; browser preview unavailable: ${message(error)}`);
+          });
+        } catch (error) {
+          announceFontResult(value.id, true, `Rust installed; browser preview unavailable: ${message(error)}`);
+        }
+      } catch (error) { announceFontResult(value.id, false, message(error)); }
+    };
+    window.addEventListener('proairetos:font-host-ready', ready);
+    window.addEventListener('proairetos:font-install', receive);
+    return () => {
+      window.removeEventListener('proairetos:font-host-ready', ready);
+      window.removeEventListener('proairetos:font-install', receive);
+    };
+  }, []);
+
+  useEffect(() => {
     let canceled = false;
     let client: EngineClient | null = null;
     const localStore = new WriterStorage();
@@ -473,6 +517,7 @@ export default function App() {
       engine.current = created;
       viewRef.current = created.view;
       setView(created.view);
+      announceFontsReady();
       saver.reset(null);
     }).catch((failure: unknown) => {
       if (!canceled) setStartupError(message(failure));
@@ -808,6 +853,11 @@ export default function App() {
           if (!local) throw new Error('Local storage is required to preserve the imported document before editing.');
           candidate = await EngineClient.create();
           checkOrigin();
+          // Retain custom-family shaping across candidate sessions, without
+          // persisting user-supplied font binaries into document history.
+          for (const [id, uploaded] of loadedExternalFontBytes.current) {
+            candidate.registerExternalFont(id, uploaded.family, uploaded.bytes);
+          }
           const next = candidate.importFormat(selectedFormat, bytes, file.name);
           const native = candidate.serialize();
           // A supported import is not activated until the native document and
@@ -1157,7 +1207,7 @@ export default function App() {
           <label className="visually-hidden" htmlFor="font-family">Font family</label>
           <select id="font-family" aria-label="Font family" value={formatState?.fontFamily ?? ''}
             onChange={(event) => format({ type: 'format_character', fontFamily: event.target.value }, false)}>
-            {fontOptions(formatState?.fontFamily)}
+            {fontOptions(formatState?.fontFamily, externalFonts)}
           </select>
           <label className="visually-hidden" htmlFor="font-size">Font size</label>
           <select id="font-size" aria-label="Font size" value={formatState?.fontSizePt ?? ''}
@@ -1250,7 +1300,7 @@ export default function App() {
     <div className="writer-work-area"><main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Graphe could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
-        : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command}
+        : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor key={fontVersion} ref={surface} view={view} onCommand={command}
           getCurrentView={currentEngineView}
           onError={setError} onCompositionChange={compositionChanged} disabled={opening || pagePreview}
           zoom={previewZoom} loadLayout={loadPageLayout} loadGeometry={loadSelectionGeometry}
@@ -1258,7 +1308,7 @@ export default function App() {
           onCopy={() => {
             if (!engine.current) throw new Error('Writer is not ready to copy text.');
             return engine.current.selectedText();
-          }} /></div>{pagePreview && <PagePreview key={JSON.stringify([view.sessionId, view.revision])}
+          }} /></div>{pagePreview && <PagePreview key={JSON.stringify([view.sessionId, view.revision, fontVersion])}
             sessionId={view.sessionId} revision={view.revision} documentId={view.documentId}
             loadLayout={loadPageLayout} zoom={previewZoom} onZoomChange={setPreviewZoom}
             onPageInfo={acceptPreviewPageInfo}
@@ -1289,12 +1339,12 @@ export default function App() {
         <select id="inspector-font-family" disabled={unavailable}
           value={formatState?.fontFamily ?? ''}
           onChange={(event) => format({ type: 'format_character', fontFamily: event.target.value }, false)}>
-          {fontOptions(formatState?.fontFamily)}
+          {fontOptions(formatState?.fontFamily, externalFonts)}
         </select>
         <div className="font-family-preview" aria-label="Typeface sample"
-          style={{ fontFamily: `"${bundledFontPreview(formatState?.fontFamily)}", sans-serif` }}>
+          style={{ fontFamily: `"${externalFonts.includes(formatState?.fontFamily ?? '') ? formatState?.fontFamily : bundledFontPreview(formatState?.fontFamily)}", sans-serif` }}>
           <span>{bundledFontSample(formatState?.fontFamily)}</span>
-          <small>{fontPreviewDescription(formatState?.fontFamily)}</small>
+          <small>{externalFonts.includes(formatState?.fontFamily ?? '') ? 'Owner-staged R&D font' : fontPreviewDescription(formatState?.fontFamily)}</small>
         </div>
         <label htmlFor="inspector-font-size">Font size</label>
         <select id="inspector-font-size" disabled={unavailable} value={formatState?.fontSizePt ?? ''}

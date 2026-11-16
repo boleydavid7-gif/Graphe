@@ -115,6 +115,19 @@ struct LayoutView<'a> {
 }
 
 impl BrowserEngine {
+    /// Adds a session-local R&D font without editing the document or history.
+    pub fn register_external_font(&mut self, id: &str, family: &str, bytes: &[u8]) -> Result<(), EngineError> {
+        if self.layout_state.engine.is_none() {
+            self.layout_state.engine = Some(LayoutEngine::new()
+                .map_err(|error| EngineError::new(error.code(), error.to_string()))?);
+        }
+        self.layout_state.engine.as_mut().expect("initialized above")
+            .register_external_font(id, family, bytes)
+            .map_err(|error| EngineError::new(error.code(), error.to_string()))?;
+        self.layout_state.invalidate();
+        Ok(())
+    }
+
     /// Returns bounded page, line, glyph and cursor geometry computed in Rust.
     ///
     /// Options are a strict JSON object; `{}` selects the pinned layout profile.

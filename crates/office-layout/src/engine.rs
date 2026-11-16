@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::{BTreeMap, HashMap, HashSet}, sync::Arc};
 
 use office_core::{
     Alignment, Block, CharacterFormat, Document, GraphemeOffset, LineSpacing, ListKind, PageMargins,
@@ -34,7 +34,7 @@ const MAX_HALF_POINTS: u32 = 1024;
 const CATALOG_ID: &str = "writer-fonts-v5";
 
 struct PinnedFont {
-    id: &'static str,
+    id: String,
     blob: Blob<u8>,
 }
 
@@ -130,6 +130,9 @@ const FONT_FILES: &[(&str, &[u8])] = &[
 /// resource budgets; failures leave the source model and editing session intact.
 pub struct LayoutEngine {
     fonts: Vec<PinnedFont>,
+    external_families: HashMap<String, String>,
+    external_ids: HashSet<String>,
+    external_bytes: usize,
     font_context: FontContext,
     layout_context: LayoutContext<usize>,
 }
@@ -156,13 +159,67 @@ impl LayoutEngine {
             }
             let blob = Blob::new(Arc::new(bytes));
             font_context.collection.register_fonts(blob.clone(), None);
-            fonts.push(PinnedFont { id, blob });
+            fonts.push(PinnedFont { id: id.into(), blob });
         }
         Ok(Self {
             fonts,
+            external_families: HashMap::new(),
+            external_ids: HashSet::new(),
+            external_bytes: 0,
             font_context,
             layout_context: LayoutContext::new(),
         })
+    }
+
+    /// Register an owner-staged, session-only font for authoritative Rust layout.
+    /// External fonts never overwrite the immutable bundled/substitution catalog.
+    pub fn register_external_font(&mut self, id: &str, family: &str, bytes: &[u8]) -> Result<(), LayoutError> {
+        const MAX_ONE: usize = 5 * 1024 * 1024;
+        const MAX_TOTAL: usize = 24 * 1024 * 1024;
+        let name = family.trim();
+        if id.is_empty() || id.len() > 80 || !id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            || name.is_empty() || name != family || name.len() > 100
+            || name.chars().any(char::is_control) || name.contains('<') || name.contains('>')
+        {
+            return Err(font_error(id, "invalid external font metadata"));
+        }
+        let folded = name.to_ascii_lowercase();
+        if resolved_family(name) != "Arimo" || ["arimo", "arial", "helvetica", "sans-serif"].contains(&folded.as_str()) {
+            return Err(font_error(id, "bundled font families and aliases cannot be overridden"));
+        }
+        if self.external_ids.contains(id) {
+            return Err(font_error(id, "font already installed"));
+        }
+        if bytes.is_empty() || bytes.len() > MAX_ONE || self.external_ids.len() >= 24
+            || self.external_bytes.saturating_add(bytes.len()) > MAX_TOTAL
+            || !(bytes.starts_with(&[0, 1, 0, 0]) || bytes.starts_with(b"OTTO"))
+        {
+            return Err(font_error(id, "external font format, count or size limit exceeded"));
+        }
+        let font = FontRef::from_index(bytes, 0).map_err(|error| font_error(id, error))?;
+        if font.metrics(Size::unscaled(), LocationRef::default()).units_per_em == 0 {
+            return Err(font_error(id, "external font has zero units per em"));
+        }
+        let blob = Blob::new(Arc::new(bytes.to_vec()));
+        // The requested family must actually occur in the incoming font.
+        // Probe a separate collection before mutating the active shaper:
+        // rejected/mislabeled files must not silently render as Arimo.
+        let mut probe = Collection::new(CollectionOptions { system_fonts: false, shared: false });
+        let parsed = probe.register_fonts(blob.clone(), None);
+        if parsed.len() != 1 || parsed[0].1.is_empty()
+            || probe.family_name(parsed[0].0).is_none_or(|actual| !actual.eq_ignore_ascii_case(name))
+        {
+            return Err(font_error(id, "font family does not match the embedded font metadata"));
+        }
+        let registered = self.font_context.collection.register_fonts(blob.clone(), None);
+        if registered.is_empty() {
+            return Err(font_error(id, "font was not accepted by the text shaper"));
+        }
+        self.fonts.push(PinnedFont { id: format!("RND:{id}:{name}"), blob });
+        self.external_bytes += bytes.len();
+        self.external_ids.insert(id.into());
+        self.external_families.insert(folded, name.into());
+        Ok(())
     }
 
     /// Shapes and paginates an immutable model using fixed-point output geometry.
@@ -174,7 +231,13 @@ impl LayoutEngine {
         preflight(document, options)?;
         let mut output = DocumentLayout {
             document_id: document.id().as_str().into(),
-            font_catalog_id: CATALOG_ID.into(),
+            // Every distinct external-font set produces a distinct layout
+            // catalog identity, without changing the immutable v5 baseline.
+            font_catalog_id: if self.external_ids.is_empty() { CATALOG_ID.into() } else {
+                let mut ids: Vec<_> = self.external_ids.iter().cloned().collect();
+                ids.sort();
+                format!("{}+rnd:{}", CATALOG_ID, ids.join(","))
+            },
             units_per_point: UNITS_PER_POINT,
             pages: Vec::new(),
             outlines: Vec::new(),
@@ -386,9 +449,13 @@ impl LayoutEngine {
             ranges.push((offset..offset + run.text.len(), formats.len() - 1));
             offset += run.text.len();
         }
-        let families: Vec<_> = formats
+        let families: Vec<String> = formats
             .iter()
-            .map(|format| resolved_family(format.font_family.as_deref().unwrap_or("Arimo")))
+            .map(|format| {
+                let name = format.font_family.as_deref().unwrap_or("Arimo");
+                self.external_families.get(&name.to_ascii_lowercase()).cloned()
+                    .unwrap_or_else(|| resolved_family(name).into())
+            })
             .collect();
         for (format, family) in formats.iter().zip(&families) {
             let requested = format.font_family.as_deref().unwrap_or("Arimo");
@@ -405,7 +472,7 @@ impl LayoutEngine {
             self.layout_context
                 .ranged_builder(&mut self.font_context, text, 1., false);
         builder.push_default(StyleProperty::FontFamily(FontFamily::Source(
-            font_list(families[0]).into(),
+            font_list(families[0].as_str()).into(),
         )));
         builder.push_default(StyleProperty::FontSize(
             formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.,
@@ -428,7 +495,7 @@ impl LayoutEngine {
         for (range, index) in ranges {
             let format = &formats[index];
             builder.push(
-                StyleProperty::FontFamily(FontFamily::Source(font_list(families[index]).into())),
+                StyleProperty::FontFamily(FontFamily::Source(font_list(families[index].as_str()).into())),
                 range.clone(),
             );
             builder.push(
@@ -1204,7 +1271,7 @@ impl OutlineCache {
         }
         budget("outlines", MAX_OUTLINES, output.outlines.len() + 1)?;
         let font = FontRef::from_index(pinned.blob.as_ref(), face)
-            .map_err(|error| font_error(pinned.id, error))?;
+            .map_err(|error| font_error(&pinned.id, error))?;
         let location: Vec<_> = coordinates
             .iter()
             .map(|coordinate| NormalizedCoord::from_bits(*coordinate))
@@ -1215,14 +1282,14 @@ impl OutlineCache {
         if let Some(outline) = font.outline_glyphs().get(skrifa::GlyphId::new(glyph)) {
             outline
                 .draw(DrawSettings::unhinted(Size::unscaled(), location), &mut pen)
-                .map_err(|error| font_error(pinned.id, error))?;
+                .map_err(|error| font_error(&pinned.id, error))?;
         }
         self.total_path_bytes += pen.0.len();
         budget("outline_path_bytes", MAX_PATH_BYTES, self.total_path_bytes)?;
         let id = output.outlines.len() as u32;
         output.outlines.push(GlyphOutline {
             id,
-            font_id: pinned.id.into(),
+            font_id: pinned.id.clone(),
             glyph_id: glyph,
             units_per_em: units,
             path: pen.0,
