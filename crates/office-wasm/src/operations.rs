@@ -571,6 +571,7 @@ impl BrowserEngine {
                 .font_size
                 .map_or(PropertyChange::Keep, PropertyChange::Set),
             color: PropertyChange::Keep,
+            hyperlink: PropertyChange::Keep,
         };
         let mut transaction = self.session.begin_transaction();
         let range = edit_selection(&transaction, &selection)?;
