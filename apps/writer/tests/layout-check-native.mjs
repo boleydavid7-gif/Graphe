@@ -21,7 +21,7 @@ const layout = JSON.parse(snapshot);
 // Preserve the original reviewed page/glyph fingerprint, changing only the
 // declared catalog version in the snapshot used for this legacy fixture.
 // All geometry, glyph outlines and the rest of the JSON stay byte-identical.
-const catalogMarker = '"fontCatalogId":"writer-fonts-v4"';
+const catalogMarker = '"fontCatalogId":"writer-fonts-v5"';
 assert.equal(snapshot.split(catalogMarker).length, 2);
 const legacyGeometry = snapshot.replace(catalogMarker, '"fontCatalogId":"writer-fonts-v1"');
 const referenceHash = createHash('sha256').update(legacyGeometry).digest('hex');

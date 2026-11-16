@@ -1283,3 +1283,31 @@ fallback and undo untouched. Validate per-family actual glyph outlines and
 the italic/bold variation in Rust. A clean native/WASM build, independent browser
 font loading, and real-device layout performance still require running CI and
 release checks; font availability alone does not establish Word page parity.
+
+## November 2026 — Font catalog v5
+
+**Question:** Add variety beyond existing body sans/serif selections while
+preserving deterministic document geometry and honest italic availability.
+
+**Alternatives reviewed:** Menu-only font names would render silently
+substituted outlines; remote browser fonts would break the authoritative
+Rust layout model; a large uncurated catalog would increase WASM cost without
+clear document use. Select five varied opt-in SIL OFL 1.1 families instead.
+
+**Sources:** Original unmodified files in
+[google/fonts at `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl),
+pinned with Git blob SHA-1 identities, byte lengths, SHA-256 hashes and
+upstream URLs. Work Sans (versatile sans), Crimson Pro (classical book serif),
+Fraunces (editorial display serif), Roboto Mono (technical monospace), and
+Oswald (condensed display sans) add nine TTF files and 2,525,252 bytes.
+Each original OFL is preserved separately and in the combined notice.
+
+**Implementation/limits:** Expose the real families in Rust and the UI,
+retain existing fallback behavior and preserved imported font-family names.
+The four families with italic have separate actual italic faces; Oswald only
+ships a regular variable face, so never claim a true italic from it. Fraunces
+contains additional SOFT, WONK and opsz axes, but this change adds no new
+variation-axis controls. The font catalog marker becomes `writer-fonts-v5`,
+while the saved document schema does not change. Native/WASM/browser tests and
+actual-device layout must be run before asserting platform performance or
+Word layout fidelity; runner failures are not passing tests.

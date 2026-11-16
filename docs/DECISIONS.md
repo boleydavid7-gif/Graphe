@@ -1204,3 +1204,19 @@ asset and in the existing combined NOTICE; update provenance, immutable blob
 identity and SHA-256 checksums. Expect 3.11 MB extra uncompressed font data
 in the Rust/WASM build. Require native, WASM, browser and real-device checks
 before claiming performance or rendering parity across platforms.
+
+## 2026-11-16 — Opt-in Graphe font catalog v5
+
+Add Work Sans, Crimson Pro, Fraunces, Roboto Mono and Oswald as five further
+document-oriented font choices. Bundle nine exact official SIL Open Font
+License files at a fixed upstream revision. Register fonts explicitly in
+Rust layout and browser previews, with distinct regular/italic faces where
+upstream provides them; Oswald remains upright only. Preserve the existing
+fallback chain, DOCX source names, document schema and undo semantics.
+
+Pin complete OFL notices in individual license files and existing combined
+NOTICE, record SHA-256 and Git blob identity for every original binary, and
+update the root proprietary LICENSE without re-licensing third-party fonts.
+Change the layout catalog ID to `writer-fonts-v5`. Additional 2.53 MB of
+uncompressed font bytes and Fraunces' unusual variation axes require native,
+WASM, browser and real-device verification before deployment.
