@@ -1296,8 +1296,7 @@ export default function App() {
           <div className="paragraph-metrics-grid">
             {PARAGRAPH_METRICS.slice(0, 2).map((field) => <label key={field.key}>
               <span>{field.label} ({field.unit})</span>
-              <input type="number" inputMode="decimal" min={field.min} max={field.max}
-                step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
+              <input type="number" inputMode="decimal" step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
                 onChange={(event) => setParagraphDialog({
                   ...paragraphDialog, error: '', values: { ...paragraphDialog.values,
                     [field.key]: event.target.value },
@@ -1321,8 +1320,7 @@ export default function App() {
           <div className="paragraph-metrics-grid">
             {PARAGRAPH_METRICS.slice(2).map((field) => <label key={field.key}>
               <span>{field.label} ({field.unit})</span>
-              <input type="number" inputMode="decimal" min={field.min} max={field.max}
-                step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
+              <input type="number" inputMode="decimal" step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
                 onChange={(event) => setParagraphDialog({
                   ...paragraphDialog, error: '', values: { ...paragraphDialog.values,
                     [field.key]: event.target.value },
