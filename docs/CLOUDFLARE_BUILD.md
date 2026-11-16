@@ -92,6 +92,14 @@ Native tool installers are isolated only in the two orchestration regressions.
 Cold/warm builds, engine/WASM and browser tests use the actual compiler/engine.
 No suite above was skipped on the tested Linux x86_64 environment.
 
+## Workers static-asset size gate
+
+Cloudflare Workers rejects an individual static asset larger than **25 MiB (26,214,400 bytes)**. On 2026-11-16 the standalone Graphe build compiled successfully but `wrangler preview` refused the generated `office_wasm_bg-*.wasm` file at about **25.6 MiB** (26,846,320 bytes). This is the *uncompressed* WASM size; the smaller gzip figure in Vite's output does not affect the Cloudflare limit.
+
+The `apps/writer/scripts/build-wasm.mjs` release build now requests size-optimized Rust code generation (opt-level z, full LTO, one codegen unit and symbol stripping) **only for the browser WASM build**. The original pinned font bytes and Rust document/layout features remain in the binary. Before packaging the frontend, the script checks the actual wasm-bindgen output against the Workers limit and fails with a precise byte count if still oversized. The post-build asset test independently checks the file Vite places in `dist/assets`.
+
+These are compilation settings, not a verified reduction: the resulting size and regression tests must be measured on an environment with Rust/wasm-bindgen and runnable CI. If the new binary remains too large, stop rather than silently removing font families or document capabilities. Consider a separately reviewed external-font loader only after validating its compatibility, download/offline behavior and licensing. Any optimization that changes layout or editing behavior is a regression.
+
 ## Remote access and permission blocker
 
 The current Cloudflare connection can identify the correct account, but Worker
