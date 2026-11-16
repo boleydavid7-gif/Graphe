@@ -1116,3 +1116,29 @@ multiple buffers, and small libraries may be slightly slower. Separate large-
 document tests expose full-layout/transport/SVG costs; do not replace the engine
 or add speculative caches as part of the storage fix. See
 [PHASE2_PERFORMANCE.md](PHASE2_PERFORMANCE.md).
+
+
+## 2026-11-15 — First-level semantic lists
+
+Decision: Represent bullets and decimal numbered lists as optional `ListKind`
+on each paragraph in the Rust model, not as inserted marker characters,
+CSS `::before`, or an independent browser editing model. Consecutive numbered
+paragraphs are one numbered group; normal text or bullet paragraphs reset the
+sequence. Rust retains control of editing/undo, page shaping and glyph geometry.
+
+Reason: The current engine's foundational block is Paragraph, and replacing
+it with a nested-list block tree would require broad rewrites of Unicode
+positions, selection, pagination, persistence and format adapters. Native
+schema / Writer envelope advance to v3. Schema 1 and 2 use strict migrations;
+old version numbers never implicitly accept list properties.
+
+Word export uses `word/numbering.xml`, separate numbering definitions and
+paragraph `numPr` references. Unsupported DOCX variants remain read-only.
+TXT, ODT and RTF disclose list loss; native Writer and supported DOCX preserve
+list structure. First-level only; nested lists, custom counters, split list
+group identities, style-defined numbering and bidirectional list-marker
+layout are deferred with clear compatibility restrictions.
+
+Consequence: A native schema/version migration and list-aware DOCX validation
+are required. Full build, Rust, file round-trip and real-device verification
+must succeed before the feature is production-ready.

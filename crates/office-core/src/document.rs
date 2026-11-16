@@ -7,11 +7,13 @@ use crate::{CharacterFormat, DocumentError, ParagraphFormat, ValidationError};
 
 #[path = "legacy.rs"]
 mod legacy;
+#[path = "v2.rs"]
+mod v2;
 
 /// Current document JSON schema, independent of crate and native-file versions.
 ///
-/// Schema 1 is accepted through an explicit strict migration to schema 2.
-pub const SCHEMA_VERSION: u32 = 2;
+/// Schemas 1 and 2 are accepted through strict, explicit migrations to schema 3.
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// An opaque, caller-assigned identifier preserved across copies and serialization.
 ///
@@ -113,6 +115,18 @@ impl TextRun {
     }
 }
 
+/// A one-level list classification stored independently from editable text.
+/// Adjacent numbered paragraphs form a sequential group; unrelated paragraphs
+/// restart numbering. Future nested lists require a separately versioned model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ListKind {
+    /// A bulleted paragraph.
+    Bullet,
+    /// A decimal-numbered paragraph.
+    Numbered,
+}
+
 /// A paragraph containing an ordered sequence of text runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -121,6 +135,8 @@ pub struct Paragraph {
     runs: Vec<TextRun>,
     style: Option<Id>,
     format: ParagraphFormat,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    list: Option<ListKind>,
 }
 
 impl Paragraph {
@@ -132,6 +148,7 @@ impl Paragraph {
             runs,
             style: None,
             format: ParagraphFormat::default(),
+            list: None,
         }
     }
 
@@ -147,6 +164,19 @@ impl Paragraph {
     pub fn with_format(mut self, format: ParagraphFormat) -> Self {
         self.format = format;
         self
+    }
+
+    /// Sets or clears the paragraph's semantic list membership.
+    #[must_use]
+    pub fn with_list(mut self, list: Option<ListKind>) -> Self {
+        self.list = list;
+        self
+    }
+
+    /// Returns the semantic list classification, if any.
+    #[must_use]
+    pub fn list(&self) -> Option<ListKind> {
+        self.list
     }
 
     /// Returns the stable paragraph identifier.
@@ -310,7 +340,7 @@ impl<'de> Deserialize<'de> for Document {
 }
 
 fn check_schema(found: u64) -> Result<(), DocumentError> {
-    if found != 1 && found != u64::from(SCHEMA_VERSION) {
+    if !matches!(found, 1 | 2 | 3) {
         return Err(DocumentError::UnsupportedSchemaVersion {
             found,
             supported: SCHEMA_VERSION,
@@ -492,10 +522,10 @@ impl Document {
         }
         let header: Header = serde_json::from_str(json)?;
         check_schema(header.schema_version)?;
-        if header.schema_version == 1 {
-            legacy::from_json(json)
-        } else {
-            serde_json::from_str::<DocumentInput>(json)?.into_document()
+        match header.schema_version {
+            1 => legacy::from_json(json),
+            2 => v2::from_json(json),
+            _ => serde_json::from_str::<DocumentInput>(json)?.into_document(),
         }
     }
 }

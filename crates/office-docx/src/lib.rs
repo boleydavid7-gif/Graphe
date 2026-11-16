@@ -17,6 +17,7 @@ mod copy;
 mod error;
 mod export;
 mod import;
+mod numbering;
 mod opc;
 mod package;
 mod properties;

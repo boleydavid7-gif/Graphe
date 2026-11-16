@@ -350,6 +350,17 @@ pub fn assess_export(
 ) -> Result<ExportReport, FormatError> {
     document.validate()?;
     let mut warnings = Vec::new();
+    let has_lists = document.sections().iter().flat_map(|section| section.blocks())
+        .any(|block| {
+            let Block::Paragraph(paragraph) = block;
+            paragraph.list().is_some()
+        });
+    if has_lists && matches!(format, DocumentFormat::Odt | DocumentFormat::Rtf) {
+        warnings.push(FormatDiagnostic::new(
+            "list_formatting_omitted", format.extension(), "document",
+            "This copy will preserve text but omit list bullets and numbering. Keep a native Writer or Word copy for list formatting.",
+        ));
+    }
     match format {
         DocumentFormat::Txt => {
             text::validate_export(document)?;
@@ -555,6 +566,7 @@ fn text_loses_formatting(document: &Document) -> bool {
         }
         for block in section.blocks() {
             let Block::Paragraph(paragraph) = block;
+            if paragraph.list().is_some() { return true; }
             let inherited = office_layout::resolve_paragraph_style(document, paragraph);
             let paragraph_format = inherited.paragraph;
             if paragraph_format.alignment.unwrap_or(Alignment::Left) != Alignment::Left

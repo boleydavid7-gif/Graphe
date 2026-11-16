@@ -7,7 +7,7 @@ use std::{
 
 use office_core::{
     Alignment, Block, CharacterFormat, Document, LineSpacing, NamedStyle, PageOrientation,
-    Paragraph, ParagraphFormat, SectionProperties, TextColor, Underline,
+    ListKind, Paragraph, ParagraphFormat, SectionProperties, TextColor, Underline,
 };
 use quick_xml::{
     Writer,
@@ -38,19 +38,24 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, Conversion
     }
 
     let styles = StyleMap::new(document.styles());
+    let (list_ids, list_instances) = list_numbering(document);
     // Fixed order and timestamp prevent application/session state entering ZIP
     // output. The creator system is explicit for native/WASM consistency.
-    let parts = [
-        ("[Content_Types].xml", content_types()?),
+    let has_numbering = !list_instances.is_empty();
+    let mut parts = vec![
+        ("[Content_Types].xml", content_types(has_numbering)?),
         ("_rels/.rels", package_relationships()?),
-        ("word/document.xml", document_xml(document, &styles)?),
-        ("word/_rels/document.xml.rels", document_relationships()?),
+        ("word/document.xml", document_xml(document, &styles, &list_ids)?),
+        ("word/_rels/document.xml.rels", document_relationships(has_numbering)?),
         ("word/styles.xml", styles_xml(document.styles(), &styles)?),
         (
             "docProps/core.xml",
             core_properties(&document.metadata().title)?,
         ),
     ];
+    if has_numbering {
+        parts.push(("word/numbering.xml", numbering_xml(&list_instances)?));
+    }
     write_parts(parts)
 }
 
@@ -164,7 +169,7 @@ impl<'a> StyleMap<'a> {
     }
 }
 
-fn content_types() -> Result<Vec<u8>, ConversionError> {
+fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("Types", &[("xmlns", CT)])?;
     xml.empty(
@@ -196,7 +201,66 @@ fn content_types() -> Result<Vec<u8>, ConversionError> {
             &[("PartName", name), ("ContentType", content_type)],
         )?;
     }
+    if has_numbering {
+        xml.empty(
+            "Override",
+            &[("PartName", "/word/numbering.xml"),
+              ("ContentType", "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml")],
+        )?;
+    }
     xml.end("Types")?;
+    Ok(xml.finish())
+}
+
+/// Assign each contiguous list an independent OOXML instance so decimal
+/// numbering restarts after a normal paragraph or a different list kind.
+fn list_numbering(document: &Document) -> (BTreeMap<String, u32>, Vec<(u32, ListKind)>) {
+    let mut paragraphs = BTreeMap::new();
+    let mut instances = Vec::new();
+    let mut previous = None;
+    let mut current = 0_u32;
+    for section in document.sections() {
+        previous = None;
+        for block in section.blocks() {
+            let Block::Paragraph(paragraph) = block;
+            let kind = paragraph.list();
+            if kind != previous && let Some(kind) = kind {
+                current += 1;
+                instances.push((current, kind));
+            }
+            if kind.is_some() {
+                paragraphs.insert(paragraph.id().as_str().into(), current);
+            }
+            previous = kind;
+        }
+    }
+    (paragraphs, instances)
+}
+
+/// Well-formed, level-zero OOXML numbering definitions for first-level lists.
+fn numbering_xml(instances: &[(u32, ListKind)]) -> Result<Vec<u8>, ConversionError> {
+    let mut xml = Xml::new();
+    xml.start("w:numbering", &[("xmlns:w", W)])?;
+    for (abstract_id, format, value) in [(1, "bullet", "•"), (2, "decimal", "%1.")] {
+        let id = abstract_id.to_string();
+        xml.start("w:abstractNum", &[("w:abstractNumId", &id)])?;
+        xml.empty("w:multiLevelType", &[("w:val", "singleLevel")])?;
+        xml.start("w:lvl", &[("w:ilvl", "0")])?;
+        xml.empty("w:start", &[("w:val", "1")])?;
+        xml.empty("w:numFmt", &[("w:val", format)])?;
+        xml.empty("w:lvlText", &[("w:val", value)])?;
+        xml.empty("w:lvlJc", &[("w:val", "left")])?;
+        xml.end("w:lvl")?;
+        xml.end("w:abstractNum")?;
+    }
+    for (id, kind) in instances {
+        let number = id.to_string();
+        let abstract_id = match kind { ListKind::Bullet => "1", ListKind::Numbered => "2" };
+        xml.start("w:num", &[("w:numId", &number)])?;
+        xml.empty("w:abstractNumId", &[("w:val", abstract_id)])?;
+        xml.end("w:num")?;
+    }
+    xml.end("w:numbering")?;
     Ok(xml.finish())
 }
 
@@ -227,7 +291,7 @@ fn package_relationships() -> Result<Vec<u8>, ConversionError> {
     Ok(xml.finish())
 }
 
-fn document_relationships() -> Result<Vec<u8>, ConversionError> {
+fn document_relationships(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("Relationships", &[("xmlns", REL)])?;
     let relationship_type = format!("{OFFICE_REL}/styles");
@@ -239,6 +303,13 @@ fn document_relationships() -> Result<Vec<u8>, ConversionError> {
             ("Target", "styles.xml"),
         ],
     )?;
+    if has_numbering {
+        xml.empty("Relationship", &[
+            ("Id", "rIdNumbering"),
+            ("Type", &format!("{OFFICE_REL}/numbering")),
+            ("Target", "numbering.xml"),
+        ])?;
+    }
     xml.end("Relationships")?;
     Ok(xml.finish())
 }
@@ -253,7 +324,11 @@ fn core_properties(title: &str) -> Result<Vec<u8>, ConversionError> {
     Ok(xml.finish())
 }
 
-fn document_xml(document: &Document, styles: &StyleMap<'_>) -> Result<Vec<u8>, ConversionError> {
+fn document_xml(
+    document: &Document,
+    styles: &StyleMap<'_>,
+    list_ids: &BTreeMap<String, u32>,
+) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("w:document", &[("xmlns:w", W)])?;
     xml.start("w:body", &[])?;
@@ -267,6 +342,7 @@ fn document_xml(document: &Document, styles: &StyleMap<'_>) -> Result<Vec<u8>, C
                 &mut xml,
                 paragraph,
                 styles,
+                list_ids.get(paragraph.id().as_str()).copied(),
                 section_boundary.then_some(section.properties()),
             )?;
         }
@@ -283,6 +359,7 @@ fn write_paragraph(
     xml: &mut Xml,
     paragraph: &Paragraph,
     styles: &StyleMap<'_>,
+    list_id: Option<u32>,
     boundary: Option<Option<&SectionProperties>>,
 ) -> Result<(), ConversionError> {
     xml.start("w:p", &[])?;
@@ -290,6 +367,7 @@ fn write_paragraph(
         xml,
         paragraph.format(),
         paragraph.style().map(|id| styles.name(id)),
+        list_id,
         boundary,
     )?;
     for run in paragraph.runs() {
@@ -338,7 +416,7 @@ fn styles_xml(styles: &[NamedStyle], mapping: &StyleMap<'_>) -> Result<Vec<u8>, 
         if let Some(parent) = &style.based_on {
             xml.empty("w:basedOn", &[("w:val", mapping.name(parent))])?;
         }
-        write_paragraph_properties(&mut xml, &style.paragraph_format, None, None)?;
+        write_paragraph_properties(&mut xml, &style.paragraph_format, None, None, None)?;
         write_character_properties(
             &mut xml,
             &style.character_format,
@@ -423,14 +501,21 @@ fn write_paragraph_properties(
     xml: &mut Xml,
     format: &ParagraphFormat,
     style: Option<&str>,
+    list_id: Option<u32>,
     section_boundary: Option<Option<&SectionProperties>>,
 ) -> Result<(), ConversionError> {
-    if format == &ParagraphFormat::default() && style.is_none() && section_boundary.is_none() {
+    if format == &ParagraphFormat::default() && style.is_none() && list_id.is_none() && section_boundary.is_none() {
         return Ok(());
     }
     xml.start("w:pPr", &[])?;
     if let Some(style) = style {
         xml.empty("w:pStyle", &[("w:val", style)])?;
+    }
+    if let Some(list_id) = list_id {
+        xml.start("w:numPr", &[])?;
+        xml.empty("w:ilvl", &[("w:val", "0")])?;
+        xml.empty("w:numId", &[("w:val", &list_id.to_string())])?;
+        xml.end("w:numPr")?;
     }
     if let Some(value) = format.page_break_before {
         write_on_off(xml, "w:pageBreakBefore", value)?;

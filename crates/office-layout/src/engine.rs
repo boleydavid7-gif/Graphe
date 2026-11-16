@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use office_core::{
-    Alignment, Block, CharacterFormat, Document, GraphemeOffset, LineSpacing, PageMargins,
+    Alignment, Block, CharacterFormat, Document, GraphemeOffset, LineSpacing, ListKind, PageMargins,
     PageSize, Paragraph, TextColor, TextCoordinates, Twips, Underline,
 };
 use parley::{
@@ -169,8 +169,23 @@ impl LayoutEngine {
             )?;
             let mut cursor = area.y;
             let mut previous_after = 0;
+            let mut numbering = 0_usize;
             for block in section.blocks() {
                 let Block::Paragraph(paragraph) = block;
+                let marker = match paragraph.list() {
+                    Some(ListKind::Bullet) => {
+                        numbering = 0;
+                        Some("•".to_owned())
+                    }
+                    Some(ListKind::Numbered) => {
+                        numbering += 1;
+                        Some(format!("{numbering}."))
+                    }
+                    None => {
+                        numbering = 0;
+                        None
+                    }
+                };
                 let resolved = resolve_paragraph_style(document, paragraph);
                 let before = twips(resolved.paragraph.spacing_before.unwrap_or(Twips(0)))?;
                 let after = twips(
@@ -201,6 +216,7 @@ impl LayoutEngine {
                     paragraph,
                     options,
                     area.width,
+                    marker.as_deref(),
                     ShapeSink {
                         output: &mut output,
                         cache: &mut cache,
@@ -262,6 +278,7 @@ impl LayoutEngine {
         paragraph: &Paragraph,
         options: &LayoutOptions,
         area_width: i64,
+        marker: Option<&str>,
         sink: ShapeSink<'_>,
     ) -> Result<Vec<LineLayout>, LayoutError> {
         let ShapeSink {
@@ -289,7 +306,9 @@ impl LayoutEngine {
         }
         let resolved = resolve_paragraph_style(document, paragraph);
         let indent = resolved.paragraph.indentation.clone().unwrap_or_default();
-        let left = twips(indent.left.unwrap_or(Twips(0)))?;
+        // Marker space is part of Rust geometry and never enters document text.
+        let list_indent = if marker.is_some() { quantize(38.)? } else { 0 };
+        let left = twips(indent.left.unwrap_or(Twips(0)))? + list_indent;
         let right = twips(indent.right.unwrap_or(Twips(0)))?;
         let first = twips(indent.first_line.unwrap_or(Twips(0)))?;
         let width = area_width - left - right;
@@ -622,7 +641,91 @@ impl LayoutEngine {
             }
             result.push(shaped);
         }
+        // Line geometry is fully owned before making the second pinned-font
+        // layout for the decorative marker; native text offsets stay unchanged.
+        if let Some(marker) = marker {
+            if let Some(first_line) = result.first_mut() {
+                let size = formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.;
+                self.shape_list_marker(
+                    marker, first_line, size, output, cache, glyph_count, paragraph,
+                )?;
+            }
+        }
         Ok(result)
+    }
+
+    /// Shapes decorative list markers into pinned-font SVG outlines without
+    /// creating selectable text or shifting paragraph Unicode positions.
+    fn shape_list_marker(
+        &mut self,
+        marker: &str,
+        line: &mut LineLayout,
+        font_size: f32,
+        output: &mut DocumentLayout,
+        cache: &mut OutlineCache,
+        glyph_count: &mut usize,
+        paragraph: &Paragraph,
+    ) -> Result<(), LayoutError> {
+        let mut builder = self.layout_context.ranged_builder(
+            &mut self.font_context, marker, 1., false,
+        );
+        builder.push_default(StyleProperty::FontFamily(
+            FontFamily::Source(font_list("Arimo").into()),
+        ));
+        builder.push_default(StyleProperty::FontSize(font_size));
+        builder.push_default(StyleProperty::Brush(0));
+        let mut layout = builder.build(marker);
+        let mut breaker = layout.break_lines();
+        breaker.state_mut().set_layout_max_advance(1000.);
+        while breaker.break_next().is_some() {}
+        breaker.finish();
+        let Some(mark_line) = layout.lines().next() else {
+            return Ok(());
+        };
+        let advance = mark_line.runs().map(|run| run.advance()).sum::<f32>();
+        let start_x = line.x - quantize(7.)? - quantize(advance)?;
+        if start_x < 0 {
+            return Err(LayoutError::InvalidOptions {
+                message: "list marker exceeds the available paragraph indent".into(),
+            });
+        }
+        for item in mark_line.items() {
+            let PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                continue;
+            };
+            let run = glyph_run.run();
+            let font_data = run.font();
+            let pinned = self.fonts.iter()
+                .find(|entry| entry.blob.id() == font_data.data.id())
+                .ok_or_else(|| font_error("unknown", "list marker outside pinned catalog"))?;
+            let synthesis = run.synthesis();
+            let normalized: Vec<i16> = run.normalized_coords().iter()
+                .map(|coordinate| coordinate.to_bits()).collect();
+            let marker_baseline = quantize(glyph_run.baseline())?;
+            for glyph in glyph_run.positioned_glyphs() {
+                *glyph_count += 1;
+                budget("glyphs", MAX_GLYPHS, *glyph_count)?;
+                if glyph.id == 0 {
+                    diagnostic(output, "missing_glyph", paragraph,
+                        "The pinned font has no glyph for the list marker.".into());
+                }
+                let outline_id =
+                    cache.outline(output, pinned, font_data.index, glyph.id, &normalized)?;
+                let units = output.outlines[outline_id as usize].units_per_em;
+                let x = start_x + quantize(glyph.x)?;
+                let y = line.baseline - marker_baseline + quantize(glyph.y)?;
+                let size = quantize(run.font_size())?;
+                line.glyphs.push(PositionedGlyph {
+                    outline_id,
+                    x,
+                    y,
+                    font_size: size,
+                    transform: glyph_transform(x, y, size, units, synthesis.skew()),
+                    color: "#24211d".into(),
+                });
+            }
+        }
+        Ok(())
     }
 }
 

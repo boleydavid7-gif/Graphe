@@ -318,7 +318,7 @@ impl BrowserEngine {
                 text, selection, ..
             } => self.replace_text(&text, selection),
             Command::ReplaceAll { query, text, .. } => self.replace_all(&query, &text),
-            Command::InsertParagraph { selection, .. } => self.replace_text("\n", selection),
+            Command::InsertParagraph { selection, .. } => self.insert_list_paragraph(selection),
             Command::InsertLineBreak { selection, .. } => self.insert_line_break(selection),
             Command::Delete {
                 direction,
@@ -342,6 +342,7 @@ impl BrowserEngine {
                 selection,
                 ..
             } => self.format_paragraph(alignment, selection),
+            Command::SetList { list, selection, .. } => self.set_list(list, selection),
             Command::AssignStyle {
                 style_id,
                 selection,

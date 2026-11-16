@@ -55,7 +55,7 @@ pub use coordinates::{
     GRAPHEME_UNICODE_VERSION, GraphemeOffset, TextCoordinates, Utf8Offset, Utf16Offset,
 };
 pub use document::{
-    Block, Document, DocumentMetadata, Id, NamedStyle, Paragraph, SCHEMA_VERSION, Section,
+    Block, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, SCHEMA_VERSION, Section,
     SectionProperties, TextRun,
 };
 pub use editing::{EditError, EditPosition, EditSelection};

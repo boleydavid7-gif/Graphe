@@ -30,8 +30,8 @@ fn omit_unspecified_fields(value: &mut Value) {
 fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
     let mut before: Value = serde_json::from_str(LEGACY).unwrap();
     let document = Document::from_json(LEGACY).unwrap();
-    assert_eq!(SCHEMA_VERSION, 2);
-    assert_eq!(document.schema_version(), 2);
+    assert_eq!(SCHEMA_VERSION, 3);
+    assert_eq!(document.schema_version(), 3);
     let mut after = serde_json::to_value(&document).unwrap();
     after["schema_version"] = json!(1);
     for section in after["sections"].as_array_mut().unwrap() {

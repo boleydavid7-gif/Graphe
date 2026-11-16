@@ -167,6 +167,7 @@ pub fn export_docx_with_source(
     let generated = export_document(document)?;
     let expected = editable_projection(&generated)?;
     let mut parts = read_package(&generated)?.parts;
+    let has_numbering = parts.contains_key("word/numbering.xml");
     let mut extra = Vec::new();
     if let Some(part) = &input.graph.core_properties {
         let metadata = metadata(
@@ -213,12 +214,12 @@ pub fn export_docx_with_source(
         parts.insert(destination.into(), bytes);
         extra.push((kind, destination));
     }
-    parts.insert("_rels/.rels".into(), relationships(true, &extra)?);
+    parts.insert("_rels/.rels".into(), relationships(true, has_numbering, &extra)?);
     parts.insert(
         "word/_rels/document.xml.rels".into(),
-        relationships(false, &extra)?,
+        relationships(false, has_numbering, &extra)?,
     );
-    parts.insert("[Content_Types].xml".into(), content_types(&extra)?);
+    parts.insert("[Content_Types].xml".into(), content_types(has_numbering, &extra)?);
     let bytes = write_parts(parts)?;
     // Original styles/defaults and opaque ancillary relationships never enter
     // the regenerated semantic graph. Keep every copied construct within the
@@ -280,12 +281,14 @@ fn is_root(kind: AncillaryKind) -> bool {
     )
 }
 
-fn relationships(root: bool, extra: &[(AncillaryKind, &str)]) -> Result<Vec<u8>, ConversionError> {
+fn relationships(
+    root: bool, has_numbering: bool, extra: &[(AncillaryKind, &str)],
+) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Writer::new(Vec::new());
     let mut start = BytesStart::new("Relationships");
     start.push_attribute(("xmlns", PACKAGE_REL));
     event(&mut xml, Event::Start(start))?;
-    let required = if root {
+    let mut required = if root {
         vec![
             ("rIdDocument", format!("{OFFICE_REL}/officeDocument"), "word/document.xml"),
             ("rIdCore", "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties".into(), "docProps/core.xml"),
@@ -293,6 +296,9 @@ fn relationships(root: bool, extra: &[(AncillaryKind, &str)]) -> Result<Vec<u8>,
     } else {
         vec![("rIdStyles", format!("{OFFICE_REL}/styles"), "styles.xml")]
     };
+    if !root && has_numbering {
+        required.push(("rIdNumbering", format!("{OFFICE_REL}/numbering"), "numbering.xml"));
+    }
     for (id, kind, target) in required {
         relation(&mut xml, id, &kind, target)?;
     }
@@ -331,7 +337,9 @@ fn relation(
     event(xml, Event::Empty(element))
 }
 
-fn content_types(extra: &[(AncillaryKind, &str)]) -> Result<Vec<u8>, ConversionError> {
+fn content_types(
+    has_numbering: bool, extra: &[(AncillaryKind, &str)],
+) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Writer::new(Vec::new());
     let mut start = BytesStart::new("Types");
     start.push_attribute(("xmlns", CONTENT_TYPES));
@@ -357,6 +365,10 @@ fn content_types(extra: &[(AncillaryKind, &str)]) -> Result<Vec<u8>, ConversionE
             "application/vnd.openxmlformats-package.core-properties+xml",
         ),
     ]);
+    if has_numbering {
+        types.insert("word/numbering.xml",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml");
+    }
     for &(kind, target) in extra {
         types.insert(target, kind.expected_content_type());
     }

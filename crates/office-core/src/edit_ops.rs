@@ -1,5 +1,5 @@
 use crate::{
-    Block, CharacterFormat, CharacterFormatPatch, Document, EditError, Id, Paragraph,
+    Block, CharacterFormat, CharacterFormatPatch, Document, EditError, Id, ListKind, Paragraph,
     ParagraphFormat, ParagraphFormatPatch, PositionError, Section, Selection, TextCoordinates,
     TextRun, ValidationError,
 };
@@ -133,7 +133,8 @@ pub(crate) fn insert_paragraph_break(
         start.style(),
     );
     let mut suffix = Paragraph::new(new_id.clone(), suffix_runs(end, bounds.end_byte))
-        .with_format(start.format().clone());
+        .with_format(start.format().clone())
+        .with_list(start.list());
     if let Some(style) = start.style() {
         suffix = suffix.with_style(style.clone());
     }
@@ -205,6 +206,27 @@ pub(crate) fn apply_paragraph_format(
     })
 }
 
+/// Applies one semantic list kind to every paragraph touched by the range.
+pub(crate) fn set_paragraph_list(
+    document: &Document,
+    selection: &Selection,
+    list: Option<ListKind>,
+) -> Result<Document, EditError> {
+    let bounds = Bounds::for_selection(document, selection)?;
+    transform_paragraphs(document, |index, paragraph| {
+        if bounds.touches_paragraph(index) {
+            copy_paragraph(
+                paragraph,
+                paragraph.runs().to_vec(),
+                paragraph.format().clone(),
+                paragraph.style(),
+            ).with_list(list)
+        } else {
+            paragraph.clone()
+        }
+    })
+}
+
 pub(crate) fn set_paragraph_style(
     document: &Document,
     selection: &Selection,
@@ -246,7 +268,9 @@ fn copy_paragraph(
     format: ParagraphFormat,
     style: Option<&Id>,
 ) -> Paragraph {
-    let paragraph = Paragraph::new(original.id().clone(), runs).with_format(format);
+    let paragraph = Paragraph::new(original.id().clone(), runs)
+        .with_format(format)
+        .with_list(original.list());
     match style {
         Some(style) => paragraph.with_style(style.clone()),
         None => paragraph,

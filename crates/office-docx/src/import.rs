@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use office_core::{
-    Block, CharacterFormat, Document, DocumentMetadata, Id, NamedStyle, Paragraph, ParagraphFormat,
+    Block, CharacterFormat, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, ParagraphFormat,
     Section, SectionProperties, TextRun,
 };
 use roxmltree::{Document as XmlDocument, Node};
@@ -16,6 +16,7 @@ use crate::{
     opc::{parse_relationships, relationship_source, resolve_target},
     package::{Package, read_package},
     properties::{parse_character, parse_paragraph, parse_run_character},
+    numbering::parse_numbering,
     xml::parse_xml,
 };
 
@@ -36,6 +37,8 @@ const XSI_NAMESPACE: &str = "http://www.w3.org/2001/XMLSchema-instance";
 const MC_NAMESPACE: &str = "http://schemas.openxmlformats.org/markup-compatibility/2006";
 const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 const WORD_2010_NAMESPACE: &str = "http://schemas.microsoft.com/office/word/2010/wordml";
+const NUMBERING_CONTENT_TYPE: &str =
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml";
 const STYLES_CONTENT_TYPE: &str =
     "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml";
 const CORE_CONTENT_TYPE: &str = "application/vnd.openxmlformats-package.core-properties+xml";
@@ -43,6 +46,7 @@ const MAX_IMPORT_ID_BYTES: usize = 256;
 
 pub(crate) struct PartGraph {
     pub(crate) styles: Option<String>,
+    pub(crate) numbering: Option<String>,
     pub(crate) core_properties: Option<String>,
     pub(crate) ancillary: BTreeMap<AncillaryKind, String>,
 }
@@ -101,6 +105,10 @@ pub(crate) fn import_document(
         Some(ref part) => parse_metadata(part, &package.parts[part], &mut report)?,
         None => DocumentMetadata::default(),
     };
+    let numbering = match graph.numbering {
+        Some(ref part) => parse_numbering(part, &package.parts[part], namespace, &mut report)?,
+        None => BTreeMap::new(),
+    };
     let main_part = &original.inspection().main_document_part;
     let sections = parse_main_document(
         main_part,
@@ -108,6 +116,7 @@ pub(crate) fn import_document(
         namespace,
         &document_id,
         &styles,
+        &numbering,
         &mut report,
     )?;
     if styles.default_style.is_some() && sections.iter().all(|section| section.blocks().is_empty())
@@ -142,6 +151,7 @@ pub(crate) fn inspect_semantic_graph(
         .collect();
     let mut graph = PartGraph {
         styles: None,
+        numbering: None,
         core_properties: None,
         ancillary: BTreeMap::new(),
     };
@@ -172,7 +182,12 @@ pub(crate) fn inspect_semantic_graph(
             if source.is_none() && relation_kind(&relation.relationship_type, "officeDocument") {
                 continue;
             }
-            if main_source && relation_kind(&relation.relationship_type, "styles") {
+            if main_source && relation_kind(&relation.relationship_type, "numbering") {
+                if graph.numbering.replace((*target).into()).is_some() {
+                    return Err(invalid(&part.name, "multiple numbering relationships are ambiguous"));
+                }
+                understood.insert((*target).into());
+            } else if main_source && relation_kind(&relation.relationship_type, "styles") {
                 if graph.styles.replace((*target).into()).is_some() {
                     return Err(invalid(
                         &part.name,
@@ -216,6 +231,11 @@ pub(crate) fn inspect_semantic_graph(
                 "/",
                 "This package part has no supported semantic mapping.",
             );
+        }
+        if graph.numbering.as_deref() == Some(part.name.as_str())
+            && !part.content_type.eq_ignore_ascii_case(NUMBERING_CONTENT_TYPE)
+        {
+            return Err(invalid(&part.name, "numbering relationship has an incorrect content type"));
         }
         if graph.styles.as_deref() == Some(part.name.as_str())
             && !part.content_type.eq_ignore_ascii_case(STYLES_CONTENT_TYPE)
@@ -590,7 +610,7 @@ fn parse_defaults(
                     character = parse_character(properties, namespace, part, report)?;
                 } else {
                     let parsed = parse_paragraph(properties, namespace, part, report)?;
-                    if parsed.style_id.is_some() || parsed.section.is_some() {
+                    if parsed.style_id.is_some() || parsed.section.is_some() || parsed.numbering_id.is_some() {
                         unsupported_element(
                             properties,
                             part,
@@ -968,7 +988,7 @@ fn parse_style(
             "rPr" => character = parse_character(child, namespace, part, report)?,
             "pPr" => {
                 let parsed = parse_paragraph(child, namespace, part, report)?;
-                if parsed.style_id.is_some() || parsed.section.is_some() {
+                if parsed.style_id.is_some() || parsed.section.is_some() || parsed.numbering_id.is_some() {
                     unsupported_element(
                         child,
                         part,
@@ -1266,6 +1286,7 @@ fn parse_main_document(
     namespace: &str,
     document_id: &Id,
     styles: &StyleBook,
+    numbering: &BTreeMap<u32, ListKind>,
     report: &mut CompatibilityReport,
 ) -> Result<Vec<Section>, ConversionError> {
     let xml = parse_xml(part, bytes)?;
@@ -1289,6 +1310,8 @@ fn parse_main_document(
     let mut sections = Vec::new();
     let mut blocks = Vec::new();
     let mut paragraph_index = 0;
+    let mut preceding_numbering: Option<(u32, ListKind)> = None;
+    let mut used_numbering = BTreeSet::new();
     let mut final_properties = None;
     let mut ended_section = false;
     for node in body.children() {
@@ -1303,16 +1326,39 @@ fn parse_main_document(
             return Err(invalid(part, "content follows final section properties"));
         }
         if node.has_tag_name((namespace, "p")) {
-            let (paragraph, properties) = parse_paragraph_content(
+            let (paragraph, properties, numbering_id) = parse_paragraph_content(
                 node,
                 namespace,
                 part,
                 document_id,
                 paragraph_index,
                 styles,
+                numbering,
                 report,
             )?;
             paragraph_index += 1;
+            if let Some(id) = numbering_id {
+                if let Some(kind) = paragraph.list() {
+                    if preceding_numbering != Some((id, kind))
+                        && used_numbering.contains(&id)
+                    {
+                        report.push(Issue::UnsupportedValue, part, "pPr/numPr",
+                            "A Word numbering instance resumes after a break; Graphe would restart its sequence.");
+                    }
+                    if let Some((previous_id, previous_kind)) = preceding_numbering
+                        && previous_id != id && previous_kind == kind
+                    {
+                        report.push(Issue::UnsupportedValue, part, "pPr/numPr",
+                            "Adjacent Word list groups with separate numbering instances must remain distinct.");
+                    }
+                    used_numbering.insert(id);
+                    preceding_numbering = Some((id, kind));
+                } else {
+                    preceding_numbering = None;
+                }
+            } else {
+                preceding_numbering = None;
+            }
             blocks.push(Block::Paragraph(paragraph));
             ended_section = false;
             if let Some(properties) = properties {
@@ -1323,6 +1369,7 @@ fn parse_main_document(
                     document_id,
                 )?;
                 ended_section = true;
+                preceding_numbering = None;
             }
         } else if node.has_tag_name((namespace, "sectPr")) {
             final_properties = Some(crate::properties::parse_section(
@@ -1367,8 +1414,9 @@ fn parse_paragraph_content(
     document_id: &Id,
     index: usize,
     styles: &StyleBook,
+    numbering: &BTreeMap<u32, ListKind>,
     report: &mut CompatibilityReport,
-) -> Result<(Paragraph, Option<SectionProperties>), ConversionError> {
+) -> Result<(Paragraph, Option<SectionProperties>, Option<u32>), ConversionError> {
     check_word_attributes(node, namespace, &[], part, report);
     let mut properties = None;
     let mut runs = Vec::new();
@@ -1399,8 +1447,17 @@ fn parse_paragraph_content(
     }
     let mut paragraph = Paragraph::new(generated_id(document_id, "paragraph", index)?, runs);
     let mut section = None;
+    let mut numbering_id = None;
     let explicit_style = if let Some(properties) = properties {
         paragraph = paragraph.with_format(properties.format);
+        numbering_id = properties.numbering_id;
+        if let Some(id) = numbering_id {
+            match numbering.get(&id) {
+                Some(kind) => paragraph = paragraph.with_list(Some(*kind)),
+                None => report.push(Issue::UnsupportedValue, part, "pPr/numPr",
+                    "List numbering instance has no supported first-level definition."),
+            }
+        }
         section = properties.section;
         properties.style_id
     } else {
@@ -1473,11 +1530,12 @@ fn parse_paragraph_content(
         materialized.push(run);
     }
     paragraph = Paragraph::new(paragraph.id().clone(), materialized)
-        .with_format(paragraph.format().clone());
+        .with_format(paragraph.format().clone())
+        .with_list(paragraph.list());
     if let Some(style) = style {
         paragraph = paragraph.with_style(style);
     }
-    Ok((paragraph, section))
+    Ok((paragraph, section, numbering_id))
 }
 
 fn parse_run(

@@ -60,6 +60,7 @@ pub(crate) fn paragraphs(document: &Document) -> Vec<ParagraphView> {
                 section_id: section.id().as_str().into(),
                 style_id: paragraph.style().map(|id| id.as_str().into()),
                 runs,
+                list: paragraph.list(),
                 format: ParagraphFormatView {
                     alignment: format.alignment.unwrap_or(Alignment::Left),
                     spacing_before_pt: format.spacing_before.map_or(0., |v| f64::from(v.0) / 20.),

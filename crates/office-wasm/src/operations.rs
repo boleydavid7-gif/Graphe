@@ -3,7 +3,7 @@ use crate::{
     wire::{BrowserSelection, Direction, FormatSummary, ParagraphView, Point},
 };
 use office_core::{
-    Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, Paragraph,
+    Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, ListKind, Paragraph,
     ParagraphFormatPatch, PropertyChange, Section, TextCoordinates, Transaction, Utf16Offset,
 };
 
@@ -580,6 +580,41 @@ impl BrowserEngine {
         Ok(())
     }
 
+    /// Toggle semantic list status on selected paragraphs, without editing text.
+    pub(super) fn set_list(
+        &mut self,
+        list: Option<ListKind>,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let selected = self.current_selection(supplied)?;
+        let mut transaction = self.session.begin_transaction();
+        let selection = match selected {
+            Some(selection) => selection,
+            None => self.materialize(&mut transaction)?,
+        };
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.set_paragraph_list(&range, list)?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
+        self.typing = None;
+        Ok(())
+    }
+
+    /// Enter inherits a list on a populated item, but an empty item exits it.
+    pub(super) fn insert_list_paragraph(
+        &mut self,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        if let Some(selection) = self.current_selection(supplied.clone())?
+            && selection.anchor == selection.focus
+        {
+            let (current, _, _) = paragraph(self.session.document(), &selection.anchor.paragraph_id)?;
+            if current.list().is_some() && TextCoordinates::new(current).text().is_empty() {
+                return self.set_list(None, Some(selection));
+            }
+        }
+        self.replace_text("\n", supplied)
+    }
+
     pub(super) fn format_paragraph(
         &mut self,
         alignment: Alignment,
@@ -627,6 +662,7 @@ impl BrowserEngine {
         let mut empty_paragraphs = Vec::new();
         let mut alignments = Vec::new();
         let mut styles = Vec::new();
+        let mut lists = Vec::new();
         if let Some(selection) = selected {
             let document = self.session.document();
             if let Ok((start, end)) = ordered(document, selection) {
@@ -645,6 +681,7 @@ impl BrowserEngine {
                     }
                     alignments.push(display.format.alignment);
                     styles.push(display.style_id.clone());
+                    lists.push(display.list);
                     let Ok((paragraph, _, _)) = paragraph(document, &display.id) else {
                         continue;
                     };
@@ -691,6 +728,8 @@ impl BrowserEngine {
         }
         let common_style = common(styles.iter().cloned());
         let style_mixed = !styles.is_empty() && common_style.is_none();
+        let common_list = common(lists.iter().copied());
+        let list_mixed = !lists.is_empty() && common_list.is_none();
         FormatSummary {
             bold: common(chosen.iter().map(|f| f.bold)),
             italic: common(chosen.iter().map(|f| f.italic)),
@@ -704,6 +743,8 @@ impl BrowserEngine {
             }),
             style_id: common_style.flatten(),
             style_mixed,
+            list: common_list.flatten(),
+            list_mixed,
         }
     }
 }

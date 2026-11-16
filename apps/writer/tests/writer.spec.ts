@@ -413,8 +413,8 @@ test('native fixture, styles, sections and opaque identifiers survive import/exp
   await select(page, 0, 0, 0, 8);
   await expect(page.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const roundTrip = await exported(page);
-  expect(roundTrip).toMatchObject({ ...native, format_version: 2,
-    document: { ...native.document, schema_version: 2 } });
+  expect(roundTrip).toMatchObject({ ...native, format_version: 3,
+    document: { ...native.document, schema_version: 3 } });
   // Serde makes unspecified optional fields explicit null; normalize via a
   // second round trip rather than comparing source JSON spelling.
   await importNative(page, roundTrip);
