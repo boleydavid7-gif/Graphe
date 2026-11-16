@@ -39,14 +39,15 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, Conversion
 
     let styles = StyleMap::new(document.styles());
     let (list_ids, list_instances) = list_numbering(document);
+    let links = document_links(document);
     // Fixed order and timestamp prevent application/session state entering ZIP
     // output. The creator system is explicit for native/WASM consistency.
     let has_numbering = !list_instances.is_empty();
     let mut parts = vec![
         ("[Content_Types].xml", content_types(has_numbering)?),
         ("_rels/.rels", package_relationships()?),
-        ("word/document.xml", document_xml(document, &styles, &list_ids)?),
-        ("word/_rels/document.xml.rels", document_relationships(has_numbering)?),
+        ("word/document.xml", document_xml(document, &styles, &list_ids, &links)?),
+        ("word/_rels/document.xml.rels", document_relationships(has_numbering, &links)?),
         ("word/styles.xml", styles_xml(document.styles(), &styles)?),
         (
             "docProps/core.xml",
@@ -212,6 +213,25 @@ fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
     Ok(xml.finish())
 }
 
+/// Assign stable package-local IDs to distinct external destinations.
+fn document_links(document: &Document) -> BTreeMap<String, String> {
+    let mut links = BTreeMap::new();
+    for section in document.sections() {
+        for block in section.blocks() {
+            let Block::Paragraph(paragraph) = block;
+            for run in paragraph.runs() {
+                if let Some(address) = &run.format.hyperlink {
+                    if !links.contains_key(address) {
+                        let number = links.len() + 1;
+                        links.insert(address.clone(), format!("rIdLink{number}"));
+                    }
+                }
+            }
+        }
+    }
+    links
+}
+
 /// Assign each contiguous list an independent OOXML instance so decimal
 /// numbering restarts after a normal paragraph or a different list kind.
 fn list_numbering(document: &Document) -> (BTreeMap<String, u32>, Vec<(u32, ListKind)>) {
@@ -291,7 +311,10 @@ fn package_relationships() -> Result<Vec<u8>, ConversionError> {
     Ok(xml.finish())
 }
 
-fn document_relationships(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
+fn document_relationships(
+    has_numbering: bool,
+    links: &BTreeMap<String, String>,
+) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("Relationships", &[("xmlns", REL)])?;
     let relationship_type = format!("{OFFICE_REL}/styles");
@@ -308,6 +331,12 @@ fn document_relationships(has_numbering: bool) -> Result<Vec<u8>, ConversionErro
             ("Id", "rIdNumbering"),
             ("Type", &format!("{OFFICE_REL}/numbering")),
             ("Target", "numbering.xml"),
+        ])?;
+    }
+    for (address, id) in links {
+        xml.empty("Relationship", &[
+            ("Id", id), ("Type", &format!("{OFFICE_REL}/hyperlink")),
+            ("Target", address), ("TargetMode", "External"),
         ])?;
     }
     xml.end("Relationships")?;
@@ -328,9 +357,10 @@ fn document_xml(
     document: &Document,
     styles: &StyleMap<'_>,
     list_ids: &BTreeMap<String, u32>,
+    links: &BTreeMap<String, String>,
 ) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
-    xml.start("w:document", &[("xmlns:w", W)])?;
+    xml.start("w:document", &[("xmlns:w", W), ("xmlns:r", OFFICE_REL)])?;
     xml.start("w:body", &[])?;
     let last_section = document.sections().len().checked_sub(1);
     for (section_index, section) in document.sections().iter().enumerate() {
@@ -343,6 +373,7 @@ fn document_xml(
                 paragraph,
                 styles,
                 list_ids.get(paragraph.id().as_str()).copied(),
+                links,
                 section_boundary.then_some(section.properties()),
             )?;
         }
@@ -360,6 +391,7 @@ fn write_paragraph(
     paragraph: &Paragraph,
     styles: &StyleMap<'_>,
     list_id: Option<u32>,
+    links: &BTreeMap<String, String>,
     boundary: Option<Option<&SectionProperties>>,
 ) -> Result<(), ConversionError> {
     xml.start("w:p", &[])?;
@@ -371,8 +403,14 @@ fn write_paragraph(
         boundary,
     )?;
     for run in paragraph.runs() {
+        if let Some(address) = run.format.hyperlink.as_deref() {
+            let id = links.get(address).ok_or_else(|| unsupported("missing hyperlink relationship"))?;
+            xml.start("w:hyperlink", &[("r:id", id)])?;
+        }
         xml.start("w:r", &[])?;
-        write_character_properties(xml, &run.format, None)?;
+        let mut properties = run.format.clone();
+        properties.hyperlink = None;
+        write_character_properties(xml, &properties, None)?;
         let mut start = 0;
         for (offset, character) in run.text.char_indices() {
             let element = match character {
@@ -390,6 +428,9 @@ fn write_paragraph(
             write_run_text(xml, &run.text[start..])?;
         }
         xml.end("w:r")?;
+        if run.format.hyperlink.is_some() {
+            xml.end("w:hyperlink")?;
+        }
     }
     xml.end("w:p")?;
     Ok(())
