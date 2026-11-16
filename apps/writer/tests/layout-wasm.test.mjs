@@ -60,7 +60,7 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   const root = new URL('../../../crates/office-layout/fonts/', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   assert.equal(manifest.format_version, 1);
-  assert.equal(manifest.catalog_id, 'writer-fonts-v1');
+  assert.equal(manifest.catalog_id, 'writer-fonts-v2');
   const entries = new Map(manifest.entries.map((entry) => [entry.file, entry]));
   let fontBytes = 0;
   for (const entry of [...manifest.entries, ...manifest.derived_files]) {
