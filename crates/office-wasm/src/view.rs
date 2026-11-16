@@ -25,6 +25,7 @@ pub(crate) fn character_view(format: &CharacterFormat) -> CharacterView {
         underline: match format.underline {
             Some(Underline::Single) => "single",
             Some(Underline::Double) => "double",
+            None if format.hyperlink.is_some() => "single",
             _ => "none",
         },
         font_family: format.font_family.clone().unwrap_or_else(|| "Arimo".into()),
@@ -32,6 +33,7 @@ pub(crate) fn character_view(format: &CharacterFormat) -> CharacterView {
         hyperlink: format.hyperlink.clone(),
         color: match format.color {
             Some(TextColor::Rgb { red, green, blue }) => format!("#{red:02x}{green:02x}{blue:02x}"),
+            _ if format.hyperlink.is_some() => "#1762a6".into(),
             _ => "#24211d".into(),
         },
     }
