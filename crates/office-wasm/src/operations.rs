@@ -240,7 +240,13 @@ impl BrowserEngine {
         for run in paragraph.runs() {
             let end = offset + run.text.len();
             if byte <= end && (byte > offset || offset == 0) {
-                return Ok(run.format.clone());
+                let mut format = run.format.clone();
+                // A link is non-inclusive at the paragraph's trailing edge:
+                // inserting new text after its label must not extend the link.
+                if byte == coordinates.text().len() {
+                    format.hyperlink = None;
+                }
+                return Ok(format);
             }
             offset = end;
         }
