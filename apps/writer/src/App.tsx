@@ -108,8 +108,9 @@ function numericParagraphValue(value: number | null): string {
 // Names below are backed by the pinned Rust font catalog, not system fonts.
 // Unknown names from imported documents remain selectable and are preserved.
 const FONT_GROUPS = [
-  { label: 'Sans serif', names: ['Arimo', 'Carlito', 'Source Sans 3'] },
-  { label: 'Serif', names: ['Tinos', 'Caladea', 'EB Garamond'] },
+  { label: 'Sans serif', names: ['Arimo', 'Carlito', 'Source Sans 3', 'Inter'] },
+  { label: 'Serif', names: ['Tinos', 'Caladea', 'EB Garamond', 'Libre Baskerville'] },
+  { label: 'Display', names: ['Playfair Display', 'Space Grotesk'] },
   { label: 'Monospace', names: ['JetBrains Mono'] },
   { label: 'Languages and symbols', names: [
     'Noto Sans Arabic', 'Noto Sans Devanagari', 'Noto Sans Hebrew', 'Noto Emoji',
