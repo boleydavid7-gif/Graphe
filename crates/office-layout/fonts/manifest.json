@@ -548,7 +548,7 @@
         {
           "tag": "wght",
           "minimum": 200,
-          "default": 400,
+          "default": 200,
           "maximum": 900
         }
       ],
@@ -572,7 +572,7 @@
         {
           "tag": "wght",
           "minimum": 200,
-          "default": 400,
+          "default": 200,
           "maximum": 900
         }
       ],
