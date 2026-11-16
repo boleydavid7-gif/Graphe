@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v1";
+const CATALOG_ID: &str = "writer-fonts-v2";
 
 struct PinnedFont {
     id: &'static str,
@@ -79,6 +79,20 @@ const FONT_FILES: &[(&str, &[u8])] = &[
         include_bytes!("../fonts/NotoSansHebrew.ttf"),
     ),
     ("NotoEmoji.ttf", include_bytes!("../fonts/NotoEmoji.ttf")),
+    // Full original OFL faces. Static Caladea/Carlito have actual
+    // bold/italic faces; Source Sans 3 and JetBrains Mono use wght axes.
+    ("Caladea-Regular.ttf", include_bytes!("../fonts/Caladea-Regular.ttf")),
+    ("Caladea-Bold.ttf", include_bytes!("../fonts/Caladea-Bold.ttf")),
+    ("Caladea-Italic.ttf", include_bytes!("../fonts/Caladea-Italic.ttf")),
+    ("Caladea-BoldItalic.ttf", include_bytes!("../fonts/Caladea-BoldItalic.ttf")),
+    ("Carlito-Regular.ttf", include_bytes!("../fonts/Carlito-Regular.ttf")),
+    ("Carlito-Bold.ttf", include_bytes!("../fonts/Carlito-Bold.ttf")),
+    ("Carlito-Italic.ttf", include_bytes!("../fonts/Carlito-Italic.ttf")),
+    ("Carlito-BoldItalic.ttf", include_bytes!("../fonts/Carlito-BoldItalic.ttf")),
+    ("SourceSans3[wght].ttf", include_bytes!("../fonts/SourceSans3[wght].ttf")),
+    ("SourceSans3-Italic[wght].ttf", include_bytes!("../fonts/SourceSans3-Italic[wght].ttf")),
+    ("JetBrainsMono[wght].ttf", include_bytes!("../fonts/JetBrainsMono[wght].ttf")),
+    ("JetBrainsMono-Italic[wght].ttf", include_bytes!("../fonts/JetBrainsMono-Italic[wght].ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -926,6 +940,10 @@ fn validate_spacing(spacing: LineSpacing) -> Result<(), LayoutError> {
 fn resolved_family(requested: &str) -> &'static str {
     match requested.to_ascii_lowercase().as_str() {
         "tinos" | "times" | "times new roman" | "serif" => "Tinos",
+        "caladea" | "cambria" => "Caladea",
+        "carlito" | "calibri" => "Carlito",
+        "source sans 3" | "source sans pro" => "Source Sans 3",
+        "jetbrains mono" => "JetBrains Mono",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
         "noto sans devanagari" => "Noto Sans Devanagari",
         "noto sans hebrew" => "Noto Sans Hebrew",
