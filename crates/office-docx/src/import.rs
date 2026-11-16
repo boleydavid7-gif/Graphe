@@ -1184,6 +1184,7 @@ fn overlay_character(base: &CharacterFormat, direct: &CharacterFormat) -> Charac
             .or_else(|| base.font_family.clone()),
         font_size: direct.font_size.or(base.font_size),
         color: direct.color.or(base.color),
+        hyperlink: direct.hyperlink.clone().or_else(|| base.hyperlink.clone()),
     }
 }
 
