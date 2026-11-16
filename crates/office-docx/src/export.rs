@@ -335,8 +335,8 @@ fn document_relationships(
     }
     for (address, id) in links {
         xml.empty("Relationship", &[
-            ("Id", id), ("Type", &format!("{OFFICE_REL}/hyperlink")),
-            ("Target", address), ("TargetMode", "External"),
+            ("Id", id.as_str()), ("Type", &format!("{OFFICE_REL}/hyperlink")),
+            ("Target", address.as_str()), ("TargetMode", "External"),
         ])?;
     }
     xml.end("Relationships")?;
@@ -405,7 +405,7 @@ fn write_paragraph(
     for run in paragraph.runs() {
         if let Some(address) = run.format.hyperlink.as_deref() {
             let id = links.get(address).ok_or_else(|| unsupported("missing hyperlink relationship"))?;
-            xml.start("w:hyperlink", &[("r:id", id)])?;
+            xml.start("w:hyperlink", &[("r:id", id.as_str())])?;
         }
         xml.start("w:r", &[])?;
         let mut properties = run.format.clone();
