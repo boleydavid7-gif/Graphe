@@ -6,7 +6,7 @@ const selectedText = 'Café e\u0301 👩🏽‍💻\nالعربية';
 
 function paragraph(id: string, text: string): ParagraphView {
   return { id, sectionId: 'section', styleId: null, list: null,
-    runs: [{ text, format: { bold: false, italic: false, underline: 'none', fontFamily: 'Arimo', fontSizePt: 12, color: '#000000' } }],
+    runs: [{ text, format: { bold: false, italic: false, underline: 'none', fontFamily: 'Arimo', fontSizePt: 12, color: '#000000', hyperlink: null } }],
     format: { alignment: 'left', spacingBeforePt: 0, spacingAfterPt: 0, lineHeight: 'normal',
       indentLeftPt: 0, indentRightPt: 0, firstLinePt: 0 } };
 }
@@ -16,7 +16,7 @@ function view(): WriterView {
     paragraphs: [paragraph('first', 'Café e\u0301 👩🏽‍💻'), paragraph('second', 'العربية')], styles: [],
     selection: { anchor: { paragraphId: 'first', utf16: 0 }, focus: { paragraphId: 'second', utf16: 7 } },
     format: { bold: false, italic: false, underline: false, fontFamily: 'Arimo', fontSizePt: 12,
-      alignment: 'left', styleId: null, styleMixed: false, list: null, listMixed: false },
+      alignment: 'left', styleId: null, styleMixed: false, list: null, listMixed: false, hyperlink: null },
     canUndo: true, canRedo: false, wordCount: 5, originalSource: null };
 }
 

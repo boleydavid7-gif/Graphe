@@ -14,6 +14,16 @@ import fontLicensesUrl from '../../../crates/office-layout/fonts/NOTICE.txt?url'
 import formatLicensesUrl from '../../../crates/office-formats/THIRD_PARTY_NOTICES.txt?url';
 import grapheLicenseUrl from '../../../LICENSE?url';
 
+function safeHyperlink(value: string): boolean {
+  if (value.length === 0 || value.length > 2048 ||
+    /[\s\x00-\x1f\x7f<>"\\]/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'https:' || url.protocol === 'http:') &&
+      !url.username && !url.password && !!url.hostname;
+  } catch { return false; }
+}
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
 }
@@ -30,7 +40,7 @@ function Dialog({ title, children, onClose, busy = false, className }: {
       dialog?.style.setProperty('--save-copy-top', `${visual?.offsetTop ?? 0}px`);
       dialog?.style.setProperty('--save-copy-height', `${visual?.height ?? window.innerHeight}px`);
     };
-    if (className === 'save-copy-dialog') {
+    if (className?.split(' ').includes('save-copy-dialog')) {
       position();
       window.addEventListener('resize', position);
       visual?.addEventListener('resize', position);
@@ -66,6 +76,14 @@ function AlignmentIcon({ alignment }: { alignment: Alignment }) {
 
 type LibraryEntry = Pick<StoredDocument, 'id' | 'title' | 'etag' | 'updatedAt'>;
 type PreservedImport = { file: File; format: DocumentFormat; message: string; report: CompatibilityReport | undefined };
+type HyperlinkDialogState = {
+  label: string;
+  initialLabel: string;
+  url: string;
+  existing: boolean;
+  selection: WriterView['selection'];
+  origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
+};
 type SaveAsState = {
   format: DocumentFormat;
   filename: string;
@@ -175,6 +193,7 @@ export default function App() {
   const [previewZoom, setPreviewZoom] = useState<PreviewZoom>('fit');
   const [moreFormatting, setMoreFormatting] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
+  const [hyperlinkDialog, setHyperlinkDialog] = useState<HyperlinkDialogState | null>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const ribbonRef = useRef<HTMLDivElement | null>(null);
@@ -460,6 +479,50 @@ export default function App() {
     // Native dialogs must return to a visible opener, not a now-hidden item.
     documentMenu.current?.querySelector('summary')?.focus({ preventScroll: true });
     action();
+  }
+
+  function openHyperlink() {
+    const current = viewRef.current;
+    if (!documentOpenRef.current || !current || !engine.current || composing || busy) return;
+    try {
+      const label = engine.current.selectedText();
+      setHyperlinkDialog({
+        label, initialLabel: label, url: current.format.hyperlink ?? 'https://',
+        existing: !!current.format.hyperlink, selection: current.selection,
+        origin: { sessionId: current.sessionId, documentId: current.documentId,
+          revision: current.revision },
+      });
+      setError('');
+    } catch (failure) {
+      setError(message(failure));
+    }
+  }
+
+  function submitHyperlink(remove = false) {
+    const state = hyperlinkDialog;
+    const current = viewRef.current;
+    if (!state || !current || !engine.current || busy || composing) return;
+    if (state.origin.sessionId !== current.sessionId ||
+      state.origin.documentId !== current.documentId ||
+      state.origin.revision !== current.revision) {
+      setError('The document changed while editing the link. Close and reopen this dialog.');
+      return;
+    }
+    const url = remove ? null : state.url.trim();
+    if (!remove && !safeHyperlink(url ?? '')) {
+      setError('Enter a full http:// or https:// address without spaces or credentials.');
+      return;
+    }
+    const newText = !remove && (state.label !== state.initialLabel ||
+      (!state.initialLabel && !state.existing)) ? state.label : undefined;
+    if (newText !== undefined && (!newText || newText.length > 2048 ||
+      /[\r\n]/.test(newText))) {
+      setError('Link text must be a single line of at most 2,048 characters.');
+      return;
+    }
+    const result = command({ type: 'set_hyperlink', url, text: newText,
+      selection: state.selection ?? undefined, expectedRevision: state.origin.revision });
+    if (result) setHyperlinkDialog(null);
   }
 
   function openFind() {
@@ -847,7 +910,14 @@ export default function App() {
         : saveState.phase === 'saving' ? 'Saving on this device…'
           : saveState.phase === 'pending' ? 'Unsaved changes · saving soon'
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
-  return <div className="writer-app">
+  return <div className="writer-app" onKeyDownCapture={(event) => {
+    if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog) {
+      event.preventDefault();
+      event.stopPropagation();
+      openHyperlink();
+    }
+  }}>
     <header className="top-bar">
       <div className="identity">
         <img src="/graphe-icon.svg" className="writer-lantern" alt="" />
@@ -982,6 +1052,8 @@ export default function App() {
       {activeTab === 'insert' && <div className="format-group insert-controls" role="group" aria-label="Insert text structure">
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_paragraph' })}>Paragraph <kbd>Enter</kbd></button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_line_break' })}>Line break <kbd>Shift Enter</kbd></button>
+        <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
+          onClick={openHyperlink}><WriterIcon name="link" /> Link <kbd>Ctrl K</kbd></button>
       </div>}
       {activeTab === 'layout' && <span className="formatting-note">Page sizes and margins follow the document.</span>}
       {activeTab === 'review' && <div className="format-group review-controls" role="group" aria-label="Review document">
@@ -1123,6 +1195,32 @@ export default function App() {
         onClick={() => openSaved(entry.id)}><span>{entry.title || 'Untitled document'}</span><time dateTime={new Date(entry.updatedAt).toISOString()}>{new Date(entry.updatedAt).toLocaleString()}</time></button>)}</div>
       <p className="storage-note">Browser storage can be cleared or evicted. Keep exported .writer files as backups.</p>
       <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Open file…</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
+    </Dialog>}
+    {hyperlinkDialog && <Dialog title={hyperlinkDialog.existing ? 'Edit hyperlink' : 'Insert hyperlink'}
+      onClose={() => { setHyperlinkDialog(null); setError(''); }} className="save-copy-dialog hyperlink-dialog">
+      <form className="hyperlink-fields" onSubmit={(event) => { event.preventDefault(); submitHyperlink(); }}>
+        <label htmlFor="hyperlink-label">Text to display</label>
+        <input id="hyperlink-label" value={hyperlinkDialog.label} maxLength={2048}
+          placeholder={hyperlinkDialog.existing ? 'Existing linked text' : 'Link text'}
+          onChange={(event) => setHyperlinkDialog({ ...hyperlinkDialog, label: event.target.value })} />
+        <label htmlFor="hyperlink-address">Web address</label>
+        <input id="hyperlink-address" inputMode="url" autoComplete="url" autoFocus
+          value={hyperlinkDialog.url} maxLength={2048}
+          onChange={(event) => setHyperlinkDialog({ ...hyperlinkDialog, url: event.target.value })} />
+        <p className="dialog-description">HTTP and HTTPS links only. Selecting text preserves its formatting.</p>
+        {error && <p role="alert" className="dialog-error">{error}</p>}
+        <div className="dialog-actions">
+          {hyperlinkDialog.existing && <>
+            <button type="button" onClick={() => {
+              const candidate = safeHyperlink(hyperlinkDialog.url) ? hyperlinkDialog.url : null;
+              if (candidate) window.open(candidate, '_blank', 'noopener,noreferrer');
+            }}>Open link</button>
+            <button type="button" onClick={() => submitHyperlink(true)}>Remove link</button>
+          </>}
+          <button type="button" onClick={() => { setHyperlinkDialog(null); setError(''); }}>Cancel</button>
+          <button type="submit" className="primary-button">Apply link</button>
+        </div>
+      </form>
     </Dialog>}
     {saveAs && <Dialog title="Save As" onClose={closeSaveAs} busy={busy} className="save-copy-dialog">
       <form onSubmit={(event) => { event.preventDefault(); downloadSaveAs(); }}>

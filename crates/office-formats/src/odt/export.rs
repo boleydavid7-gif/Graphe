@@ -49,6 +49,7 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
         font_family: Some("Arimo".into()),
         font_size: Some(HalfPoints(24)),
         color: Some(TextColor::Auto {}),
+        hyperlink: None,
     };
     let paragraph_defaults = ParagraphFormat {
         line_spacing: Some(LineSpacing::Multiple { value: 360 }),

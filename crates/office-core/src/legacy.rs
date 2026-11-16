@@ -9,10 +9,10 @@ use serde::Deserialize;
 
 use super::{
     Block, Document, DocumentMetadata, Id, NamedStyle, Paragraph, Section, SectionProperties,
-    TextRun,
 };
+use super::v3::{V3CharacterFormat, V3TextRun};
 use crate::{
-    Alignment, CharacterFormat, DocumentError, Indentation, LineSpacing, ParagraphFormat, Twips,
+    Alignment, DocumentError, Indentation, LineSpacing, ParagraphFormat, Twips,
 };
 
 #[derive(Deserialize)]
@@ -52,7 +52,7 @@ enum LegacyBlock {
 #[serde(deny_unknown_fields)]
 struct LegacyParagraph {
     id: Id,
-    runs: Vec<TextRun>,
+    runs: Vec<V3TextRun>,
     style: Option<Id>,
     format: LegacyParagraphFormat,
 }
@@ -74,7 +74,7 @@ struct LegacyStyle {
     name: String,
     based_on: Option<Id>,
     paragraph_format: LegacyParagraphFormat,
-    character_format: CharacterFormat,
+    character_format: V3CharacterFormat,
 }
 
 impl From<LegacyParagraphFormat> for ParagraphFormat {
@@ -103,7 +103,7 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
                 .into_iter()
                 .map(|block| match block {
                     LegacyBlock::Paragraph(paragraph) => {
-                        let mut converted = Paragraph::new(paragraph.id, paragraph.runs)
+                        let mut converted = Paragraph::new(paragraph.id, paragraph.runs.into_iter().map(Into::into).collect())
                             .with_format(paragraph.format.into());
                         if let Some(style) = paragraph.style {
                             converted = converted.with_style(style);
@@ -127,7 +127,7 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
             name: style.name,
             based_on: style.based_on,
             paragraph_format: style.paragraph_format.into(),
-            character_format: style.character_format,
+            character_format: style.character_format.into(),
         })
         .collect();
     Document::from_parts(legacy.id, legacy.metadata, sections, styles).map_err(DocumentError::from)

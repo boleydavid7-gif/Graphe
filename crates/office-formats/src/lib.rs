@@ -361,6 +361,18 @@ pub fn assess_export(
             "This copy will preserve text but omit list bullets and numbering. Keep a native Writer or Word copy for list formatting.",
         ));
     }
+    let has_hyperlinks = document.sections().iter()
+        .flat_map(|section| section.blocks())
+        .any(|block| {
+            let Block::Paragraph(paragraph) = block;
+            paragraph.runs().iter().any(|run| run.format.hyperlink.is_some())
+        });
+    if has_hyperlinks && !matches!(format, DocumentFormat::Docx | DocumentFormat::Writer) {
+        warnings.push(FormatDiagnostic::new(
+            "hyperlink_targets_omitted", format.extension(), "document",
+            "This copy will keep visible link text but cannot preserve clickable web destinations. Keep a native Writer or Word copy.",
+        ));
+    }
     match format {
         DocumentFormat::Txt => {
             text::validate_export(document)?;

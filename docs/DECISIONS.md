@@ -1142,3 +1142,19 @@ layout are deferred with clear compatibility restrictions.
 Consequence: A native schema/version migration and list-aware DOCX validation
 are required. Full build, Rust, file round-trip and real-device verification
 must succeed before the feature is production-ready.
+
+## 2026-11-15 — Inline semantic hyperlinks in Graphe
+
+Chosen: Rust-owned, validated HTTP(S) link metadata on a text run's character
+properties, with native v4 migration and transactional insertion/change/removal.
+Do not insert raw HTML, run URL fetches, or use browser-only range maps.
+Link formatting is non-inclusive in intent: editing commands can change an
+existing linked run, but subsequent ordinary typed text should be unlinked.
+Links cannot live in named styles. Rendering uses subdued blue/underline
+unless explicitly overridden by the document.
+
+OOXML links use w:hyperlink plus package external hyperlink relationships;
+do not copy stale links from source DOCX documents. Unsupported Word link
+semantics must remain preserved read-only. Other external formats must disclose
+loss of click targets. This foundation can be extended with mailto and anchors
+only after separate validation and format adapter work.

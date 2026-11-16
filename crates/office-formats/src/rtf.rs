@@ -624,6 +624,7 @@ impl<'a> Parser<'a> {
                     font_family: self.default_family(),
                     font_size: Some(HalfPoints(24)),
                     color: Some(TextColor::Auto {}),
+                    hyperlink: None,
                 };
                 state.font = self.default_font;
             }

@@ -5,6 +5,7 @@ use crate::{
 use office_core::{
     Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, ListKind, Paragraph,
     ParagraphFormatPatch, PropertyChange, Section, TextCoordinates, Transaction, Utf16Offset,
+    valid_hyperlink,
 };
 
 fn paragraph<'a>(
@@ -239,7 +240,13 @@ impl BrowserEngine {
         for run in paragraph.runs() {
             let end = offset + run.text.len();
             if byte <= end && (byte > offset || offset == 0) {
-                return Ok(run.format.clone());
+                let mut format = run.format.clone();
+                // A link is non-inclusive at the paragraph's trailing edge:
+                // inserting new text after its label must not extend the link.
+                if byte == coordinates.text().len() {
+                    format.hyperlink = None;
+                }
+                return Ok(format);
             }
             offset = end;
         }
@@ -571,9 +578,104 @@ impl BrowserEngine {
                 .font_size
                 .map_or(PropertyChange::Keep, PropertyChange::Set),
             color: PropertyChange::Keep,
+            hyperlink: PropertyChange::Keep,
         };
         let mut transaction = self.session.begin_transaction();
         let range = edit_selection(&transaction, &selection)?;
+        transaction.apply_character_format(&range, &patch)?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
+        self.typing = None;
+        Ok(())
+    }
+
+    /// Insert a new link or apply/edit/remove an existing link in one transaction.
+    /// Link boundaries remain Rust grapheme positions, not browser DOM offsets.
+    pub(super) fn set_hyperlink(
+        &mut self,
+        url: Option<String>,
+        text: Option<String>,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        if url.as_ref().is_some_and(|value| !valid_hyperlink(value)) {
+            return Err(EngineError::new("invalid_link",
+                "Use an HTTP or HTTPS address without spaces or credentials."));
+        }
+        let selected = self.current_selection(supplied)?;
+        if let Some(label) = text {
+            if url.is_none() || label.is_empty() || label.len() > 2048
+                || label.contains('\n') || label.contains('\r')
+            {
+                return Err(EngineError::new("invalid_link",
+                    "A new link needs a single-line label and a safe web address."));
+            }
+            self.preflight_text(selected.as_ref(), &[label.as_str()])?;
+            let mut format = selected.as_ref()
+                .map(|selection| self.typing_format(selection))
+                .transpose()?.unwrap_or_default();
+            format.hyperlink = url;
+            let mut transaction = self.session.begin_transaction();
+            let selection = match selected {
+                Some(selection) => selection,
+                None => self.materialize(&mut transaction)?,
+            };
+            let original = transaction_document(&transaction)?;
+            let (start, _) = ordered(&original, &selection)?;
+            let id = start.paragraph_id.clone();
+            let at = original.text_coordinates(&Id::new(&id)?)?
+                .utf16_to_utf8(Utf16Offset::new(start.utf16))?.get();
+            let range = edit_selection(&transaction, &selection)?;
+            transaction.replace_text(&range, &label, format)?;
+            let candidate = transaction_document(&transaction)?;
+            let (paragraph, _, _) = paragraph(&candidate, &id)?;
+            let after = snap_byte(paragraph, at + label.len(), true)?;
+            self.commit_from(transaction, Some(selection), Some(caret(after)))?;
+            self.typing = None;
+            return Ok(());
+        }
+
+        let Some(mut selection) = selected else {
+            return Err(EngineError::new("missing_selection", "Select text to link."));
+        };
+        if selection.anchor == selection.focus {
+            // Allow editing/removing a link with the caret inside an existing
+            // linked run, even when no editable text is highlighted.
+            let (paragraph, _, _) = paragraph(self.session.document(),
+                &selection.anchor.paragraph_id)?;
+            let coordinates = TextCoordinates::new(paragraph);
+            let at = coordinates.utf16_to_utf8(
+                Utf16Offset::new(selection.anchor.utf16))?.get();
+            let mut offset = 0_usize;
+            let mut runs = Vec::with_capacity(paragraph.runs().len());
+            for run in paragraph.runs() {
+                runs.push((offset, offset + run.text.len(), run.format.hyperlink.as_ref()));
+                offset += run.text.len();
+            }
+            let found = runs.iter().position(|(start, end, existing)|
+                *start <= at && at <= *end && start != end && existing.is_some());
+            let Some(index) = found else {
+                return Err(EngineError::new("missing_selection",
+                    "Select text to add a hyperlink."));
+            };
+            let target = runs[index].2;
+            let mut first = index;
+            let mut last = index;
+            while first > 0 && runs[first - 1].2 == target {
+                first -= 1;
+            }
+            while last + 1 < runs.len() && runs[last + 1].2 == target {
+                last += 1;
+            }
+            selection = BrowserSelection {
+                anchor: snap_byte(paragraph, runs[first].0, false)?,
+                focus: snap_byte(paragraph, runs[last].1, true)?,
+            };
+        }
+        let mut transaction = self.session.begin_transaction();
+        let range = edit_selection(&transaction, &selection)?;
+        let patch = CharacterFormatPatch {
+            hyperlink: url.map_or(PropertyChange::Clear, PropertyChange::Set),
+            ..Default::default()
+        };
         transaction.apply_character_format(&range, &patch)?;
         self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
         self.typing = None;
@@ -745,6 +847,7 @@ impl BrowserEngine {
             style_mixed,
             list: common_list.flatten(),
             list_mixed,
+            hyperlink: common(chosen.iter().map(|f| f.hyperlink.clone())).flatten(),
         }
     }
 }

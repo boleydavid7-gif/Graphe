@@ -188,8 +188,8 @@ test('native fixture round trips exact supported structures, styles, identifiers
   const canonical = instance.export_document();
   assert.ok(canonical instanceof Uint8Array);
   sameSupportedFields(JSON.parse(decoder.decode(canonical)), {
-    ...source, format_version: 3,
-    document: { ...source.document, schema_version: 3 },
+    ...source, format_version: 4,
+    document: { ...source.document, schema_version: 4 },
   });
   const other = new WriterEngine('fixture-reopened');
   context.after(() => other.free());
@@ -243,8 +243,8 @@ test('oversized edits and files fail without publishing, while empty native file
   const empty = { format: 'office-writer', format_version: 1, document: {
     schema_version: 1, id: 'empty-document', metadata: { title: '' }, sections: [], styles: [],
   } };
-  const migratedEmpty = { ...empty, format_version: 3,
-    document: { ...empty.document, schema_version: 3 } };
+  const migratedEmpty = { ...empty, format_version: 4,
+    document: { ...empty.document, schema_version: 4 } };
   assert.equal(JSON.parse(instance.open_document(bytes(empty))).ok, true);
   assert.deepEqual(snapshot(instance).paragraphs, []);
   assert.deepEqual(JSON.parse(decoder.decode(instance.export_document())), migratedEmpty);

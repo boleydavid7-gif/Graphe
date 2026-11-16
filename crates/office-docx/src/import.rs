@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use office_core::{
     Block, CharacterFormat, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, ParagraphFormat,
-    Section, SectionProperties, TextRun,
+    Section, SectionProperties, TextRun, valid_hyperlink,
 };
 use roxmltree::{Document as XmlDocument, Node};
 
@@ -47,6 +47,7 @@ const MAX_IMPORT_ID_BYTES: usize = 256;
 pub(crate) struct PartGraph {
     pub(crate) styles: Option<String>,
     pub(crate) numbering: Option<String>,
+    pub(crate) hyperlinks: BTreeMap<String, String>,
     pub(crate) core_properties: Option<String>,
     pub(crate) ancillary: BTreeMap<AncillaryKind, String>,
 }
@@ -117,6 +118,7 @@ pub(crate) fn import_document(
         &document_id,
         &styles,
         &numbering,
+        &graph.hyperlinks,
         &mut report,
     )?;
     if styles.default_style.is_some() && sections.iter().all(|section| section.blocks().is_empty())
@@ -152,6 +154,7 @@ pub(crate) fn inspect_semantic_graph(
     let mut graph = PartGraph {
         styles: None,
         numbering: None,
+        hyperlinks: BTreeMap::new(),
         core_properties: None,
         ancillary: BTreeMap::new(),
     };
@@ -163,13 +166,21 @@ pub(crate) fn inspect_semantic_graph(
         understood.insert(part.name.clone());
         let source = relationship_source(&part.name)?;
         for relation in parse_relationships(&part.name, &package.parts[&part.name])? {
+            let main_source = source
+                .as_deref()
+                .is_some_and(|value| value.eq_ignore_ascii_case(main_part));
             if relation.external {
-                unsupported_relationship(
-                    &part.name,
-                    &relation,
-                    report,
-                    "External targets are never fetched and have no editable semantic mapping.",
-                );
+                if main_source && relation_kind(&relation.relationship_type, "hyperlink") {
+                    if valid_hyperlink(&relation.target) {
+                        graph.hyperlinks.insert(relation.id.clone(), relation.target.clone());
+                    } else {
+                        unsupported_relationship(&part.name, &relation, report,
+                            "This external hyperlink target is not a safe HTTP(S) URL.");
+                    }
+                } else {
+                    unsupported_relationship(&part.name, &relation, report,
+                        "External targets are never fetched and have no supported editable mapping.");
+                }
                 continue;
             }
             let resolved = resolve_target(source.as_deref(), &relation.target, &part.name)?;
@@ -1184,6 +1195,7 @@ fn overlay_character(base: &CharacterFormat, direct: &CharacterFormat) -> Charac
             .or_else(|| base.font_family.clone()),
         font_size: direct.font_size.or(base.font_size),
         color: direct.color.or(base.color),
+        hyperlink: direct.hyperlink.clone().or_else(|| base.hyperlink.clone()),
     }
 }
 
@@ -1287,6 +1299,7 @@ fn parse_main_document(
     document_id: &Id,
     styles: &StyleBook,
     numbering: &BTreeMap<u32, ListKind>,
+    hyperlinks: &BTreeMap<String, String>,
     report: &mut CompatibilityReport,
 ) -> Result<Vec<Section>, ConversionError> {
     let xml = parse_xml(part, bytes)?;
@@ -1334,6 +1347,7 @@ fn parse_main_document(
                 paragraph_index,
                 styles,
                 numbering,
+                hyperlinks,
                 report,
             )?;
             paragraph_index += 1;
@@ -1415,6 +1429,7 @@ fn parse_paragraph_content(
     index: usize,
     styles: &StyleBook,
     numbering: &BTreeMap<u32, ListKind>,
+    hyperlinks: &BTreeMap<String, String>,
     report: &mut CompatibilityReport,
 ) -> Result<(Paragraph, Option<SectionProperties>, Option<u32>), ConversionError> {
     check_word_attributes(node, namespace, &[], part, report);
@@ -1433,6 +1448,39 @@ fn parse_paragraph_content(
             let (run, style) = parse_run(child, namespace, part, report)?;
             runs.push(run);
             character_styles.push(style);
+        } else if child.has_tag_name((namespace, "hyperlink")) {
+            // Only external relationship-backed links are editable. Anchors,
+            // fields and unsupported hyperlink content remain preserved.
+            let relation_ns = if namespace == WORD_STRICT {
+                REL_STRICT.trim_end_matches('/')
+            } else {
+                REL_TRANSITIONAL.trim_end_matches('/')
+            };
+            let id = child.attribute((relation_ns, "id"));
+            for attribute in child.attributes() {
+                if attribute.namespace() != Some(relation_ns) || attribute.name() != "id" {
+                    report.push(Issue::UnsupportedAttribute, part, "w:hyperlink",
+                        "Unsupported Word hyperlink attribute.");
+                }
+            }
+            let destination = id.and_then(|id| hyperlinks.get(id));
+            if destination.is_none() {
+                report.push(Issue::UnsupportedValue, part, "w:hyperlink",
+                    "Hyperlink lacks a supported external relationship.");
+            }
+            for nested in child.children() {
+                if !nested.is_element() {
+                    check_whitespace(nested, part)?;
+                } else if nested.has_tag_name((namespace, "r")) {
+                    let (mut run, style) = parse_run(nested, namespace, part, report)?;
+                    run.format.hyperlink = destination.cloned();
+                    runs.push(run);
+                    character_styles.push(style);
+                } else {
+                    unsupported_element(nested, part, report,
+                        "Unsupported hyperlink child; only text runs are editable.");
+                }
+            }
         } else if bookmark_marker(child, namespace) {
             // Pairing and leaf/attribute integrity are checked once for the
             // whole document; these markers do not contain text.

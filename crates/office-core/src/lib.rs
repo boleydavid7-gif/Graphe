@@ -72,7 +72,7 @@ pub use filesystem::{
 pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, PropertyChange};
 pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, PageMargins, PageOrientation,
-    PageSize, ParagraphFormat, TextColor, Twips, Underline,
+    PageSize, ParagraphFormat, TextColor, Twips, Underline, valid_hyperlink,
 };
 pub use persistence::{
     MAX_WRITER_FILE_BYTES, PersistenceError, WRITER_EXTENSION, WRITER_FORMAT_NAME,

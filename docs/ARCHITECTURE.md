@@ -206,12 +206,14 @@ Individually assembled property records can contain invalid values until they
 are accepted into a document.
 
 The document payload representation is UTF-8 JSON, currently schema version
-**3**. First-level semantic list membership is an optional paragraph field. Its version is independent of the engine crate version and the native
+**4**. First-level semantic list membership is an optional paragraph field.
+HTTP(S) hyperlinks are run-level semantic properties; the browser never owns
+a separate URL range map. Its version is independent of the engine crate version and the native
 file envelope version. A minimal valid model payload is:
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "id": "document-1",
   "metadata": { "title": "" },
   "sections": [],
@@ -257,9 +259,9 @@ UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
 ```json
 {
   "format": "office-writer",
-  "format_version": 3,
+  "format_version": 4,
   "document": {
-    "schema_version": 3,
+    "schema_version": 4,
     "id": "document-1",
     "metadata": { "title": "" },
     "sections": [],
@@ -272,7 +274,7 @@ UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
 these native format values. `format_version` describes the file envelope;
 `document.schema_version` describes the enclosed model. The engine's application
 version is separate and is not written into the file. The current writer emits
-native format 3/model schema 3. Native formats 1/2 and model schemas 1/2
+native format 4/model schema 4. Native formats 1/2/3 and model schemas 1/2/3
 are supported through strict migrations; mixing envelope/model versions is rejected. Bare model JSON remains useful through
 `Document::from_json` but is not accepted as an implicit `.writer` file.
 
@@ -385,7 +387,7 @@ do not claim protection against adversarial concurrent pathname changes.
 #### Compatibility and future adapters
 
 Loading never changes the source file. Unsupported native or model versions fail
-explicitly. Formats 1 and 2 migrate independently into native format 3/schema 3
+explicitly. Formats 1, 2 and 3 migrate independently into native format 4/schema 4
 without synthesizing a retained source or list membership. Reading never
 rewrites the original; later serialization emits the current version.
 Further migrations require an

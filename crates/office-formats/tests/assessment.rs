@@ -411,6 +411,7 @@ fn text_warning_tracks_effective_visible_character_changes_not_explicit_defaults
             green: 33,
             blue: 29,
         }),
+        hyperlink: None,
     };
     assert!(!text_warns(&formatted_document(
         Default::default(),

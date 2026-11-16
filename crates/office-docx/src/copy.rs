@@ -14,6 +14,7 @@ use crate::{
     conversion::invalid,
     export::{export_document, write_parts},
     import::{PartGraph, inspect_semantic_graph},
+    opc::parse_relationships,
     import_docx,
     package::{Package, read_package},
     xml::parse_xml,
@@ -168,6 +169,14 @@ pub fn export_docx_with_source(
     let expected = editable_projection(&generated)?;
     let mut parts = read_package(&generated)?.parts;
     let has_numbering = parts.contains_key("word/numbering.xml");
+    let link_rels = parse_relationships(
+        "word/_rels/document.xml.rels",
+        &parts["word/_rels/document.xml.rels"],
+    )?.into_iter().filter(|relation|
+        relation.external && relation.relationship_type ==
+            format!("{OFFICE_REL}/hyperlink"))
+        .map(|relation| (relation.id, relation.target))
+        .collect::<Vec<_>>();
     let mut extra = Vec::new();
     if let Some(part) = &input.graph.core_properties {
         let metadata = metadata(
@@ -214,10 +223,10 @@ pub fn export_docx_with_source(
         parts.insert(destination.into(), bytes);
         extra.push((kind, destination));
     }
-    parts.insert("_rels/.rels".into(), relationships(true, has_numbering, &extra)?);
+    parts.insert("_rels/.rels".into(), relationships(true, has_numbering, &link_rels, &extra)?);
     parts.insert(
         "word/_rels/document.xml.rels".into(),
-        relationships(false, has_numbering, &extra)?,
+        relationships(false, has_numbering, &link_rels, &extra)?,
     );
     parts.insert("[Content_Types].xml".into(), content_types(has_numbering, &extra)?);
     let bytes = write_parts(parts)?;
@@ -282,7 +291,8 @@ fn is_root(kind: AncillaryKind) -> bool {
 }
 
 fn relationships(
-    root: bool, has_numbering: bool, extra: &[(AncillaryKind, &str)],
+    root: bool, has_numbering: bool, links: &[(String, String)],
+    extra: &[(AncillaryKind, &str)],
 ) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Writer::new(Vec::new());
     let mut start = BytesStart::new("Relationships");
@@ -301,6 +311,17 @@ fn relationships(
     }
     for (id, kind, target) in required {
         relation(&mut xml, id, &kind, target)?;
+    }
+    if !root {
+        for (id, destination) in links {
+            let mut link = BytesStart::new("Relationship");
+            link.push_attribute(("Id", id.as_str()));
+            let kind = format!("{OFFICE_REL}/hyperlink");
+            link.push_attribute(("Type", kind.as_str()));
+            link.push_attribute(("Target", destination.as_str()));
+            link.push_attribute(("TargetMode", "External"));
+            event(&mut xml, Event::Empty(link))?;
+        }
     }
     for (index, &(kind, target)) in extra.iter().enumerate() {
         if is_root(kind) != root {

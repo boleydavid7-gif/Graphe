@@ -126,7 +126,7 @@ fn legacy_file_migrates_explicitly_and_is_only_rewritten_when_serialized() {
     assert_eq!(original_bytes, LEGACY);
     let rewritten = serialize_writer_file(&loaded).unwrap();
     let value: Value = serde_json::from_slice(&rewritten).unwrap();
-    assert_eq!(value["format_version"], 3);
+    assert_eq!(value["format_version"], 4);
     assert_eq!(value["document"]["schema_version"], SCHEMA_VERSION);
     assert_eq!(deserialize_writer_file(&rewritten).unwrap(), loaded);
 }
@@ -140,7 +140,7 @@ fn envelope_and_model_versions_cannot_be_mixed_or_reinterpreted() {
         decode(&current),
         Err(PersistenceError::IncompatibleModelSchema {
             format_version: 1,
-            found: 3,
+            found: 4,
             expected: 1
         })
     ));
