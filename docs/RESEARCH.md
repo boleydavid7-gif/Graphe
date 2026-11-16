@@ -1246,3 +1246,17 @@ outlines, style variants and substitutions. Browser, Windows, Linux and macOS
 suites remain deliberately excluded from this change per owner preference;
 Rust/WASM compilation, visual review and real-device font-loading still need
 deployment verification.
+
+## November 2026 — Font catalog v3
+
+Four additional opt-in OFL families (Inter, Libre Baskerville, Playfair Display,
+Space Grotesk) are pinned as unmodified upstream TTF binaries. Font picker
+families map to the Rust font collection, not just CSS. The original default
+fallback chain is unchanged to avoid unexpected reflow of existing documents.
+The v3 catalog marker distinguishes the new embedded font set while native
+schema and document saving remain unchanged. Full pinned licenses are appended
+to the existing combined NOTICE, with upstream Git blob IDs, byte lengths,
+SHA-256 and immutable URLs in the manifest. Seven new font files add 2,838,616
+uncompressed bytes before the WASM build's compression. The Space Grotesk
+family has no bundled italic face. This is not a claim of Word layout parity;
+production Cloudflare and real-device verification are separate release checks.
