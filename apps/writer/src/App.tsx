@@ -37,12 +37,9 @@ const FONT_GROUPS = [
 const AVAILABLE_FONTS = new Set<string>(FONT_GROUPS.flatMap((group) => [...group.names]));
 function previewFamily(family: string | null | undefined): string {
   switch (family?.toLowerCase()) {
-    case 'carlito':
-    case 'calibri': return '"Graphe Preview Carlito", Arial, sans-serif';
-    case 'caladea':
-    case 'cambria': return '"Graphe Preview Caladea", Georgia, serif';
-    case 'source sans 3':
-    case 'source sans pro': return '"Graphe Preview Source Sans 3", Arial, sans-serif';
+    case 'carlito': return '"Graphe Preview Carlito", Arial, sans-serif';
+    case 'caladea': return '"Graphe Preview Caladea", Georgia, serif';
+    case 'source sans 3': return '"Graphe Preview Source Sans 3", Arial, sans-serif';
     case 'eb garamond': return '"Graphe Preview EB Garamond", Georgia, serif';
     case 'jetbrains mono':
     case 'jetbrainsmono': return '"Graphe Preview JetBrains Mono", monospace';
