@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v2";
+const CATALOG_ID: &str = "writer-fonts-v3";
 
 struct PinnedFont {
     id: &'static str,
@@ -95,6 +95,14 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("JetBrainsMono-Italic.ttf", include_bytes!("../fonts/JetBrainsMono-Italic.ttf")),
     ("EBGaramond-Regular.ttf", include_bytes!("../fonts/EBGaramond-Regular.ttf")),
     ("EBGaramond-Italic.ttf", include_bytes!("../fonts/EBGaramond-Italic.ttf")),
+    // Opt-in Open Font License additions, preserving the original fallback chain.
+    ("Inter-Regular.ttf", include_bytes!("../fonts/Inter-Regular.ttf")),
+    ("Inter-Italic.ttf", include_bytes!("../fonts/Inter-Italic.ttf")),
+    ("LibreBaskerville-Regular.ttf", include_bytes!("../fonts/LibreBaskerville-Regular.ttf")),
+    ("LibreBaskerville-Italic.ttf", include_bytes!("../fonts/LibreBaskerville-Italic.ttf")),
+    ("PlayfairDisplay-Regular.ttf", include_bytes!("../fonts/PlayfairDisplay-Regular.ttf")),
+    ("PlayfairDisplay-Italic.ttf", include_bytes!("../fonts/PlayfairDisplay-Italic.ttf")),
+    ("SpaceGrotesk-Regular.ttf", include_bytes!("../fonts/SpaceGrotesk-Regular.ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -947,6 +955,10 @@ fn resolved_family(requested: &str) -> &'static str {
         "source sans 3" | "source sans pro" => "Source Sans 3",
         "jetbrains mono" => "JetBrains Mono",
         "eb garamond" => "EB Garamond",
+        "inter" => "Inter",
+        "libre baskerville" => "Libre Baskerville",
+        "playfair display" => "Playfair Display",
+        "space grotesk" => "Space Grotesk",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
         "noto sans devanagari" => "Noto Sans Devanagari",
         "noto sans hebrew" => "Noto Sans Hebrew",

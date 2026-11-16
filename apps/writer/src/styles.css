@@ -143,6 +143,62 @@
 }
 
 @font-face {
+  font-family: 'Inter';
+  src: url('../../../crates/office-layout/fonts/Inter-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('../../../crates/office-layout/fonts/Inter-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('../../../crates/office-layout/fonts/LibreBaskerville-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Libre Baskerville';
+  src: url('../../../crates/office-layout/fonts/LibreBaskerville-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('../../../crates/office-layout/fonts/PlayfairDisplay-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('../../../crates/office-layout/fonts/PlayfairDisplay-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('../../../crates/office-layout/fonts/SpaceGrotesk-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Noto Sans Arabic';
   src: url('../../../crates/office-layout/fonts/NotoSansArabic.ttf') format('truetype');
   font-style: normal;

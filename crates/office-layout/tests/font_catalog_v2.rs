@@ -1,4 +1,4 @@
-//! Font catalog v2: native pinned glyph selection for actual bundled faces.
+//! Pinned font catalog: native glyph selection for actual bundled faces.
 //! Tests must fail if a menu font silently draws with Arimo/Tinos.
 
 use office_core::{Block, CharacterFormat, Document, DocumentMetadata, Id, Paragraph, Section, TextRun};
@@ -30,6 +30,10 @@ fn all_new_families_are_shaped_from_their_actual_bundled_font_files() {
         ("Source Sans 3", "SourceSans3"),
         ("JetBrains Mono", "JetBrainsMono"),
         ("EB Garamond", "EBGaramond"),
+        ("Inter", "Inter"),
+        ("Libre Baskerville", "LibreBaskerville"),
+        ("Playfair Display", "PlayfairDisplay"),
+        ("Space Grotesk", "SpaceGrotesk"),
     ] {
         let page = sample(family, false, false);
         assert!(!page.outlines.is_empty(), "{family}");
@@ -55,7 +59,7 @@ fn static_serif_and_sans_use_genuine_weight_and_italic_faces() {
 
 #[test]
 fn variable_faces_support_italic_and_weight_selection() {
-    for family in ["Source Sans 3", "JetBrains Mono", "EB Garamond"] {
+    for family in ["Source Sans 3", "JetBrains Mono", "EB Garamond", "Inter", "Libre Baskerville", "Playfair Display"] {
         let normal = sample(family, false, false);
         let italic = sample(family, false, true);
         assert!(italic.outlines.iter().all(|face| face.font_id.contains("Italic")),

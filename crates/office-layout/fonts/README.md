@@ -1,9 +1,9 @@
-# Writer font catalog `writer-fonts-v2`
+# Writer font catalog `writer-fonts-v3`
 
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The 24 pinned fonts total **12,978,372 bytes** (12.38 MiB). The new families
+operating system and browser. The 31 pinned fonts total **15,816,988 bytes** (15.08 MiB). The new families
 increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
@@ -32,6 +32,10 @@ face.
 | SourceSans3-Regular.ttf / SourceSans3-Italic.ttf | Google Fonts pinned | Sans, `wght` 200–900; normal/italic |
 | JetBrainsMono-Regular.ttf / JetBrainsMono-Italic.ttf | Google Fonts pinned | Monospace, `wght` 100–800; normal/italic |
 | EBGaramond-Regular.ttf / EBGaramond-Italic.ttf | Google Fonts pinned | Serif, `wght` 400–800; normal/italic |
+| Inter-Regular.ttf / Inter-Italic.ttf | Google Fonts pinned | Sans, `opsz` 14–32 and `wght` 100–900; normal/italic |
+| LibreBaskerville-Regular.ttf / LibreBaskerville-Italic.ttf | Google Fonts pinned | Serif, `wght` 400–700; normal/italic |
+| PlayfairDisplay-Regular.ttf / PlayfairDisplay-Italic.ttf | Google Fonts pinned | Display serif, `wght` 400–900; normal/italic |
+| SpaceGrotesk-Regular.ttf | Google Fonts pinned | Display sans, `wght` 300–700; upright only (no bundled italic) |
 
 Choose regular weight 400 or bold 700 explicitly, and width 100 for the script
 fallbacks. Noto Sans Hebrew's file default is **100 (Thin)**, so relying on its
@@ -56,8 +60,11 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   The new files are original upstream bytes; only the local names of four
   variable-font files omit their `[wght]` suffix for asset tooling. The source
   filenames and Git blob identities remain recorded in `manifest.json`.
+- Inter, Libre Baskerville, Playfair Display and Space Grotesk are additionally
+  pinned from the same [google/fonts `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl) revision.
+  Their complete, unmodified OFL licenses are appended to the existing `NOTICE.txt`.
 
-All eleven families use **SIL Open Font License 1.1**. Each complete upstream
+All fifteen families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
 distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
 No font binaries or internal font names have been modified, and the original
@@ -69,8 +76,8 @@ No font has been subsetted, internally renamed or otherwise modified.
 
 ## Coverage and limitations
 
-Arimo, Tinos, Carlito, Caladea, Source Sans 3, JetBrains Mono and
-EB Garamond provide
+Arimo, Tinos, Carlito, Caladea, Source Sans 3, JetBrains Mono,
+EB Garamond, Inter, Libre Baskerville, Playfair Display and Space Grotesk provide
 additional sans, serif and monospace choices. The original Arimo and Tinos
 faces provide distinct sans-serif and serif measurements, including
 Latin, Greek, Cyrillic and Hebrew coverage. Dedicated Noto faces provide Arabic,
@@ -132,3 +139,9 @@ Updating font bytes, axes, family mapping or fallback policy requires a catalog
 version change, a fresh upstream/license review, new checksums, and rerunning
 native/WASM/visual layout regressions. Pinned data and checksum checks are not a
 font-security certification; continue using maintained, bounded font parsers.
+
+Catalog v3 adds seven opt-in faces (2,838,616 uncompressed bytes); legacy
+layout fallback order remains unchanged. Space Grotesk includes upright only,
+so a genuine italic file is not present. Browser font previews are never used
+for authoritative Rust pagination. New font shaping must be checked in
+native and WASM releases before claiming device parity.
