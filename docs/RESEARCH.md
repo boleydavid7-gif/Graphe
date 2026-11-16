@@ -1311,3 +1311,25 @@ variation-axis controls. The font catalog marker becomes `writer-fonts-v5`,
 while the saved document schema does not change. Native/WASM/browser tests and
 actual-device layout must be run before asserting platform performance or
 Word layout fidelity; runner failures are not passing tests.
+
+## November 2026 — Familiar word-processor font names without redistribution
+
+**Question:** Make Times New Roman, Arial, Calibri, and Cambria selectable in
+Graphe without bundling or incorrectly claiming to render Microsoft font files.
+
+**Evidence:** Microsoft's [Font redistribution FAQ](https://learn.microsoft.com/en-us/typography/fonts/font-faq)
+explicitly distinguishes font-name references in CSS from self-hosting,
+copying, or converting Windows font files, which generally requires extended
+rights. The [SIL Open Font License guidance](https://software.sil.org/oflt/)
+permits distribution of licensed unmodified fonts with the required notices;
+font-family substitution is outside the OFL's rules on modified-font naming.
+The existing pinned Rust font catalog already includes Tinos, Arimo, Carlito,
+and Caladea with upstream licensing information and notices.
+
+**Decision/limits:** Display a separate `Common fonts (licensed substitutes)`
+menu group with the four requested names and exact substitutes. Do not add,
+rename or modify any proprietary font file. Keep requested family strings
+unchanged in the Rust document model and exports; map only at layout/glyph
+selection and browser previews. Preview labels explicitly disclose the
+substitute. This is not a pixel-perfect guarantee for Microsoft Word pagination,
+and no commercial trademark affiliation should be implied.

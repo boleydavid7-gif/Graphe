@@ -336,3 +336,52 @@ test('a retained DOCX survives a complete Chromium process restart', async ({ pl
     await rm(profile, { recursive: true, force: true });
   }
 });
+
+
+test.describe('Common font compatibility choices', () => {
+  const choices = [
+    ['Times New Roman', 'Tinos'],
+    ['Arial', 'Arimo'],
+    ['Calibri', 'Carlito'],
+    ['Cambria', 'Caladea'],
+  ] as const;
+
+  for (const [family, substitute] of choices) {
+    test(`${family} identifies its substitute but saves the requested font name`, async ({ page }) => {
+      await start(page);
+      const fontPicker = page.locator('#font-family');
+      const common = fontPicker.locator('optgroup[label="Common fonts (licensed substitutes)"]');
+      await expect(common.locator(`option[value="${family}"]`))
+        .toHaveText(`${family} (uses ${substitute})`);
+
+      await focusEditor(page);
+      await page.keyboard.insertText('Font compatibility sample');
+      await page.keyboard.press('Control+Home');
+      await page.keyboard.press('Shift+End');
+      await fontPicker.selectOption(family);
+      await expect(fontPicker).toHaveValue(family);
+
+      await page.getByRole('button', { name: 'Details', exact: true }).click();
+      const preview = page.locator('.font-family-preview');
+      await expect(preview).toContainText(`Uses ${substitute} — substitute, not the original font`);
+      await expect(preview).toHaveAttribute('style', new RegExp(`font-family:.*${substitute}`));
+
+      await documentAction(page, 'Save As…');
+      const saveAs = page.getByRole('dialog', { name: 'Save As', exact: true });
+      await saveAs.getByRole('combobox', { name: 'File format', exact: true }).selectOption('writer');
+      const nativePending = page.waitForEvent('download');
+      await saveAs.getByRole('button', { name: 'Save copy', exact: true }).click();
+      const native = JSON.parse((await downloaded(await nativePending)).toString('utf8')) as NativeFile;
+      const runs = native.document.sections.flatMap((section) =>
+        section.blocks.flatMap((block) => block.content.runs));
+      expect(runs.some((run) => run.text.includes('Font compatibility sample') &&
+        run.format.font_family === family)).toBeTruthy();
+
+      const wordPending = page.waitForEvent('download');
+      await documentAction(page, 'Export Word');
+      const wordXml = zipPart(await downloaded(await wordPending), 'word/document.xml');
+      expect(wordXml).toContain(`w:ascii="${family}"`);
+      expect(wordXml).not.toContain(`w:ascii="${substitute}"`);
+    });
+  }
+});

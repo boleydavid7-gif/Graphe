@@ -1220,3 +1220,16 @@ update the root proprietary LICENSE without re-licensing third-party fonts.
 Change the layout catalog ID to `writer-fonts-v5`. Additional 2.53 MB of
 uncompressed font bytes and Fraunces' unusual variation axes require native,
 WASM, browser and real-device verification before deployment.
+
+## 2026-11-16 — Clearly labeled common font compatibility choices
+
+Add the familiar Times New Roman, Arial, Calibri, and Cambria names to
+Graphe's font selector, each visibly marked as rendered using Tinos, Arimo,
+Carlito, and Caladea respectively. Preserve the name selected by the author
+in native documents and DOCX exports; preserve imported family metadata.
+The Rust layout engine continues to draw from the already pinned open-source
+faces, including an explicit Arial-to-Arimo mapping. No Microsoft binaries,
+font renaming, file-format changes or network font downloads are allowed.
+Substitution is disclosed in the inspector preview and the menu. Add native
+font-outline and browser export regression coverage. Treat the remaining
+metric/layout differences from Microsoft fonts as expected, not exact parity.
