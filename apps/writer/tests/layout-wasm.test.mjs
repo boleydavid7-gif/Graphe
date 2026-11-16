@@ -83,6 +83,29 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   }
 });
 
+test('expanded pinned font families render their actual bundled outlines', (context) => {
+  const instance = engine(context);
+  for (const [family, filePrefix] of [
+    ['Carlito', 'Carlito-'],
+    ['Caladea', 'Caladea-'],
+    ['Source Sans 3', 'SourceSans3-'],
+    ['EB Garamond', 'EBGaramond-'],
+    ['JetBrains Mono', 'JetBrainsMono-'],
+  ]) {
+    const file = writerFile(['The quick brown fox jumps over the lazy dog.']);
+    file.document.sections[0].blocks[0].content.runs[0].format = {
+      font_family: family, bold: false, italic: false,
+    };
+    open(instance, file);
+    const output = layout(instance).layout;
+    assert.ok(output.pages[0].lines.length, family);
+    assert.ok(output.outlines.some((outline) => outline.fontId.startsWith(filePrefix)),
+      `${family} was not shaped with its pinned family`);
+    assert.ok(!output.diagnostics.some((item) => item.kind === 'font_substitution'),
+      `${family} silently fell back to another family`);
+  }
+});
+
 test('compiled WASM layout initializes, is deterministic, and does not edit the live session', (context) => {
   const instance = engine(context);
   dispatch(instance, { type: 'replace_text', text: 'AV office — Cafe\u0301 👩🏽‍💻 العربية नमस्ते שלום' });
