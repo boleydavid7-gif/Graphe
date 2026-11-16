@@ -99,6 +99,7 @@ fn mixed_fonts_color_underline_and_unicode_use_the_native_vector_outlines() {
                                 green: 0,
                                 blue: 0,
                             }),
+                            hyperlink: None,
                         },
                     },
                 ],
