@@ -83,6 +83,34 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   }
 });
 
+test('expanded OFL families shape from bundled Rust outlines with no silent fallback', (context) => {
+  const instance = engine(context);
+  const cases = [
+    ['Carlito', 'Carlito-'],
+    ['Caladea', 'Caladea-'],
+    ['Source Sans 3', 'SourceSans3-'],
+    ['EB Garamond', 'EBGaramond-'],
+    ['JetBrains Mono', 'JetBrainsMono-'],
+  ];
+  for (const [family, prefix] of cases) {
+    const file = writerFile(['The quick brown fox jumps over a lively dog.']);
+    file.document.sections[0].blocks[0].content.runs[0].format = {
+      font_family: family, bold: false, italic: false,
+    };
+    open(instance, file);
+    const rendered = layout(instance).layout;
+    assert.ok(rendered.pages[0].lines.length > 0, family);
+    assert.ok(
+      rendered.outlines.some((outline) => outline.fontId.startsWith(prefix)),
+      `${family} should render from its bundled face, not an Arimo substitute`,
+    );
+    assert.ok(
+      !rendered.diagnostics.some((warning) => warning.kind === 'font_substitution'),
+      `${family} should not be reported as an unrecognized font`,
+    );
+  }
+});
+
 test('compiled WASM layout initializes, is deterministic, and does not edit the live session', (context) => {
   const instance = engine(context);
   dispatch(instance, { type: 'replace_text', text: 'AV office — Cafe\u0301 👩🏽‍💻 العربية नमस्ते שלום' });
