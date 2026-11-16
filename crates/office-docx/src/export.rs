@@ -217,10 +217,10 @@ fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
 fn list_numbering(document: &Document) -> (BTreeMap<String, u32>, Vec<(u32, ListKind)>) {
     let mut paragraphs = BTreeMap::new();
     let mut instances = Vec::new();
-    let mut previous = None;
     let mut current = 0_u32;
     for section in document.sections() {
-        previous = None;
+        // Each section starts a new numbering sequence.
+        let mut previous = None;
         for block in section.blocks() {
             let Block::Paragraph(paragraph) = block;
             let kind = paragraph.list();
