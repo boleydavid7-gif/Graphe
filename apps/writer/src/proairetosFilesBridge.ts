@@ -35,7 +35,10 @@ export function installProairetosFilesBridge(): () => void {
       if (typeof font.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(font.id)
           || typeof font.family !== 'string' || font.family.length > 100 || !font.family.trim()
           || font.family.trim() !== font.family
-          || typeof font.filename !== 'string' || !/^[^/\\\\\\x00-\\x1f\\x7f]{1,120}\\.(ttf|otf)$/i.test(font.filename)
+          || typeof font.filename !== 'string' || font.filename.length < 5 || font.filename.length > 120
+          || font.filename.includes('/') || font.filename.includes(String.fromCharCode(92))
+          || [...font.filename].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
+          || !['.ttf', '.otf'].some(ext => font.filename.toLowerCase().endsWith(ext))
           || !(font.data instanceof ArrayBuffer) || !font.data.byteLength || font.data.byteLength > 5 * 1024 * 1024) return;
       window.dispatchEvent(new CustomEvent('proairetos:font-install', { detail: font }));
       return;

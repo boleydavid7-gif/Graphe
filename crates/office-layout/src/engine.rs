@@ -218,7 +218,13 @@ impl LayoutEngine {
         preflight(document, options)?;
         let mut output = DocumentLayout {
             document_id: document.id().as_str().into(),
-            font_catalog_id: CATALOG_ID.into(),
+            // Every distinct external-font set produces a distinct layout
+            // catalog identity, without changing the immutable v5 baseline.
+            font_catalog_id: if self.external_ids.is_empty() { CATALOG_ID.into() } else {
+                let mut ids: Vec<_> = self.external_ids.iter().cloned().collect();
+                ids.sort();
+                format!("{}+rnd:{}", CATALOG_ID, ids.join(","))
+            },
             units_per_point: UNITS_PER_POINT,
             pages: Vec::new(),
             outlines: Vec::new(),

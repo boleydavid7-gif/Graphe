@@ -454,21 +454,23 @@ export default function App() {
       try {
         // Rust validates font format and budgets and owns final glyph layout.
         engine.current.registerExternalFont(value.id, value.family, new Uint8Array(value.data));
+        // Layout must refresh immediately after Rust registration even if
+        // FontFace preview validation is slow or unsupported by this browser.
+        setExternalFonts(current => current.includes(value.family) ? current : [...current, value.family].sort());
+        setFontVersion(version => version + 1);
         const style = /italic/i.test(value.filename) ? 'italic' : 'normal';
         const weight = /bold/i.test(value.filename) ? '700' : '400';
-        const face = new FontFace(value.family, new Uint8Array(value.data), { style, weight });
-        void face.load().then(loaded => {
-          document.fonts.add(loaded);
-          setExternalFonts(current => current.includes(value.family) ? current : [...current, value.family].sort());
-          setFontVersion(value => value + 1);
-          announceFontResult(value.id, true);
-        }).catch(error => {
-          // Rust has already installed the font; browser preview failure is not
-          // evidence the authoritative font failed. Report this accurately.
-          setExternalFonts(current => current.includes(value.family) ? current : [...current, value.family].sort());
-          setFontVersion(value => value + 1);
+        try {
+          const face = new FontFace(value.family, new Uint8Array(value.data), { style, weight });
+          void face.load().then(loaded => {
+            document.fonts.add(loaded);
+            announceFontResult(value.id, true);
+          }).catch(error => {
+            announceFontResult(value.id, true, `Rust installed; browser preview unavailable: ${message(error)}`);
+          });
+        } catch (error) {
           announceFontResult(value.id, true, `Rust installed; browser preview unavailable: ${message(error)}`);
-        });
+        }
       } catch (error) { announceFontResult(value.id, false, message(error)); }
     };
     window.addEventListener('proairetos:font-host-ready', ready);
