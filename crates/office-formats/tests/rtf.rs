@@ -676,6 +676,7 @@ fn native_rich_formatting_and_page_break_survive_rtf_edit_roundtrip() {
                                 green: 68,
                                 blue: 102,
                             }),
+                            hyperlink: None,
                         },
                     }],
                 )
