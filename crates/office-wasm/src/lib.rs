@@ -764,6 +764,10 @@ mod wasm {
                 inner: BrowserEngine::new(namespace).map_err(js_error)?,
             })
         }
+        /// Install an owner-staged font for this session's Rust layout.
+        pub fn register_external_font(&mut self, id: &str, family: &str, bytes: &[u8]) -> Result<(), JsValue> {
+            self.inner.register_external_font(id, family, bytes).map_err(js_error)
+        }
         /// Returns immutable presentation JSON.
         pub fn snapshot(&self) -> String {
             self.inner.snapshot()
