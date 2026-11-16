@@ -49,6 +49,7 @@ fn source_model() -> Document {
                                         green: 68,
                                         blue: 102,
                                     }),
+                                    hyperlink: None,
                                 },
                             },
                             TextRun::new("العربية नमस्ते שלום"),
