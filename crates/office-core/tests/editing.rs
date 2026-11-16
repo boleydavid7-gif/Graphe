@@ -614,6 +614,7 @@ fn character_patches_distinguish_keep_clear_and_explicit_false() {
             green: 2,
             blue: 3,
         }),
+        hyperlink: None,
     };
     let session = DocumentSession::new(document(vec![Paragraph::new(
         id("p"),
@@ -631,6 +632,7 @@ fn character_patches_distinguish_keep_clear_and_explicit_false() {
         font_family: PropertyChange::Keep,
         font_size: PropertyChange::Set(HalfPoints(30)),
         color: PropertyChange::Clear,
+        hyperlink: PropertyChange::Keep,
     };
     transaction
         .apply_character_format(&selection, &patch)
@@ -644,6 +646,7 @@ fn character_patches_distinguish_keep_clear_and_explicit_false() {
             font_family: Some("Noto Serif".into()),
             font_size: Some(HalfPoints(30)),
             color: None,
+            hyperlink: None,
         }
     );
 }
