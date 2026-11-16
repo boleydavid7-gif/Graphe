@@ -1233,3 +1233,21 @@ font renaming, file-format changes or network font downloads are allowed.
 Substitution is disclosed in the inspector preview and the menu. Add native
 font-outline and browser export regression coverage. Treat the remaining
 metric/layout differences from Microsoft fonts as expected, not exact parity.
+
+## 2026-11-16 — Session-scoped Graphe font registration for R&D
+
+Add an opt-in, memory-only registration method through
+`office-layout` → `office-wasm` → `EngineClient`. Accept a bounded
+standalone TTF/OTF byte array and family name from the authenticated
+ProairetOS R&D frame bridge. Keep the existing pinned catalog, immutable
+fallback choices, native document state, editing history and DOCX family
+metadata unchanged. Do not read system fonts, remote fonts or Supabase
+directly from the editor. Refuse overrides of bundled fonts and report
+unsupported fonts instead of claiming installation succeeded.
+
+Use an explicit same-origin allowlist, exact parent/source checks and
+versioned messaging; Rust remains responsible for shaping. This is
+a **feature branch only** pending compilation, adversarial parser tests,
+actual-device reflow verification and commercial-license review. The
+standalone production editor must not be deployed incidentally with the
+R&D ProairetOS change.

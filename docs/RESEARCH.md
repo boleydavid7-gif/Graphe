@@ -1333,3 +1333,35 @@ unchanged in the Rust document model and exports; map only at layout/glyph
 selection and browser previews. Preview labels explicitly disclose the
 substitute. This is not a pixel-perfect guarantee for Microsoft Word pagination,
 and no commercial trademark affiliation should be implied.
+
+## November 2026 — R&D owner-uploaded fonts across the ProairetOS iframe
+
+**Question:** Make owner-uploaded TTF/OTF assets from ProairetOS R&D
+available to Graphe's Rust-authoritative document layout without replacing
+the pinned production catalog or hosting third-party files publicly.
+
+**Constraints and evidence:** The active Graphe frame at
+`writer.proairetos.com` is a distinct origin from the ProairetOS host;
+CSS-only `@font-face` would not reach the Rust/WASM glyph shaper. The Rust
+layout engine explicitly opts out of system fonts. The R&D host must verify
+its signed-in owner against its authentication server and private storage
+row-level security before sending bytes through a strict origin/source
+checked `postMessage` channel. SFNT parsing and shaping continue in the
+engine using fontique and skrifa rather than browser text measurement.
+
+**Scope:** Prototype `register_external_font` with per-face 5 MiB,
+24-face and 24 MiB limits, reject attempts to override existing bundled
+font names and compatibility aliases, register font bytes only for the
+current session and invalidate cached glyph geometry. Exported DOCX
+continues to preserve the author's requested family name; no font file is
+silently embedded. The catalog ID includes staged font IDs to distinguish
+runtime geometry. The ProairetOS R&D branch contains the corresponding
+private upload/ZIP inspection flow and owner-only iframe bridge.
+
+**Risks and verification debt:** This is developer-only integration, not an
+approved public font marketplace. Uploaded fonts could be malicious,
+unsupported or unlicensed; validating an SFNT table and recording a SHA256
+does not establish safety or redistribution rights. Real-world
+native/WASM/browser/phone tests are required, including variable fonts,
+multiple styles in one family, parser fault handling, cache reflow and
+DOCX reopen. Do not merge or deploy to production without a separate review.

@@ -201,7 +201,10 @@ impl LayoutEngine {
             return Err(font_error(id, "external font has zero units per em"));
         }
         let blob = Blob::new(Arc::new(bytes.to_vec()));
-        self.font_context.collection.register_fonts(blob.clone(), None);
+        let registered = self.font_context.collection.register_fonts(blob.clone(), None);
+        if registered.is_empty() {
+            return Err(font_error(id, "font was not accepted by the text shaper"));
+        }
         self.fonts.push(PinnedFont { id: format!("RND:{id}:{name}"), blob });
         self.external_bytes += bytes.len();
         self.external_ids.insert(id.into());
