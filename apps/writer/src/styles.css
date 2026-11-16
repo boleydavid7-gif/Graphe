@@ -101,28 +101,28 @@
 }
 @font-face {
   font-family: 'Source Sans 3';
-  src: url('../../../crates/office-layout/fonts/SourceSans3[wght].ttf') format('truetype');
+  src: url('../../../crates/office-layout/fonts/SourceSans3-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'Source Sans 3';
-  src: url('../../../crates/office-layout/fonts/SourceSans3-Italic[wght].ttf') format('truetype');
+  src: url('../../../crates/office-layout/fonts/SourceSans3-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('../../../crates/office-layout/fonts/JetBrainsMono[wght].ttf') format('truetype');
+  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 800;
   font-display: swap;
 }
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Italic[wght].ttf') format('truetype');
+  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 800;
   font-display: swap;
