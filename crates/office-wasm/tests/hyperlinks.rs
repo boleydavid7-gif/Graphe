@@ -67,3 +67,41 @@ fn link_is_preserved_across_native_document_serialization() {
         Some("https://example.com"));
     assert_eq!(saved.document().schema_version(), 4);
 }
+
+
+#[test]
+fn selected_text_becomes_a_link_without_replacing_words() {
+    let mut engine = BrowserEngine::new("selected-link").unwrap();
+    let initial = command(&mut engine, json!({
+        "type":"replace_text", "text":"OpenAI is useful"
+    }));
+    let id = initial["paragraphs"][0]["id"].as_str().unwrap();
+    let selected = json!({
+        "anchor":{"paragraphId":id,"utf16":0},
+        "focus":{"paragraphId":id,"utf16":6}
+    });
+    let linked = command(&mut engine, json!({
+        "type":"set_hyperlink", "url":"https://openai.com",
+        "selection":selected
+    }));
+    assert_eq!(linked["wordCount"], 3);
+    assert_eq!(linked["paragraphs"][0]["runs"][0]["text"], "OpenAI");
+    assert_eq!(linked["paragraphs"][0]["runs"][0]["format"]["hyperlink"],
+        "https://openai.com");
+    assert_eq!(linked["paragraphs"][0]["runs"][1]["format"]["hyperlink"], Value::Null);
+    let undone = command(&mut engine, json!({"type":"undo"}));
+    assert_eq!(undone["paragraphs"][0]["runs"][0]["format"]["hyperlink"], Value::Null);
+}
+
+#[test]
+fn typing_after_a_link_does_not_extend_its_target() {
+    let mut engine = BrowserEngine::new("non-inclusive-link").unwrap();
+    command(&mut engine, json!({
+        "type":"set_hyperlink","url":"https://example.com","text":"Site"
+    }));
+    let next = command(&mut engine, json!({"type":"replace_text","text":" next"}));
+    assert_eq!(next["paragraphs"][0]["runs"][0]["format"]["hyperlink"],
+        "https://example.com");
+    assert_eq!(next["paragraphs"][0]["runs"][1]["format"]["hyperlink"], Value::Null);
+    assert_eq!(next["wordCount"], 2);
+}
