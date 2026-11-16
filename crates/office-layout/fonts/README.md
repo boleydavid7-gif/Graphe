@@ -1,9 +1,9 @@
-# Writer font catalog `writer-fonts-v3`
+# Writer font catalog `writer-fonts-v4`
 
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The 31 pinned fonts total **15,816,988 bytes** (15.08 MiB). The new families
+operating system and browser. The 39 pinned fonts total **18,929,220 bytes** (18.05 MiB). The new families
 increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
@@ -36,6 +36,10 @@ face.
 | LibreBaskerville-Regular.ttf / LibreBaskerville-Italic.ttf | Google Fonts pinned | Serif, `wght` 400–700; normal/italic |
 | PlayfairDisplay-Regular.ttf / PlayfairDisplay-Italic.ttf | Google Fonts pinned | Display serif, `wght` 400–900; normal/italic |
 | SpaceGrotesk-Regular.ttf | Google Fonts pinned | Display sans, `wght` 300–700; upright only (no bundled italic) |
+| Lora-Regular.ttf / Lora-Italic.ttf | Google Fonts pinned | Serif, `wght` 400–700; upright and genuine italic |
+| Montserrat-Regular.ttf / Montserrat-Italic.ttf | Google Fonts pinned | Sans, `wght` 100–900; upright and genuine italic |
+| DMSans-Regular.ttf / DMSans-Italic.ttf | Google Fonts pinned | Sans, `opsz` 9–40 and `wght` 100–1000; upright and genuine italic |
+| Bitter-Regular.ttf / Bitter-Italic.ttf | Google Fonts pinned | Slab serif, `wght` 100–900; upright and genuine italic |
 
 Choose regular weight 400 or bold 700 explicitly, and width 100 for the script
 fallbacks. Noto Sans Hebrew's file default is **100 (Thin)**, so relying on its
@@ -64,7 +68,7 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   pinned from the same [google/fonts `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl) revision.
   Their complete, unmodified OFL licenses are appended to the existing `NOTICE.txt`.
 
-All fifteen families use **SIL Open Font License 1.1**. Each complete upstream
+All nineteen families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
 distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
 No font binaries or internal font names have been modified, and the original
@@ -77,7 +81,8 @@ No font has been subsetted, internally renamed or otherwise modified.
 ## Coverage and limitations
 
 Arimo, Tinos, Carlito, Caladea, Source Sans 3, JetBrains Mono,
-EB Garamond, Inter, Libre Baskerville, Playfair Display and Space Grotesk provide
+EB Garamond, Inter, Libre Baskerville, Playfair Display, Space Grotesk,
+Lora, Montserrat, DM Sans and Bitter provide
 additional sans, serif and monospace choices. The original Arimo and Tinos
 faces provide distinct sans-serif and serif measurements, including
 Latin, Greek, Cyrillic and Hebrew coverage. Dedicated Noto faces provide Arabic,
@@ -145,3 +150,10 @@ layout fallback order remains unchanged. Space Grotesk includes upright only,
 so a genuine italic file is not present. Browser font previews are never used
 for authoritative Rust pagination. New font shaping must be checked in
 native and WASM releases before claiming device parity.
+
+Catalog v4 adds eight opt-in upright/italic variable faces across four families
+(Lora, Montserrat, DM Sans and Bitter), totalling 3,112,232 additional bytes.
+They are exact upstream Google Fonts binaries pinned to commit `cc39c4c` with
+SHA-256 and Git blob identity verification, plus four complete OFL licenses.
+The existing default, substitution and international fallback chains stay
+unchanged. No browser-font measurement or runtime font download is introduced.

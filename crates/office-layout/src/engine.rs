@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v3";
+const CATALOG_ID: &str = "writer-fonts-v4";
 
 struct PinnedFont {
     id: &'static str,
@@ -103,6 +103,15 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("PlayfairDisplay-Regular.ttf", include_bytes!("../fonts/PlayfairDisplay-Regular.ttf")),
     ("PlayfairDisplay-Italic.ttf", include_bytes!("../fonts/PlayfairDisplay-Italic.ttf")),
     ("SpaceGrotesk-Regular.ttf", include_bytes!("../fonts/SpaceGrotesk-Regular.ttf")),
+    // v4: opt-in families with separate original upright/italic variable fonts.
+    ("Lora-Regular.ttf", include_bytes!("../fonts/Lora-Regular.ttf")),
+    ("Lora-Italic.ttf", include_bytes!("../fonts/Lora-Italic.ttf")),
+    ("Montserrat-Regular.ttf", include_bytes!("../fonts/Montserrat-Regular.ttf")),
+    ("Montserrat-Italic.ttf", include_bytes!("../fonts/Montserrat-Italic.ttf")),
+    ("DMSans-Regular.ttf", include_bytes!("../fonts/DMSans-Regular.ttf")),
+    ("DMSans-Italic.ttf", include_bytes!("../fonts/DMSans-Italic.ttf")),
+    ("Bitter-Regular.ttf", include_bytes!("../fonts/Bitter-Regular.ttf")),
+    ("Bitter-Italic.ttf", include_bytes!("../fonts/Bitter-Italic.ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -959,6 +968,10 @@ fn resolved_family(requested: &str) -> &'static str {
         "libre baskerville" => "Libre Baskerville",
         "playfair display" => "Playfair Display",
         "space grotesk" => "Space Grotesk",
+        "lora" => "Lora",
+        "montserrat" => "Montserrat",
+        "dm sans" => "DM Sans",
+        "bitter" => "Bitter",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
         "noto sans devanagari" => "Noto Sans Devanagari",
         "noto sans hebrew" => "Noto Sans Hebrew",

@@ -1260,3 +1260,26 @@ SHA-256 and immutable URLs in the manifest. Seven new font files add 2,838,616
 uncompressed bytes before the WASM build's compression. The Space Grotesk
 family has no bundled italic face. This is not a claim of Word layout parity;
 production Cloudflare and real-device verification are separate release checks.
+
+## November 2026 — Font catalog v4
+
+**Question:** Add professional document choices without silently substituting fonts,
+changing imported font-family names, or introducing network-dependent layout.
+
+**Alternatives:** Add names only (rejected as false UI availability); browser/host
+fonts (rejected for nondeterministic Rust layout); bundle dozens of families
+(rejected due to WASM payload); four carefully scoped OFL families (chosen).
+
+**Evidence:** Exact original Google Fonts files at commit
+`cc39c4c2c304bc368c9b7c311ea2bcc6013299fe`, independently checked by
+upstream Git blob identities and SHA-256. Complete original OFL texts remain in
+individual files and the combined NOTICE. The eight new variable faces (normal
+and italic for each family) total 3,112,232 bytes.
+
+**Decision and limitations:** Pin Lora, Montserrat, DM Sans and Bitter as opt-in
+families in the native Rust catalog and in on-demand browser previews. Bump
+the catalog marker to v4; keep document schema, default substitutions, script
+fallback and undo untouched. Validate per-family actual glyph outlines and
+the italic/bold variation in Rust. A clean native/WASM build, independent browser
+font loading, and real-device layout performance still require running CI and
+release checks; font availability alone does not establish Word page parity.
