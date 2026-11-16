@@ -1,6 +1,6 @@
 use crate::{
     Block, CharacterFormat, CharacterFormatPatch, Document, EditError, Id, ListKind, Paragraph,
-    ParagraphFormat, ParagraphFormatPatch, PositionError, Section, Selection, TextCoordinates,
+    ParagraphFormat, ParagraphFormatPatch, ParagraphMetricsPatch, PositionError, Section, Selection, TextCoordinates,
     TextRun, ValidationError,
 };
 
@@ -191,6 +191,32 @@ pub(crate) fn apply_paragraph_format(
     patch: &ParagraphFormatPatch,
 ) -> Result<Document, EditError> {
     patch.validate()?;
+    let bounds = Bounds::for_selection(document, selection)?;
+    transform_paragraphs(document, |index, paragraph| {
+        if bounds.touches_paragraph(index) {
+            copy_paragraph(
+                paragraph,
+                paragraph.runs().to_vec(),
+                patch.apply(paragraph.format()),
+                paragraph.style(),
+            )
+        } else {
+            paragraph.clone()
+        }
+    })
+}
+
+/// Applies independently provided spacing/indentation fields to all selected
+/// paragraphs, preserving each paragraph's other direct/inherited values.
+pub(crate) fn apply_paragraph_metrics(
+    document: &Document,
+    selection: &Selection,
+    patch: &ParagraphMetricsPatch,
+) -> Result<Document, EditError> {
+    patch.validate()?;
+    if patch.is_empty() {
+        return Ok(document.clone());
+    }
     let bounds = Bounds::for_selection(document, selection)?;
     transform_paragraphs(document, |index, paragraph| {
         if bounds.touches_paragraph(index) {

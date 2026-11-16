@@ -75,6 +75,12 @@ export interface WriterView {
     readonly fontFamily: string | null;
     readonly fontSizePt: number | null;
     readonly alignment: Alignment | null;
+    readonly spacingBeforePt: number | null;
+    readonly spacingAfterPt: number | null;
+    readonly lineSpacingMultiple: number | null;
+    readonly indentLeftIn: number | null;
+    readonly indentRightIn: number | null;
+    readonly firstLineIn: number | null;
     readonly styleId: string | null;
     readonly styleMixed: boolean;
     readonly list: ListKind | null;
@@ -113,6 +119,11 @@ export type WriterCommand =
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
   | ({ readonly type: 'format_paragraph'; readonly alignment: Alignment } & EditOrigin)
+  | ({ readonly type: 'set_paragraph_metrics';
+       readonly spacingBeforePt?: number; readonly spacingAfterPt?: number;
+       readonly lineSpacingMultiple?: number;
+       readonly indentLeftIn?: number; readonly indentRightIn?: number;
+       readonly firstLineIn?: number } & EditOrigin)
   | ({ readonly type: 'set_list'; readonly list: ListKind | null } & EditOrigin)
   | ({ readonly type: 'set_hyperlink'; readonly url: string | null; readonly text?: string } & EditOrigin)
   | ({ readonly type: 'assign_style'; readonly styleId: string | null } & EditOrigin)

@@ -106,3 +106,68 @@ impl ParagraphFormatPatch {
             .validate("paragraph_patch")
     }
 }
+
+
+/// Independently changes concrete paragraph spacing and indentation overrides.
+///
+/// Unlike `ParagraphFormatPatch::indentation`, this preserves every unmodified
+/// indentation component on each selected paragraph, including inherited
+/// information and existing page-break, alignment and named-style metadata.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ParagraphMetricsPatch {
+    /// Spacing before the paragraph in twips; unchanged when absent.
+    pub spacing_before: Option<Twips>,
+    /// Spacing after the paragraph in twips; unchanged when absent.
+    pub spacing_after: Option<Twips>,
+    /// Line spacing, expressed as one of the native, existing rules.
+    pub line_spacing: Option<LineSpacing>,
+    /// Left paragraph indent in twips.
+    pub indent_left: Option<Twips>,
+    /// Right paragraph indent in twips.
+    pub indent_right: Option<Twips>,
+    /// First-line offset relative to the remaining lines; negative hangs.
+    pub first_line: Option<Twips>,
+}
+
+impl ParagraphMetricsPatch {
+    pub(crate) fn apply(&self, original: &ParagraphFormat) -> ParagraphFormat {
+        let mut result = original.clone();
+        if let Some(before) = self.spacing_before {
+            result.spacing_before = Some(before);
+        }
+        if let Some(after) = self.spacing_after {
+            result.spacing_after = Some(after);
+        }
+        if let Some(spacing) = self.line_spacing {
+            result.line_spacing = Some(spacing);
+        }
+        if self.indent_left.is_some() || self.indent_right.is_some() || self.first_line.is_some() {
+            let indentation = result.indentation.get_or_insert_default();
+            if let Some(left) = self.indent_left {
+                indentation.left = Some(left);
+            }
+            if let Some(right) = self.indent_right {
+                indentation.right = Some(right);
+            }
+            if let Some(first) = self.first_line {
+                indentation.first_line = Some(first);
+            }
+        }
+        result
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), ValidationError> {
+        self.apply(&ParagraphFormat::default()).validate("paragraph_metrics")
+    }
+
+    /// Whether the patch requests any edits.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.spacing_before.is_none()
+            && self.spacing_after.is_none()
+            && self.line_spacing.is_none()
+            && self.indent_left.is_none()
+            && self.indent_right.is_none()
+            && self.first_line.is_none()
+    }
+}

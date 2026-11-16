@@ -1635,3 +1635,38 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
   .hyperlink-dialog .dialog-actions { gap: 6px; }
   .hyperlink-dialog .dialog-actions button { min-height: 40px; }
 }
+
+
+/* Graphe paragraph geometry controls: solid Lamplight, compact, no new toolbar.
+   Fields only alter explicitly changed native values, so mixed formatting survives. */
+.paragraph-metrics-controls { gap: 10px; align-items: center; }
+.paragraph-metrics-controls > button { white-space: nowrap; }
+.paragraph-metrics-dialog { width: min(505px, calc(100vw - 24px)); }
+.paragraph-metrics-form { display: grid; gap: 14px; }
+.paragraph-metrics-form fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.paragraph-metrics-form legend {
+  padding: 0 0 9px; color: var(--writer-text-control); font-size: 13px; font-weight: 650;
+}
+.paragraph-metrics-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+}
+.paragraph-metrics-grid label { display: grid; gap: 5px; min-width: 0; }
+.paragraph-metrics-grid label > span { color: var(--muted); font-size: 12px; }
+.paragraph-metrics-grid input, .paragraph-metrics-grid select {
+  min-width: 0; width: 100%; min-height: 40px;
+  padding: 8px 9px; border: 1px solid var(--writer-border-control);
+  border-radius: var(--writer-radius-sm); background: var(--writer-control);
+  color: var(--writer-text-control); font: inherit; font-size: 14px;
+}
+.paragraph-metrics-grid input:focus-visible,
+.paragraph-metrics-grid select:focus-visible { border-color: var(--accent); }
+.paragraph-metrics-hint { color: var(--muted); margin: 0; line-height: 1.5; font-size: 12px; }
+.paragraph-metrics-form .dialog-actions { margin-top: 2px; }
+.paragraph-metrics-open { margin-top: 9px; }
+@media (max-width: 620px) {
+  .paragraph-metrics-controls .formatting-note { display: none; }
+  .paragraph-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .paragraph-metrics-grid input, .paragraph-metrics-grid select {
+    min-height: 44px; font-size: 16px;
+  }
+}

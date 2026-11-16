@@ -16,7 +16,10 @@ function view(): WriterView {
     paragraphs: [paragraph('first', 'Café e\u0301 👩🏽‍💻'), paragraph('second', 'العربية')], styles: [],
     selection: { anchor: { paragraphId: 'first', utf16: 0 }, focus: { paragraphId: 'second', utf16: 7 } },
     format: { bold: false, italic: false, underline: false, fontFamily: 'Arimo', fontSizePt: 12,
-      alignment: 'left', styleId: null, styleMixed: false, list: null, listMixed: false, hyperlink: null },
+      alignment: 'left',
+      spacingBeforePt: 0, spacingAfterPt: 0, lineSpacingMultiple: 1.5,
+      indentLeftIn: 0, indentRightIn: 0, firstLineIn: 0,
+      styleId: null, styleMixed: false, list: null, listMixed: false, hyperlink: null },
     canUndo: true, canRedo: false, wordCount: 5, originalSource: null };
 }
 

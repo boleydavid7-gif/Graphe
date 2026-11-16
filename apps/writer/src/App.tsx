@@ -84,6 +84,27 @@ type HyperlinkDialogState = {
   selection: WriterView['selection'];
   origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
 };
+const PARAGRAPH_METRICS = [
+  { key: 'spacingBeforePt', label: 'Before', unit: 'pt', min: 0, max: 144, step: 0.5 },
+  { key: 'spacingAfterPt', label: 'After', unit: 'pt', min: 0, max: 144, step: 0.5 },
+  { key: 'indentLeftIn', label: 'Left', unit: 'in', min: 0, max: 4, step: 0.05 },
+  { key: 'indentRightIn', label: 'Right', unit: 'in', min: 0, max: 4, step: 0.05 },
+  { key: 'firstLineIn', label: 'First line', unit: 'in', min: -2, max: 4, step: 0.05 },
+] as const;
+type ParagraphMetricKey = (typeof PARAGRAPH_METRICS)[number]['key'] | 'lineSpacingMultiple';
+type ParagraphMetricFields = Record<ParagraphMetricKey, string>;
+type ParagraphDialogState = {
+  values: ParagraphMetricFields;
+  original: ParagraphMetricFields;
+  selection: WriterView['selection'];
+  origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
+  error: string;
+};
+
+function numericParagraphValue(value: number | null): string {
+  return value === null ? '' : String(Number(value.toFixed(3)));
+}
+
 type SaveAsState = {
   format: DocumentFormat;
   filename: string;
@@ -194,6 +215,7 @@ export default function App() {
   const [moreFormatting, setMoreFormatting] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [hyperlinkDialog, setHyperlinkDialog] = useState<HyperlinkDialogState | null>(null);
+  const [paragraphDialog, setParagraphDialog] = useState<ParagraphDialogState | null>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const ribbonRef = useRef<HTMLDivElement | null>(null);
@@ -523,6 +545,68 @@ export default function App() {
     const result = command({ type: 'set_hyperlink', url, text: newText,
       selection: state.selection ?? undefined, expectedRevision: state.origin.revision });
     if (result) setHyperlinkDialog(null);
+  }
+
+  function openParagraphDialog() {
+    const current = viewRef.current;
+    if (!current || !documentOpenRef.current || busy || composing) return;
+    const format = current.format;
+    const fields: ParagraphMetricFields = {
+      spacingBeforePt: numericParagraphValue(format.spacingBeforePt),
+      spacingAfterPt: numericParagraphValue(format.spacingAfterPt),
+      lineSpacingMultiple: numericParagraphValue(format.lineSpacingMultiple),
+      indentLeftIn: numericParagraphValue(format.indentLeftIn),
+      indentRightIn: numericParagraphValue(format.indentRightIn),
+      firstLineIn: numericParagraphValue(format.firstLineIn),
+    };
+    setParagraphDialog({
+      values: { ...fields },
+      original: fields,
+      selection: current.selection,
+      origin: { sessionId: current.sessionId, documentId: current.documentId,
+        revision: current.revision },
+      error: '',
+    });
+  }
+
+  function submitParagraphMetrics() {
+    const state = paragraphDialog;
+    const current = viewRef.current;
+    if (!state || !current || busy || composing) return;
+    if (current.sessionId !== state.origin.sessionId ||
+      current.documentId !== state.origin.documentId ||
+      current.revision !== state.origin.revision) {
+      setParagraphDialog({ ...state, error: 'The document changed. Close this dialog and try again.' });
+      return;
+    }
+    const edits: Partial<Record<ParagraphMetricKey, number>> = {};
+    const limits = [
+      ...PARAGRAPH_METRICS,
+      { key: 'lineSpacingMultiple' as const, label: 'Line spacing', unit: '', min: 1, max: 3, step: 0.05 },
+    ];
+    for (const field of limits) {
+      const raw = state.values[field.key];
+      if (raw === state.original[field.key]) continue;
+      const numeric = raw.trim() === '' ? NaN : Number(raw);
+      if (!Number.isFinite(numeric) || numeric < field.min || numeric > field.max) {
+        setParagraphDialog({ ...state,
+          error: `${field.label} must be between ${field.min} and ${field.max}${field.unit ? ' ' + field.unit : ''}.` });
+        return;
+      }
+      edits[field.key] = numeric;
+    }
+    if (Object.keys(edits).length === 0) {
+      setParagraphDialog(null);
+      return;
+    }
+    const result = command({ type: 'set_paragraph_metrics',
+      ...edits, selection: state.selection ?? undefined,
+      expectedRevision: state.origin.revision });
+    if (result) {
+      setParagraphDialog(null);
+    } else {
+      setParagraphDialog({ ...state, error: 'The paragraph change was not applied. Check the document error and try again.' });
+    }
   }
 
   function openFind() {
@@ -912,7 +996,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app" onKeyDownCapture={(event) => {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
-      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog) {
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog) {
       event.preventDefault();
       event.stopPropagation();
       openHyperlink();
@@ -1055,7 +1139,11 @@ export default function App() {
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
           onClick={openHyperlink}><WriterIcon name="link" /> Link <kbd>Ctrl K</kbd></button>
       </div>}
-      {activeTab === 'layout' && <span className="formatting-note">Page sizes and margins follow the document.</span>}
+      {activeTab === 'layout' && <div className="format-group paragraph-metrics-controls">
+        <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
+          onClick={openParagraphDialog}>Paragraph spacing &amp; indents…</button>
+        <span className="formatting-note">Page sizes and margins follow the document.</span>
+      </div>}
       {activeTab === 'review' && <div className="format-group review-controls" role="group" aria-label="Review document">
         <button disabled={unavailable} onClick={openFind}><WriterIcon name="search" />Find</button>
         <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
@@ -1153,6 +1241,8 @@ export default function App() {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => format({ type: 'format_paragraph', alignment })}><AlignmentIcon alignment={alignment}/></button>)}
         </div>
+        <button className="paragraph-metrics-open" disabled={unavailable}
+          onClick={openParagraphDialog}>Spacing and indentation…</button>
       </section>
       <section className="writer-inspector-section">
         <h3>Page</h3>
@@ -1195,6 +1285,61 @@ export default function App() {
         onClick={() => openSaved(entry.id)}><span>{entry.title || 'Untitled document'}</span><time dateTime={new Date(entry.updatedAt).toISOString()}>{new Date(entry.updatedAt).toLocaleString()}</time></button>)}</div>
       <p className="storage-note">Browser storage can be cleared or evicted. Keep exported .writer files as backups.</p>
       <div className="dialog-actions"><button disabled={busy} onClick={() => fileInput.current?.click()}>Open file…</button><button onClick={() => setLibrary(null)} disabled={busy}>Cancel</button></div>
+    </Dialog>}
+    {paragraphDialog && <Dialog title="Paragraph" className="save-copy-dialog paragraph-metrics-dialog"
+      onClose={() => setParagraphDialog(null)} busy={busy}>
+      <form className="paragraph-metrics-form" onSubmit={(event) => {
+        event.preventDefault(); submitParagraphMetrics();
+      }}>
+        <fieldset>
+          <legend>Spacing</legend>
+          <div className="paragraph-metrics-grid">
+            {PARAGRAPH_METRICS.slice(0, 2).map((field) => <label key={field.key}>
+              <span>{field.label} ({field.unit})</span>
+              <input type="number" inputMode="decimal" step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
+                onChange={(event) => setParagraphDialog({
+                  ...paragraphDialog, error: '', values: { ...paragraphDialog.values,
+                    [field.key]: event.target.value },
+                })} />
+            </label>)}
+            <label><span>Line spacing</span>
+              <select aria-label="Line spacing" value={paragraphDialog.values.lineSpacingMultiple}
+                onChange={(event) => setParagraphDialog({ ...paragraphDialog, error: '',
+                  values: { ...paragraphDialog.values, lineSpacingMultiple: event.target.value },
+                })}>
+                <option value="">Keep current / mixed</option>
+                {[...new Set(['1', '1.15', '1.5', '2', '2.5', '3',
+                  paragraphDialog.values.lineSpacingMultiple].filter(Boolean))].map((level) =>
+                    <option key={level} value={level}>{level}×</option>)}
+              </select>
+            </label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Indentation</legend>
+          <div className="paragraph-metrics-grid">
+            {PARAGRAPH_METRICS.slice(2).map((field) => <label key={field.key}>
+              <span>{field.label} ({field.unit})</span>
+              <input type="number" inputMode="decimal" step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
+                onChange={(event) => setParagraphDialog({
+                  ...paragraphDialog, error: '', values: { ...paragraphDialog.values,
+                    [field.key]: event.target.value },
+                })} />
+            </label>)}
+          </div>
+        </fieldset>
+        <p className="paragraph-metrics-hint">
+          A negative first-line value creates a hanging indent. Blank fields keep the
+          current value for each paragraph.
+        </p>
+        {paragraphDialog.error && <p className="dialog-error" role="alert">
+          {paragraphDialog.error}
+        </p>}
+        <div className="dialog-actions">
+          <button type="button" onClick={() => setParagraphDialog(null)}>Cancel</button>
+          <button type="submit" className="primary-button">Apply</button>
+        </div>
+      </form>
     </Dialog>}
     {hyperlinkDialog && <Dialog title={hyperlinkDialog.existing ? 'Edit hyperlink' : 'Insert hyperlink'}
       onClose={() => { setHyperlinkDialog(null); setError(''); }} className="save-copy-dialog hyperlink-dialog">

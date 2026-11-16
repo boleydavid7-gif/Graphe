@@ -69,7 +69,7 @@ pub use filesystem::{
     ReplacementState, StorageError, StorageOperation, TemporaryCleanupError, load_document,
     load_writer_file, save_document, save_writer_file,
 };
-pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, PropertyChange};
+pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange};
 pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, PageMargins, PageOrientation,
     PageSize, ParagraphFormat, TextColor, Twips, Underline, valid_hyperlink,

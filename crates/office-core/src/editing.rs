@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     CharacterFormat, CharacterFormatPatch, Document, DocumentPosition, GraphemeOffset, Id,
-    ListKind, ParagraphFormatPatch, PositionError, Selection, TextCoordinates, Transaction, ValidationError,
+    ListKind, ParagraphFormatPatch, ParagraphMetricsPatch, PositionError, Selection, TextCoordinates, Transaction, ValidationError,
     edit_ops,
 };
 
@@ -249,6 +249,20 @@ impl Transaction {
         self.check_context(&selection.context)?;
         let before = self.candidate()?;
         let after = edit_ops::apply_paragraph_format(&before, &selection.selection, patch)?;
+        Ok(self.finish_operation(before, after))
+    }
+
+    /// Applies an optional set of paragraph metrics as a single undoable edit.
+    /// An omitted field remains untouched, including each paragraph's
+    /// independent indentation values and existing named-style references.
+    pub fn apply_paragraph_metrics(
+        &mut self,
+        selection: &EditSelection,
+        patch: &ParagraphMetricsPatch,
+    ) -> Result<bool, EditError> {
+        self.check_context(&selection.context)?;
+        let before = self.candidate()?;
+        let after = edit_ops::apply_paragraph_metrics(&before, &selection.selection, patch)?;
         Ok(self.finish_operation(before, after))
     }
 

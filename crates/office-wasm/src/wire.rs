@@ -71,6 +71,16 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    SetParagraphMetrics {
+        spacing_before_pt: Option<f64>,
+        spacing_after_pt: Option<f64>,
+        line_spacing_multiple: Option<f64>,
+        indent_left_in: Option<f64>,
+        indent_right_in: Option<f64>,
+        first_line_in: Option<f64>,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     SetList {
         list: Option<ListKind>,
         selection: Option<BrowserSelection>,
@@ -138,6 +148,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::FormatParagraph {
+                expected_revision, ..
+            }
+            | Self::SetParagraphMetrics {
                 expected_revision, ..
             }
             | Self::SetList {
@@ -255,6 +268,12 @@ pub(crate) struct FormatSummary {
     pub font_family: Option<String>,
     pub font_size_pt: Option<f64>,
     pub alignment: Option<Alignment>,
+    pub spacing_before_pt: Option<f64>,
+    pub spacing_after_pt: Option<f64>,
+    pub line_spacing_multiple: Option<f64>,
+    pub indent_left_in: Option<f64>,
+    pub indent_right_in: Option<f64>,
+    pub first_line_in: Option<f64>,
     pub style_id: Option<String>,
     pub style_mixed: bool,
     pub list: Option<ListKind>,
