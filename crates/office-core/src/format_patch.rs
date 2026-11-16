@@ -59,6 +59,7 @@ impl CharacterFormatPatch {
             font_family: self.font_family.apply(&original.font_family),
             font_size: self.font_size.apply(&original.font_size),
             color: self.color.apply(&original.color),
+            hyperlink: self.hyperlink.apply(&original.hyperlink),
         }
     }
 
