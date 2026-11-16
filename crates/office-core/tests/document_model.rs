@@ -112,6 +112,7 @@ fn all_character_and_paragraph_properties_round_trip_without_resolving_defaults(
             green: 34,
             blue: 255,
         }),
+        hyperlink: None,
     };
     let format = ParagraphFormat {
         alignment: Some(Alignment::Justify),
