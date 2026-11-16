@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import test from 'node:test';
@@ -19,5 +19,9 @@ test('built entry references root assets for the standalone Writer Worker', { sk
   assert.ok(assets.length > 0, 'Production HTML must reference bundled JS/CSS');
   for (const asset of assets) assert.ok(asset.startsWith('/assets/'), `Unexpected standalone asset path: ${asset}`);
   const files = readdirSync(join(root, 'dist', 'assets'));
-  assert.ok(files.some((name) => name.endsWith('.wasm')), 'Production build must include the Rust WebAssembly asset');
+  const wasm = files.filter((name) => name.endsWith('.wasm'));
+  assert.equal(wasm.length, 1, 'Production build must include exactly one Rust WebAssembly asset');
+  const size = statSync(join(root, 'dist', 'assets', wasm[0])).size;
+  assert.ok(size <= 25 * 1024 * 1024,
+    `Worker preview cannot deploy ${wasm[0]}: ${size} bytes exceeds the 25 MiB per-asset limit`);
 });
