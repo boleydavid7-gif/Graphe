@@ -1161,3 +1161,44 @@ Known limitations: first release supports HTTP/HTTPS only and link text
 selection, not internal anchors, email, automatic URL recognition, or cross-
 paragraph annotations. Browser/OS suites and real device checks are excluded
 at user request; code cannot be considered device-verified until manually tested.
+
+
+## Paragraph spacing and indentation controls — November 2026
+
+**Question:** How can Graphe expose Word-like paragraph spacing, line spacing,
+and first-line/hanging indentation without introducing a second document model,
+flattening mixed formatting, or changing existing native file versions?
+
+**Code evidence:** `office-core` already represents `spacing_before` and
+`spacing_after` as nonnegative twips (1/20 pt), `line_spacing` as a
+versioned multiple/exact/at-least rule, and `Indentation` with independent
+signed `first_line`, `left`, and `right` values. `office-layout` consumes
+those values for page layout. The DOCX adapter already maps to/from
+`w:pPr/w:spacing` and `w:ind` (including `w:hanging`). The missing layer
+was the browser editing command and a readable, mixed-selection UI.
+
+**Alternatives:** CSS margins on editor DOM would change visual geometry
+without affecting Rust pages, exports or undo; rejected. Reusing the existing
+complete `ParagraphFormatPatch::indentation` would overwrite unrelated
+components on different selected paragraphs; rejected. Introduce a small
+Rust `ParagraphMetricsPatch` with per-field optional native units, applied
+to each selected paragraph's existing direct values in one transaction;
+chosen. Values are bounded and quantized to integer twips before commit,
+with revision/selection guards and Rust-driven mixed-field summaries.
+Formatting controls live in one native Layout dialog and existing inspector,
+not a new toolbar or footer.
+
+**Scope:** space before/after in pt (0–144); multiple line spacing (1–3),
+left/right indentation in inches (0–4); first-line offset (-2–4),
+where negative values create a hanging indent. Exact/at-least imported line
+spacing remains preserved unless explicitly replaced by a multiple.
+Blank mixed fields mean **keep each existing value**. Changes across multiple
+paragraphs form one undo operation. No schema evolution or new format
+dependency. Page margins, tab stops, bidi layout and per-style editing remain
+outside this first release.
+
+**Verification:** Focused Rust core/WASM and DOCX round-trip regressions added.
+Full browser, Windows, Linux and macOS suites are excluded at owner request;
+real-device/mobile checks must be performed manually. The connected
+development environment cannot independently compile the Rust/WASM target,
+so a Cloudflare build and targeted test execution are still required.
