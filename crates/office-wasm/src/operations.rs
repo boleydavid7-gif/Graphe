@@ -827,6 +827,12 @@ impl BrowserEngine {
         let mut chosen = Vec::new();
         let mut empty_paragraphs = Vec::new();
         let mut alignments = Vec::new();
+        let mut spacing_before = Vec::new();
+        let mut spacing_after = Vec::new();
+        let mut line_spacing = Vec::new();
+        let mut indent_left = Vec::new();
+        let mut indent_right = Vec::new();
+        let mut first_line = Vec::new();
         let mut styles = Vec::new();
         let mut lists = Vec::new();
         if let Some(selection) = selected {
@@ -846,6 +852,12 @@ impl BrowserEngine {
                         continue;
                     }
                     alignments.push(display.format.alignment);
+                    spacing_before.push(display.format.spacing_before_pt);
+                    spacing_after.push(display.format.spacing_after_pt);
+                    line_spacing.push(display.format.line_height.parse::<f64>().ok());
+                    indent_left.push(display.format.indent_left_pt / 72.);
+                    indent_right.push(display.format.indent_right_pt / 72.);
+                    first_line.push(display.format.first_line_pt / 72.);
                     styles.push(display.style_id.clone());
                     lists.push(display.list);
                     let Ok((paragraph, _, _)) = paragraph(document, &display.id) else {
@@ -907,6 +919,12 @@ impl BrowserEngine {
             } else {
                 None
             }),
+            spacing_before_pt: common(spacing_before.into_iter()),
+            spacing_after_pt: common(spacing_after.into_iter()),
+            line_spacing_multiple: common(line_spacing.into_iter()).flatten(),
+            indent_left_in: common(indent_left.into_iter()),
+            indent_right_in: common(indent_right.into_iter()),
+            first_line_in: common(first_line.into_iter()),
             style_id: common_style.flatten(),
             style_mixed,
             list: common_list.flatten(),
