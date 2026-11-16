@@ -1,5 +1,5 @@
 {
-  "catalog_id": "writer-fonts-v2",
+  "catalog_id": "writer-fonts-v3",
   "format_version": 1,
   "entries": [
     {
@@ -321,6 +321,177 @@
       ],
       "weight": 400,
       "face_index": 0
+    },
+    {
+      "file": "Inter-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/inter/Inter[opsz,wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/inter/Inter%5Bopsz,wght%5D.ttf",
+      "git_blob_sha1": "047c92f6e2212473dc436020afed689527076d44",
+      "byte_length": 876576,
+      "kind": "font",
+      "family": "Inter",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Inter.OFL.txt",
+      "axes": [
+        {
+          "tag": "opsz",
+          "minimum": 14,
+          "maximum": 32
+        },
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    },
+    {
+      "file": "Inter-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/inter/Inter-Italic[opsz,wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/inter/Inter-Italic%5Bopsz,wght%5D.ttf",
+      "git_blob_sha1": "c177578428248f08eedcc60e292acc6f414c2167",
+      "byte_length": 906596,
+      "kind": "font",
+      "family": "Inter",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Inter.OFL.txt",
+      "axes": [
+        {
+          "tag": "opsz",
+          "minimum": 14,
+          "maximum": 32
+        },
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "acd98e64795781b2058f07b18475e0ecee2a0fe2b42a49e2f9e37d0d6bf66ce6"
+    },
+    {
+      "file": "LibreBaskerville-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/librebaskerville/LibreBaskerville[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/librebaskerville/LibreBaskerville%5Bwght%5D.ttf",
+      "git_blob_sha1": "eae4eba83203138da3a3a7603b598b7ebc5a5238",
+      "byte_length": 171900,
+      "kind": "font",
+      "family": "Libre Baskerville",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "LibreBaskerville.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0,
+      "sha256": "05a95421961341c5b2556285e8415df9db27dab4f4abe22b446b3c6a8b916c5d"
+    },
+    {
+      "file": "LibreBaskerville-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/librebaskerville/LibreBaskerville-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/librebaskerville/LibreBaskerville-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "22a7e0fa0ed2724dd8b592f3f8c0de85f3d3fda1",
+      "byte_length": 167456,
+      "kind": "font",
+      "family": "Libre Baskerville",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "LibreBaskerville.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0,
+      "sha256": "223959683dc73ec4437bd61fabaa4b3f22209e22855ffd3aee36ba61a5116e97"
+    },
+    {
+      "file": "PlayfairDisplay-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/playfairdisplay/PlayfairDisplay[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf",
+      "git_blob_sha1": "7a09eb71f10622fd083134ac9ed46f59b21bee18",
+      "byte_length": 300724,
+      "kind": "font",
+      "family": "Playfair Display",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "PlayfairDisplay.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "c40f2293766a503bc70cce9e512ef844a4ccb7cbcde792fe2ea31d191917d8d6"
+    },
+    {
+      "file": "PlayfairDisplay-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/playfairdisplay/PlayfairDisplay-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/playfairdisplay/PlayfairDisplay-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "94fae1f2853dd325b1a3602370780d154ffc8c89",
+      "byte_length": 278688,
+      "kind": "font",
+      "family": "Playfair Display",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "PlayfairDisplay.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0,
+      "sha256": "a5e26dc5e2e77fb2803a0bf02fd4f81ee136ec8dea863ccdb0c59a263b21378b"
+    },
+    {
+      "file": "SpaceGrotesk-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/spacegrotesk/SpaceGrotesk[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf",
+      "git_blob_sha1": "a1b2e6c26093066510a31147e7aec9abdc8d6c5e",
+      "byte_length": 136676,
+      "kind": "font",
+      "family": "Space Grotesk",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "SpaceGrotesk.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 300,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0,
+      "sha256": "acad6de1fc93436f5c0f1f4137751ef04f1aea3063e7036535970ffcfbd79f72"
     },
     {
       "file": "Arimo.OFL.txt",
@@ -751,15 +922,63 @@
       "kind": "license",
       "spdx": "OFL-1.1",
       "sha256": "0985066662eb755ed3683ae5482a81a9195b49ce3f7e165cc2388b3dbece7dd7"
+    },
+    {
+      "file": "Inter.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/inter/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/inter/OFL.txt",
+      "git_blob_sha1": "21f6aff961064c2e429f570995e446bcdd555422",
+      "byte_length": 4377,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+    },
+    {
+      "file": "LibreBaskerville.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/librebaskerville/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/librebaskerville/OFL.txt",
+      "git_blob_sha1": "92b1e6ca1cfa6f9dfe4ec67468596606fc334c4f",
+      "byte_length": 4542,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "3624eddd4c8f8a908130a417ae7cd089c9da69899c4e0ca1a5217d0a6fae16fd"
+    },
+    {
+      "file": "PlayfairDisplay.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/playfairdisplay/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/playfairdisplay/OFL.txt",
+      "git_blob_sha1": "13153890847ba9bde8a852596d1515261156e474",
+      "byte_length": 4449,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "566be814f8e96e93dfa16101331557eb6b5467e9e03f627c0910fe93ca12300e"
+    },
+    {
+      "file": "SpaceGrotesk.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/spacegrotesk/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/spacegrotesk/OFL.txt",
+      "git_blob_sha1": "cb512b9af44ff61e75e1aad387b7424cdfab36a3",
+      "byte_length": 4495,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "564ce565c371c5e5bbf286006565a7c9aa55a9f56e7ca58d56e05d649dd61a72"
     }
   ],
   "retrieved_on": "2026-11-15",
-  "font_bytes": 12978372,
+  "font_bytes": 15816988,
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 51725,
-      "sha256": "619b1bd4c0153c564342a3984a936fc4d9e1c5abbc01f90b5ca7de65545b2f6e",
+      "byte_length": 70752,
+      "sha256": "42ce950cfa5b210f47cb653688a3b9ee253348d55697b471752271dff19d3f3c",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]
