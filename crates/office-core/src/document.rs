@@ -9,11 +9,13 @@ use crate::{CharacterFormat, DocumentError, ParagraphFormat, ValidationError};
 mod legacy;
 #[path = "v2.rs"]
 mod v2;
+#[path = "v3.rs"]
+mod v3;
 
 /// Current document JSON schema, independent of crate and native-file versions.
 ///
-/// Schemas 1 and 2 are accepted through strict, explicit migrations to schema 3.
-pub const SCHEMA_VERSION: u32 = 3;
+/// Schemas 1 through 3 migrate strictly into the hyperlink-aware schema 4.
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// An opaque, caller-assigned identifier preserved across copies and serialization.
 ///
@@ -340,7 +342,7 @@ impl<'de> Deserialize<'de> for Document {
 }
 
 fn check_schema(found: u64) -> Result<(), DocumentError> {
-    if !matches!(found, 1 | 2 | 3) {
+    if !matches!(found, 1 | 2 | 3 | 4) {
         return Err(DocumentError::UnsupportedSchemaVersion {
             found,
             supported: SCHEMA_VERSION,
@@ -525,6 +527,7 @@ impl Document {
         match header.schema_version {
             1 => legacy::from_json(json),
             2 => v2::from_json(json),
+            3 => v3::from_json(json),
             _ => serde_json::from_str::<DocumentInput>(json)?.into_document(),
         }
     }
