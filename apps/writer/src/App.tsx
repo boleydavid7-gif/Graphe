@@ -126,6 +126,15 @@ function bundledFontPreview(font: string | null | undefined): string {
     default: return font && BUNDLED_FONTS.has(font) ? font : 'Arimo';
   }
 }
+function bundledFontSample(font: string | null | undefined): string {
+  switch (font) {
+    case 'Noto Sans Arabic': return 'مرحباً بالعالم';
+    case 'Noto Sans Devanagari': return 'नमस्ते दुनिया';
+    case 'Noto Sans Hebrew': return 'שלום עולם';
+    case 'Noto Emoji': return '☀ ♥ ☺';
+    default: return 'Aa Bb Cc 123';
+  }
+}
 function fontOptions(current: string | null | undefined) {
   return <>
     <option value="" disabled>{current === null ? 'Mixed fonts' : 'Select font'}</option>
@@ -1260,7 +1269,7 @@ export default function App() {
         </select>
         <div className="font-family-preview" aria-label="Typeface sample"
           style={{ fontFamily: `"${bundledFontPreview(formatState?.fontFamily)}", sans-serif` }}>
-          <span>Aa Bb Cc 123</span>
+          <span>{bundledFontSample(formatState?.fontFamily)}</span>
           <small>{formatState?.fontFamily && !BUNDLED_FONTS.has(formatState.fontFamily)
             ? 'Closest bundled preview' : formatState?.fontFamily ?? 'Mixed fonts'}</small>
         </div>
