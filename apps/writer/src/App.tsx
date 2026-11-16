@@ -262,6 +262,8 @@ export default function App() {
   const [preparedExport, setPreparedExport] = useState<{ url: string; filename: string; automaticFailed: boolean } | null>(null);
   const [view, setView] = useState<WriterView | null>(null);
   const [externalFonts, setExternalFonts] = useState<string[]>([]);
+  // Rust clients created during external-file import need the same session fonts.
+  const loadedExternalFontBytes = useRef(new Map<string, { family: string; bytes: Uint8Array }>());
   const [fontVersion, setFontVersion] = useState(0);
   const [startupError, setStartupError] = useState('');
   const [error, setError] = useState('');
@@ -453,7 +455,9 @@ export default function App() {
       if (!value || !engine.current) return;
       try {
         // Rust validates font format and budgets and owns final glyph layout.
-        engine.current.registerExternalFont(value.id, value.family, new Uint8Array(value.data));
+        const incoming = new Uint8Array(value.data);
+        engine.current.registerExternalFont(value.id, value.family, incoming);
+        loadedExternalFontBytes.current.set(value.id, { family: value.family, bytes: incoming.slice() });
         // Layout must refresh immediately after Rust registration even if
         // FontFace preview validation is slow or unsupported by this browser.
         setExternalFonts(current => current.includes(value.family) ? current : [...current, value.family].sort());
@@ -849,6 +853,11 @@ export default function App() {
           if (!local) throw new Error('Local storage is required to preserve the imported document before editing.');
           candidate = await EngineClient.create();
           checkOrigin();
+          // Retain custom-family shaping across candidate sessions, without
+          // persisting user-supplied font binaries into document history.
+          for (const [id, uploaded] of loadedExternalFontBytes.current) {
+            candidate.registerExternalFont(id, uploaded.family, uploaded.bytes);
+          }
           const next = candidate.importFormat(selectedFormat, bytes, file.name);
           const native = candidate.serialize();
           // A supported import is not activated until the native document and

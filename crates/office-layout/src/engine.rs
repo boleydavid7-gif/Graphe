@@ -201,6 +201,16 @@ impl LayoutEngine {
             return Err(font_error(id, "external font has zero units per em"));
         }
         let blob = Blob::new(Arc::new(bytes.to_vec()));
+        // The requested family must actually occur in the incoming font.
+        // Probe a separate collection before mutating the active shaper:
+        // rejected/mislabeled files must not silently render as Arimo.
+        let mut probe = Collection::new(CollectionOptions { system_fonts: false, shared: false });
+        let parsed = probe.register_fonts(blob.clone(), None);
+        if parsed.len() != 1 || parsed[0].1.is_empty()
+            || probe.family_name(parsed[0].0).is_none_or(|actual| !actual.eq_ignore_ascii_case(name))
+        {
+            return Err(font_error(id, "font family does not match the embedded font metadata"));
+        }
         let registered = self.font_context.collection.register_fonts(blob.clone(), None);
         if registered.is_empty() {
             return Err(font_error(id, "font was not accepted by the text shaper"));

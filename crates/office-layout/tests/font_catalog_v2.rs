@@ -117,5 +117,8 @@ fn owner_uploaded_fonts_cannot_override_bundled_catalog_or_exceed_limits() {
     assert!(engine.register_external_font("my-id", "Arimo", bytes).is_err());
     assert!(engine.register_external_font("bad/id", "Custom", bytes).is_err());
     assert!(engine.register_external_font("ok", "Custom", &[1, 2, 3]).is_err());
+    // A valid but mislabeled TTF must not be silently installed as a
+    // different family (it would otherwise fall back at layout time).
+    assert!(engine.register_external_font("mismatch", "Custom", bytes).is_err());
     assert!(engine.register_external_font("ok", "Custom", &vec![0; 5 * 1024 * 1024 + 1]).is_err());
 }
