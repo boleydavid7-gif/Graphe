@@ -841,6 +841,7 @@ impl BrowserEngine {
             style_mixed,
             list: common_list.flatten(),
             list_mixed,
+            hyperlink: common(chosen.iter().map(|f| f.hyperlink.clone())).flatten(),
         }
     }
 }
