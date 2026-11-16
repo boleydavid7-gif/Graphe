@@ -602,7 +602,11 @@ export default function App() {
     const result = command({ type: 'set_paragraph_metrics',
       ...edits, selection: state.selection ?? undefined,
       expectedRevision: state.origin.revision });
-    if (result) setParagraphDialog(null);
+    if (result) {
+      setParagraphDialog(null);
+    } else {
+      setParagraphDialog({ ...state, error: 'The paragraph change was not applied. Check the document error and try again.' });
+    }
   }
 
   function openFind() {
@@ -1293,7 +1297,7 @@ export default function App() {
             {PARAGRAPH_METRICS.slice(0, 2).map((field) => <label key={field.key}>
               <span>{field.label} ({field.unit})</span>
               <input type="number" inputMode="decimal" min={field.min} max={field.max}
-                step={field.step} placeholder="Mixed" value={paragraphDialog.values[field.key]}
+                step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
                 onChange={(event) => setParagraphDialog({
                   ...paragraphDialog, error: '', values: { ...paragraphDialog.values,
                     [field.key]: event.target.value },
@@ -1318,7 +1322,7 @@ export default function App() {
             {PARAGRAPH_METRICS.slice(2).map((field) => <label key={field.key}>
               <span>{field.label} ({field.unit})</span>
               <input type="number" inputMode="decimal" min={field.min} max={field.max}
-                step={field.step} placeholder="Mixed" value={paragraphDialog.values[field.key]}
+                step="any" placeholder="Mixed" value={paragraphDialog.values[field.key]}
                 onChange={(event) => setParagraphDialog({
                   ...paragraphDialog, error: '', values: { ...paragraphDialog.values,
                     [field.key]: event.target.value },
