@@ -58,6 +58,12 @@ export class EngineClient {
 
   get view(): WriterView { return this.current; }
 
+  /** Install a session-only R&D font into authoritative Rust shaping. */
+  registerExternalFont(id: string, family: string, data: Uint8Array): void {
+    try { this.handle.register_external_font(id, family, data); }
+    catch (error) { throw failure(error); }
+  }
+
   /** Read-only Rust typography/page geometry for this exact document revision. */
   layout(options: LayoutOptions = {}): LayoutView {
     try {

@@ -1270,7 +1270,7 @@ impl OutlineCache {
         let id = output.outlines.len() as u32;
         output.outlines.push(GlyphOutline {
             id,
-            font_id: pinned.id.into(),
+            font_id: pinned.id.clone(),
             glyph_id: glyph,
             units_per_em: units,
             path: pen.0,

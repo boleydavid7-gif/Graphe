@@ -108,3 +108,14 @@ fn oswald_uses_its_own_real_variable_weight_font() {
     assert!(bold.outlines.iter().all(|face| face.font_id.starts_with("Oswald")));
     assert_ne!(regular.outlines[0].path, bold.outlines[0].path);
 }
+
+#[test]
+fn owner_uploaded_fonts_cannot_override_bundled_catalog_or_exceed_limits() {
+    let mut engine = office_layout::LayoutEngine::new().unwrap();
+    let bytes = include_bytes!("../fonts/Arimo-Regular.ttf");
+    assert!(engine.register_external_font("my-id", "Arial", bytes).is_err());
+    assert!(engine.register_external_font("my-id", "Arimo", bytes).is_err());
+    assert!(engine.register_external_font("bad/id", "Custom", bytes).is_err());
+    assert!(engine.register_external_font("ok", "Custom", &[1, 2, 3]).is_err());
+    assert!(engine.register_external_font("ok", "Custom", &vec![0; 5 * 1024 * 1024 + 1]).is_err());
+}

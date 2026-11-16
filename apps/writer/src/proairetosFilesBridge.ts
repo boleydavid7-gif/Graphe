@@ -4,6 +4,14 @@ const HOSTS = new Set(['https://proairetos.com', 'https://research-and-developme
 const MAX_BYTES = 10 * 1024 * 1024;
 let connectedHost: string | null = null;
 export type FilesOpenPayload = { fileId: string; name: string; mime: string; data: ArrayBuffer };
+export type RndFontPayload = { id: string; family: string; filename: string; data: ArrayBuffer };
+export function announceFontsReady(): void {
+  if (connectedHost) window.parent.postMessage({ type: 'writer:fonts-ready', version: 1 }, connectedHost);
+}
+export function announceFontResult(id: string, ok: boolean, message?: string): void {
+  if (connectedHost) window.parent.postMessage({ type: 'writer:font-result', version: 1, id, ok,
+    ...(message ? { message: message.slice(0, 180) } : {}) }, connectedHost);
+}
 const pending = new Map<string, { resolve: (value: string) => void; reject: (reason: Error) => void }>();
 const supported = ['writer', 'docx', 'odt', 'rtf', 'txt', 'pdf'];
 const MIME: Record<string, string> = {
@@ -15,11 +23,23 @@ export function installProairetosFilesBridge(): () => void {
   if (window.parent === window) return () => {};
   const receive = (event: MessageEvent) => {
     if (event.source !== window.parent || !HOSTS.has(event.origin)) return;
-    if (event.data?.type === 'proairetos:lamplight' && event.data.version === 1 && event.data.app === 'writer') {
+    if (event.data?.version === 1 && event.data.app === 'writer' &&
+        ['proairetos:lamplight', 'proairetos:fonts-init'].includes(event.data.type)) {
       connectedHost = event.origin;
       window.parent.postMessage({ type: 'writer:files-ready', version: 1 }, connectedHost);
+      window.dispatchEvent(new Event('proairetos:font-host-ready'));
     }
     if (event.origin !== connectedHost || event.data?.version !== 1) return;
+    if (event.data?.type === 'proairetos:font-install') {
+      const font = event.data as Partial<RndFontPayload>;
+      if (typeof font.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(font.id)
+          || typeof font.family !== 'string' || font.family.length > 100 || !font.family.trim()
+          || font.family.trim() !== font.family
+          || typeof font.filename !== 'string' || !/^[^/\\\\\\x00-\\x1f\\x7f]{1,120}\\.(ttf|otf)$/i.test(font.filename)
+          || !(font.data instanceof ArrayBuffer) || !font.data.byteLength || font.data.byteLength > 5 * 1024 * 1024) return;
+      window.dispatchEvent(new CustomEvent('proairetos:font-install', { detail: font }));
+      return;
+    }
     if (event.data?.type === 'proairetos:files-open') {
       const payload = event.data as Partial<FilesOpenPayload>;
       if (typeof payload.fileId !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(payload.fileId)
