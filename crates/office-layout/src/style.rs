@@ -24,6 +24,7 @@ pub fn overlay_character(base: &mut CharacterFormat, direct: &CharacterFormat) {
     field!(font_family);
     field!(font_size);
     field!(color);
+    field!(hyperlink);
 }
 
 fn overlay_paragraph(base: &mut ParagraphFormat, direct: &ParagraphFormat) {
