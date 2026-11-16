@@ -24,6 +24,33 @@ function safeHyperlink(value: string): boolean {
   } catch { return false; }
 }
 
+// These entries mirror Rust's pinned font catalog. CSS preview faces use the
+// same unmodified font binaries, but all document pagination stays in Rust.
+const FONT_GROUPS = [
+  { label: 'Sans serif', names: ['Arimo', 'Carlito', 'Source Sans 3'] },
+  { label: 'Serif', names: ['Tinos', 'Caladea', 'EB Garamond'] },
+  { label: 'Monospace', names: ['JetBrains Mono'] },
+  { label: 'Languages & symbols', names: [
+    'Noto Sans Arabic', 'Noto Sans Devanagari', 'Noto Sans Hebrew', 'Noto Emoji',
+  ] },
+] as const;
+const AVAILABLE_FONTS = new Set<string>(FONT_GROUPS.flatMap((group) => [...group.names]));
+function previewFamily(family: string | null | undefined): string {
+  switch (family?.toLowerCase()) {
+    case 'carlito':
+    case 'calibri': return '"Graphe Preview Carlito", Arial, sans-serif';
+    case 'caladea':
+    case 'cambria': return '"Graphe Preview Caladea", Georgia, serif';
+    case 'source sans 3':
+    case 'source sans pro': return '"Graphe Preview Source Sans 3", Arial, sans-serif';
+    case 'eb garamond': return '"Graphe Preview EB Garamond", Georgia, serif';
+    case 'jetbrains mono':
+    case 'jetbrainsmono': return '"Graphe Preview JetBrains Mono", monospace';
+    case 'tinos': return 'Georgia, serif';
+    default: return 'Arial, sans-serif';
+  }
+}
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : 'The operation could not be completed.';
 }
@@ -1087,11 +1114,25 @@ export default function App() {
         <fieldset disabled={unavailable} className="format-group font-selectors advanced-formatting">
           <legend className="visually-hidden">Font</legend>
           <label className="visually-hidden" htmlFor="font-family">Font family</label>
-          <select id="font-family" aria-label="Font family" value={formatState?.fontFamily ?? ''}
+          <select id="font-family" aria-label="Font family"
+            title="Choose a pinned document font"
+            style={{ fontFamily: previewFamily(formatState?.fontFamily) }}
+            value={formatState?.fontFamily ?? ''}
             onChange={(event) => format({ type: 'format_character', fontFamily: event.target.value }, false)}>
-            <option value="" disabled>Mixed</option>
-            {[...new Set(['Arimo', 'Tinos', 'Noto Sans Arabic', 'Noto Sans Devanagari', 'Noto Sans Hebrew', 'Noto Emoji', ...(formatState?.fontFamily ? [formatState.fontFamily] : [])])].map((font) => <option key={font}>{font}</option>)}
+            <option value="" disabled>Mixed fonts</option>
+            {formatState?.fontFamily && !AVAILABLE_FONTS.has(formatState.fontFamily) &&
+              <optgroup label="From document">
+                <option value={formatState.fontFamily} style={{ fontFamily: previewFamily(formatState.fontFamily) }}>
+                  {formatState.fontFamily} (substituted)
+                </option>
+              </optgroup>}
+            {FONT_GROUPS.map((group) => <optgroup key={group.label} label={group.label}>
+              {group.names.map((font) =>
+                <option key={font} value={font} style={{ fontFamily: previewFamily(font) }}>{font}</option>)}
+            </optgroup>)}
           </select>
+          <span className="font-family-preview" aria-hidden="true"
+            style={{ fontFamily: previewFamily(formatState?.fontFamily) }}>Ag</span>
           <label className="visually-hidden" htmlFor="font-size">Font size</label>
           <select id="font-size" aria-label="Font size" value={formatState?.fontSizePt ?? ''}
             onChange={(event) => format({ type: 'format_character', fontSizePt: Number(event.target.value) }, false)}>
