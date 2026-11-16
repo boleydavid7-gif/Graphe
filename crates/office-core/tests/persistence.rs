@@ -195,6 +195,7 @@ fn all_supported_character_and_paragraph_values_round_trip_with_order_and_defaul
                     blue: 255,
                 }
             }),
+            hyperlink: None,
         };
         let format = ParagraphFormat {
             page_break_before: Some(index % 2 == 0),
