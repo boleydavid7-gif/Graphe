@@ -1,5 +1,5 @@
 {
-  "catalog_id": "writer-fonts-v5",
+  "catalog_id": "writer-fonts-v6",
   "format_version": 1,
   "entries": [
     {
@@ -1306,82 +1306,6 @@
       "face_index": 0
     },
     {
-      "file": "Fraunces-Regular.ttf",
-      "repository": "google/fonts",
-      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
-      "source_path": "ofl/fraunces/Fraunces[SOFT,WONK,opsz,wght].ttf",
-      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/fraunces/Fraunces%5BSOFT,WONK,opsz,wght%5D.ttf",
-      "git_blob_sha1": "8210f9488d3c732359a9292dd09aca3f2bae830e",
-      "byte_length": 360440,
-      "kind": "font",
-      "sha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
-      "family": "Fraunces",
-      "style": "normal",
-      "weight": 400,
-      "license_file": "Fraunces.OFL.txt",
-      "axes": [
-        {
-          "tag": "opsz",
-          "minimum": 9,
-          "maximum": 144
-        },
-        {
-          "tag": "wght",
-          "minimum": 100,
-          "maximum": 900
-        },
-        {
-          "tag": "SOFT",
-          "minimum": 0,
-          "maximum": 100
-        },
-        {
-          "tag": "WONK",
-          "minimum": 0,
-          "maximum": 1
-        }
-      ],
-      "face_index": 0
-    },
-    {
-      "file": "Fraunces-Italic.ttf",
-      "repository": "google/fonts",
-      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
-      "source_path": "ofl/fraunces/Fraunces-Italic[SOFT,WONK,opsz,wght].ttf",
-      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/fraunces/Fraunces-Italic%5BSOFT,WONK,opsz,wght%5D.ttf",
-      "git_blob_sha1": "2ddf59a11b89a3d6b2816ea6ae7965026c08143a",
-      "byte_length": 414904,
-      "kind": "font",
-      "sha256": "b24448c43702fac4ee856781d461a0dfba8d8e594b6e8e190234b75fed2c0e01",
-      "family": "Fraunces",
-      "style": "italic",
-      "weight": 400,
-      "license_file": "Fraunces.OFL.txt",
-      "axes": [
-        {
-          "tag": "opsz",
-          "minimum": 9,
-          "maximum": 144
-        },
-        {
-          "tag": "wght",
-          "minimum": 100,
-          "maximum": 900
-        },
-        {
-          "tag": "SOFT",
-          "minimum": 0,
-          "maximum": 100
-        },
-        {
-          "tag": "WONK",
-          "minimum": 0,
-          "maximum": 1
-        }
-      ],
-      "face_index": 0
-    },
-    {
       "file": "RobotoMono-Regular.ttf",
       "repository": "google/fonts",
       "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
@@ -1475,18 +1399,6 @@
       "spdx": "OFL-1.1"
     },
     {
-      "file": "Fraunces.OFL.txt",
-      "repository": "google/fonts",
-      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
-      "source_path": "ofl/fraunces/OFL.txt",
-      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/fraunces/OFL.txt",
-      "git_blob_sha1": "22fa7ce5733434d0c634f6e55116f410858e938c",
-      "byte_length": 4391,
-      "kind": "license",
-      "sha256": "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b",
-      "spdx": "OFL-1.1"
-    },
-    {
       "file": "RobotoMono.OFL.txt",
       "repository": "google/fonts",
       "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
@@ -1512,12 +1424,12 @@
     }
   ],
   "retrieved_on": "2026-11-16",
-  "font_bytes": 21454472,
+  "font_bytes": 20679128,
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 112613,
-      "sha256": "3fcb16eb59b3b546ddfc2127082e1ff0da34e4297a288c888dedd33617c372ea",
+      "byte_length": 107939,
+      "sha256": "0b1df384ac050ce6ee7a94f6b7eb04924de14f3df7c7d9839388cf2bab0775b5",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]
