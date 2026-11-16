@@ -1616,3 +1616,22 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     border-right: 0;
   }
 }
+
+
+/* Graphe hyperlinks — solid Lamplight dialog, without browser-default blue chrome. */
+.hyperlink-dialog .hyperlink-fields { display: grid; grid-template-columns: 1fr; gap: 7px; min-width: 0; }
+.hyperlink-fields > label { font-size: 12px; color: var(--writer-text-muted); }
+.hyperlink-fields > input {
+  width: 100%; min-width: 0; min-height: 38px; padding: 8px 10px;
+  color: var(--writer-text-control); background: var(--writer-control);
+  border: 1px solid var(--writer-border-control); border-radius: var(--writer-radius-sm);
+  font-size: 14px;
+}
+.hyperlink-fields > input:focus { border-color: var(--writer-accent); }
+.hyperlink-fields .dialog-description { margin: 5px 0 0; font-size: 12px; color: var(--writer-text-muted); }
+.hyperlink-fields .dialog-error { margin-top: 7px; overflow-wrap: anywhere; }
+@media (max-width: 620px) {
+  .hyperlink-fields > input { font-size: 16px; min-height: 44px; }
+  .hyperlink-dialog .dialog-actions { gap: 6px; }
+  .hyperlink-dialog .dialog-actions button { min-height: 40px; }
+}
