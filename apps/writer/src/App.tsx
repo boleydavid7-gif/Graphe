@@ -40,7 +40,7 @@ function Dialog({ title, children, onClose, busy = false, className }: {
       dialog?.style.setProperty('--save-copy-top', `${visual?.offsetTop ?? 0}px`);
       dialog?.style.setProperty('--save-copy-height', `${visual?.height ?? window.innerHeight}px`);
     };
-    if (className === 'save-copy-dialog') {
+    if (className?.split(' ').includes('save-copy-dialog')) {
       position();
       window.addEventListener('resize', position);
       visual?.addEventListener('resize', position);
