@@ -109,7 +109,7 @@ function numericParagraphValue(value: number | null): string {
 // Unknown names from imported documents remain selectable and are preserved.
 const FONT_GROUPS = [
   { label: 'Sans serif', names: ['Arimo', 'Carlito', 'Source Sans 3'] },
-  { label: 'Serif', names: ['Tinos', 'Caladea'] },
+  { label: 'Serif', names: ['Tinos', 'Caladea', 'EB Garamond'] },
   { label: 'Monospace', names: ['JetBrains Mono'] },
   { label: 'Languages and symbols', names: [
     'Noto Sans Arabic', 'Noto Sans Devanagari', 'Noto Sans Hebrew', 'Noto Emoji',

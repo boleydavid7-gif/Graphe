@@ -673,15 +673,93 @@
       "kind": "license",
       "spdx": "OFL-1.1",
       "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d"
+    },
+    {
+      "file": "EBGaramond-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/ebgaramond/EBGaramond[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/ebgaramond/EBGaramond%5Bwght%5D.ttf",
+      "git_blob_sha1": "52d34b86ec20977f222ce37e8158e6b3002c0a31",
+      "byte_length": 851176,
+      "kind": "font",
+      "family": "EB Garamond",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "EBGaramond.OFL.txt",
+      "sha256": "ef9512f92f6d579e5dc75af59a5a4b1b8b47d2eda89e00b954d44520e5369027",
+      "font_version": "Version 1.003",
+      "internal_family": "EB Garamond",
+      "internal_subfamily": "Regular",
+      "postscript_name": "EBGaramond-Regular",
+      "units_per_em": 1000,
+      "glyph_count": 3247,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "default": 400,
+          "maximum": 800
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "EBGaramond-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/ebgaramond/EBGaramond-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/ebgaramond/EBGaramond-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "f9ad996001c8ee72fd43b4b8e67c8924b7f615b1",
+      "byte_length": 754468,
+      "kind": "font",
+      "family": "EB Garamond",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "EBGaramond.OFL.txt",
+      "sha256": "bba2c4499c93c9612b90b9825d32b07da52fce2fe57562a1eb6b833553f93c4e",
+      "font_version": "Version 1.003",
+      "internal_family": "EB Garamond",
+      "internal_subfamily": "Italic",
+      "postscript_name": "EBGaramond-Italic",
+      "units_per_em": 1000,
+      "glyph_count": 3075,
+      "outline_tables": [
+        "glyf"
+      ],
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 400,
+          "default": 400,
+          "maximum": 800
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "EBGaramond.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/ebgaramond/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/ebgaramond/OFL.txt",
+      "git_blob_sha1": "c1ec5e1818415eab6f8fca95a230af477d64eb61",
+      "byte_length": 4398,
+      "kind": "license",
+      "spdx": "OFL-1.1",
+      "sha256": "0985066662eb755ed3683ae5482a81a9195b49ce3f7e165cc2388b3dbece7dd7"
     }
   ],
-  "retrieved_on": "2026-11-14",
-  "font_bytes": 11372728,
+  "retrieved_on": "2026-11-15",
+  "font_bytes": 12978372,
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 47040,
-      "sha256": "124e0d81c7ea92aff49ecddf766a9f3614e43f97d01f60257f2b24613673aa78",
+      "byte_length": 51725,
+      "sha256": "619b1bd4c0153c564342a3984a936fc4d9e1c5abbc01f90b5ca7de65545b2f6e",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]

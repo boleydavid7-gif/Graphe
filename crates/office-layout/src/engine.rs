@@ -93,6 +93,8 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("SourceSans3-Italic.ttf", include_bytes!("../fonts/SourceSans3-Italic.ttf")),
     ("JetBrainsMono-Regular.ttf", include_bytes!("../fonts/JetBrainsMono-Regular.ttf")),
     ("JetBrainsMono-Italic.ttf", include_bytes!("../fonts/JetBrainsMono-Italic.ttf")),
+    ("EBGaramond-Regular.ttf", include_bytes!("../fonts/EBGaramond-Regular.ttf")),
+    ("EBGaramond-Italic.ttf", include_bytes!("../fonts/EBGaramond-Italic.ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -944,6 +946,7 @@ fn resolved_family(requested: &str) -> &'static str {
         "carlito" | "calibri" => "Carlito",
         "source sans 3" | "source sans pro" => "Source Sans 3",
         "jetbrains mono" => "JetBrains Mono",
+        "eb garamond" => "EB Garamond",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
         "noto sans devanagari" => "Noto Sans Devanagari",
         "noto sans hebrew" => "Noto Sans Hebrew",

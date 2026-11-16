@@ -29,6 +29,7 @@ fn all_new_families_are_shaped_from_their_actual_bundled_font_files() {
         ("Caladea", "Caladea"),
         ("Source Sans 3", "SourceSans3"),
         ("JetBrains Mono", "JetBrainsMono"),
+        ("EB Garamond", "EBGaramond"),
     ] {
         let page = sample(family, false, false);
         assert!(!page.outlines.is_empty(), "{family}");
@@ -54,7 +55,7 @@ fn static_serif_and_sans_use_genuine_weight_and_italic_faces() {
 
 #[test]
 fn variable_faces_support_italic_and_weight_selection() {
-    for family in ["Source Sans 3", "JetBrains Mono"] {
+    for family in ["Source Sans 3", "JetBrains Mono", "EB Garamond"] {
         let normal = sample(family, false, false);
         let italic = sample(family, false, true);
         assert!(italic.outlines.iter().all(|face| face.font_id.contains("Italic")),
