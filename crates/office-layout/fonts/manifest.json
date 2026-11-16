@@ -866,8 +866,8 @@
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 51720,
-      "sha256": "ac8ed85de3d60e79332d069f051ff5519b0817bfc27b2f2562b8a32dd48a2ac5",
+      "byte_length": 51725,
+      "sha256": "6d1bd37ca10a9541944670f6639c73c0826e049022464e017504de1708ebbae7",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]
