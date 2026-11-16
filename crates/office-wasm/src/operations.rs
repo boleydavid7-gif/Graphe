@@ -4,7 +4,8 @@ use crate::{
 };
 use office_core::{
     Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, ListKind, Paragraph,
-    ParagraphFormatPatch, PropertyChange, Section, TextCoordinates, Transaction, Utf16Offset,
+    LineSpacing, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange, Section,
+    TextCoordinates, Transaction, Twips, Utf16Offset,
     valid_hyperlink,
 };
 
@@ -89,6 +90,27 @@ fn edit_selection(
         Ok(transaction.position(&id, offset)?)
     };
     Ok(transaction.selection(endpoint(&selection.anchor)?, endpoint(&selection.focus)?)?)
+}
+
+// All UI measures are converted into the canonical twip representation
+// before opening a transaction. Reject non-finite / excessive values instead
+// of silently saturating, clamping or altering unrelated properties.
+fn optional_twips(
+    value: Option<f64>,
+    scale: f64,
+    low: f64,
+    high: f64,
+    field: &str,
+) -> Result<Option<Twips>, EngineError> {
+    value.map(|number| {
+        if !number.is_finite() || number < low || number > high {
+            return Err(EngineError::new(
+                "invalid_paragraph_metrics",
+                format!("{field} must be between {low} and {high}."),
+            ));
+        }
+        Ok(Twips((number * scale).round() as i32))
+    }).transpose()
 }
 
 fn caret(point: Point) -> BrowserSelection {
@@ -736,6 +758,48 @@ impl BrowserEngine {
                 ..Default::default()
             },
         )?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))
+    }
+
+    /// Set only the requested paragraph fields without overwriting unrelated
+    /// indentation/style/line-height state across multi-paragraph selections.
+    pub(super) fn set_paragraph_metrics(
+        &mut self,
+        spacing_before_pt: Option<f64>,
+        spacing_after_pt: Option<f64>,
+        line_spacing_multiple: Option<f64>,
+        indent_left_in: Option<f64>,
+        indent_right_in: Option<f64>,
+        first_line_in: Option<f64>,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let spacing = line_spacing_multiple.map(|multiple| {
+            if !multiple.is_finite() || !(1.0..=3.0).contains(&multiple) {
+                return Err(EngineError::new(
+                    "invalid_paragraph_metrics", "Line spacing must be between 1 and 3.",
+                ));
+            }
+            Ok(LineSpacing::Multiple { value: (multiple * 240.).round() as u32 })
+        }).transpose()?;
+        let patch = ParagraphMetricsPatch {
+            spacing_before: optional_twips(spacing_before_pt, 20., 0., 144., "Space before (pt)")?,
+            spacing_after: optional_twips(spacing_after_pt, 20., 0., 144., "Space after (pt)")?,
+            line_spacing: spacing,
+            indent_left: optional_twips(indent_left_in, 1440., 0., 4., "Left indent (in)")?,
+            indent_right: optional_twips(indent_right_in, 1440., 0., 4., "Right indent (in)")?,
+            first_line: optional_twips(first_line_in, 1440., -2., 4., "First-line offset (in)")?,
+        };
+        if patch.is_empty() {
+            return Ok(());
+        }
+        let selected = self.current_selection(supplied)?;
+        let mut transaction = self.session.begin_transaction();
+        let selection = match selected {
+            Some(selection) => selection,
+            None => self.materialize(&mut transaction)?,
+        };
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.apply_paragraph_metrics(&range, &patch)?;
         self.commit_from(transaction, Some(selection.clone()), Some(selection))
     }
 
