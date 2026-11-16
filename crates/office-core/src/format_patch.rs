@@ -46,6 +46,8 @@ pub struct CharacterFormatPatch {
     pub font_size: PropertyChange<HalfPoints>,
     /// Change the direct text color.
     pub color: PropertyChange<TextColor>,
+    /// Set or clear the validated link destination.
+    pub hyperlink: PropertyChange<String>,
 }
 
 impl CharacterFormatPatch {
