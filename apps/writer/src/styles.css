@@ -1,3 +1,162 @@
+/* Actual bundled faces for UI font previews and text-mode projection.
+   Rust remains authoritative for paged text shaping and measuring; these files
+   are only downloaded by browsers when a preview or fallback uses them. */
+@font-face {
+  font-family: 'Arimo';
+  src: url('../../../crates/office-layout/fonts/Arimo-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Arimo';
+  src: url('../../../crates/office-layout/fonts/Arimo-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tinos';
+  src: url('../../../crates/office-layout/fonts/Tinos-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tinos';
+  src: url('../../../crates/office-layout/fonts/Tinos-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tinos';
+  src: url('../../../crates/office-layout/fonts/Tinos-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tinos';
+  src: url('../../../crates/office-layout/fonts/Tinos-BoldItalic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caladea';
+  src: url('../../../crates/office-layout/fonts/Caladea-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caladea';
+  src: url('../../../crates/office-layout/fonts/Caladea-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caladea';
+  src: url('../../../crates/office-layout/fonts/Caladea-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Caladea';
+  src: url('../../../crates/office-layout/fonts/Caladea-BoldItalic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Carlito';
+  src: url('../../../crates/office-layout/fonts/Carlito-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Carlito';
+  src: url('../../../crates/office-layout/fonts/Carlito-Bold.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Carlito';
+  src: url('../../../crates/office-layout/fonts/Carlito-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Carlito';
+  src: url('../../../crates/office-layout/fonts/Carlito-BoldItalic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  src: url('../../../crates/office-layout/fonts/SourceSans3-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  src: url('../../../crates/office-layout/fonts/SourceSans3-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  src: url('../../../crates/office-layout/fonts/NotoSansArabic.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  src: url('../../../crates/office-layout/fonts/NotoSansDevanagari.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans Hebrew';
+  src: url('../../../crates/office-layout/fonts/NotoSansHebrew.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Emoji';
+  src: url('../../../crates/office-layout/fonts/NotoEmoji.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 /* Lamplight interface surfaces are opaque. Document geometry comes from Rust. */
 
 /* ProairetOS theme adapter contract.
@@ -1669,4 +1828,31 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
   .paragraph-metrics-grid input, .paragraph-metrics-grid select {
     min-height: 44px; font-size: 16px;
   }
+}
+
+/* The font inspector previews only pinned, locally bundled faces; imported
+   unknown font names remain preserved and are explicitly labeled substitutes. */
+.font-family-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 58px;
+  padding: 10px 12px;
+  background: var(--writer-control);
+  border: 1px solid var(--writer-border-subtle);
+  border-radius: 4px;
+  color: var(--writer-text-strong);
+}
+.font-family-preview span { font-size: 20px; line-height: 1.15; letter-spacing: -.2px; }
+.font-family-preview small {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--writer-text-muted);
+}
+#font-family { width: 164px; }
+@media (max-width: 620px) {
+  #font-family { width: min(190px, 55vw); }
+  .font-family-preview { min-height: 52px; }
 }

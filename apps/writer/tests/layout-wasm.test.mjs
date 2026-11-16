@@ -60,7 +60,7 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   const root = new URL('../../../crates/office-layout/fonts/', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   assert.equal(manifest.format_version, 1);
-  assert.equal(manifest.catalog_id, 'writer-fonts-v1');
+  assert.equal(manifest.catalog_id, 'writer-fonts-v2');
   const entries = new Map(manifest.entries.map((entry) => [entry.file, entry]));
   let fontBytes = 0;
   for (const entry of [...manifest.entries, ...manifest.derived_files]) {
@@ -381,5 +381,12 @@ test('compiled WASM layout matches the complete native snapshot golden', async (
     cwd: fileURLToPath(new URL('../../../', import.meta.url)), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
   }).trim();
   assert.equal(compact, native, 'Native Rust and release WASM must produce identical complete geometry and outlines');
-  assert.equal(createHash('sha256').update(compact).digest('hex'), expected.sha256);
+  // Catalog v2 adds optional faces. The old reference layout still uses
+  // only v1 fonts, so normalize the version marker alone before checking the
+  // reviewed full-geometry fingerprint. This must not hide changed glyphs,
+  // line breaks, coordinates, pages, or outlines.
+  const oldMarker = '"fontCatalogId":"writer-fonts-v2"';
+  assert.equal(compact.split(oldMarker).length, 2);
+  const legacyGeometry = compact.replace(oldMarker, '"fontCatalogId":"writer-fonts-v1"');
+  assert.equal(createHash('sha256').update(legacyGeometry).digest('hex'), expected.sha256);
 });

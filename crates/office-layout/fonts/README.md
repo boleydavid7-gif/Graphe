@@ -1,9 +1,10 @@
-# Writer font catalog `writer-fonts-v1`
+# Writer font catalog `writer-fonts-v2`
 
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The ten fonts total **6,884,780 bytes** (6.57 MiB).
+operating system and browser. The 22 pinned fonts total **11,372,728 bytes** (10.85 MiB). The new families
+increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
 identity, byte count, SHA-256, internal version/family and variable-font axes.
@@ -24,6 +25,12 @@ face.
 | NotoSansDevanagari.ttf | 2.007 | Upright; `wght` 100–900; `wdth` 62.5–100 |
 | NotoSansHebrew.ttf | 3.001 | Upright; `wght` 100–900; `wdth` 62.5–100 |
 | NotoEmoji.ttf | 3.002 | Monochrome upright; `wght` 300–700 |
+| Caladea-Regular.ttf / Caladea-Bold.ttf | Google Fonts pinned | Serif, actual 400/700 |
+| Caladea-Italic.ttf / Caladea-BoldItalic.ttf | Google Fonts pinned | Serif, actual italic 400/700 |
+| Carlito-Regular.ttf / Carlito-Bold.ttf | Google Fonts pinned | Sans, actual 400/700 |
+| Carlito-Italic.ttf / Carlito-BoldItalic.ttf | Google Fonts pinned | Sans, actual italic 400/700 |
+| SourceSans3-Regular.ttf / SourceSans3-Italic.ttf | Google Fonts pinned | Sans, `wght` 200–900; normal/italic |
+| JetBrainsMono-Regular.ttf / JetBrainsMono-Italic.ttf | Google Fonts pinned | Monospace, `wght` 100–800; normal/italic |
 
 Choose regular weight 400 or bold 700 explicitly, and width 100 for the script
 fallbacks. Noto Sans Hebrew's file default is **100 (Thin)**, so relying on its
@@ -43,12 +50,17 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   [official Tinos source](https://github.com/googlefonts/tinos/blob/3b4482a99b80ea5fc75f187b1be3120a3f5905b3/OFL.txt).
 - Noto Sans Arabic, Devanagari, Hebrew and Noto Emoji come from the same pinned
   [google/fonts commit](https://github.com/google/fonts/tree/29b4ec6df2522a8aee279414b78a07910b065874/ofl).
+- Carlito, Caladea, Source Sans 3 and JetBrains Mono come from
+  [google/fonts at `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl).
+  The new files are original upstream bytes; only the local names of four
+  variable-font files omit their `[wght]` suffix for asset tooling. The source
+  filenames and Git blob identities remain recorded in `manifest.json`.
 
-All six families use **SIL Open Font License 1.1**. Each complete upstream
+All ten families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
-distribution with the application. The selected notices contain no separate
-Reserved Font Name declaration following their copyright headers. This does
-not waive the other OFL conditions. Keep the copyright and full license when
+distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
+No font binaries or internal font names have been modified, and the original
+copyright and complete OFL licenses are included. Keep the copyright and full license when
 redistributing or embedding these fonts, including in a WebAssembly bundle.
 The production application should make `NOTICE.txt` available with its assets.
 These third-party licenses do not select the Office engine's pending license.
@@ -56,7 +68,9 @@ No font has been subsetted, internally renamed or otherwise modified.
 
 ## Coverage and limitations
 
-Arimo and Tinos provide distinct sans-serif and serif measurements, including
+Arimo, Tinos, Carlito, Caladea, Source Sans 3 and JetBrains Mono provide
+additional sans, serif and monospace choices. The original Arimo and Tinos
+faces provide distinct sans-serif and serif measurements, including
 Latin, Greek, Cyrillic and Hebrew coverage. Dedicated Noto faces provide Arabic,
 Devanagari and Hebrew shaping support. Noto Emoji provides monochrome outlines;
 it is **not** Noto Color Emoji. The catalog does not supply color glyph rendering,
@@ -64,12 +78,16 @@ CJK fonts, every Unicode script, every future emoji or every requested family.
 Missing glyphs and family/style substitutions must be explicit layout diagnostics.
 Never fetch a host font to hide a missing-glyph result.
 
-Arial/Helvetica-to-Arimo and Times New Roman-to-Tinos mappings are substitutions,
+Arial/Helvetica-to-Arimo, Times New Roman-to-Tinos, Calibri-to-Carlito and
+Cambria-to-Caladea mappings are substitutions,
 not proof that proprietary fonts are installed. Preserve the document's requested
 family independently from the resolved font. These metrics and fonts do not
 establish Microsoft Word pagination parity.
 
-The pinned bytes parsed successfully with FontTools 4.61.1 checksum validation.
+The original v1 pinned bytes parsed successfully with FontTools 4.61.1
+checksum validation. The new v2 font files have immutable upstream blob IDs,
+byte counts and SHA-256 hashes checked by `verify.py`; independent rendering
+and layout parity on real devices remain outstanding.
 An isolated Parley 0.13.0/Skrifa 0.49.0 probe using only these files passed four
 native tests: mixed-script shaping and outline extraction; several emoji ZWJ,
 regional-indicator, keycap and skin-tone sequences; explicit missing CJK glyphs;
@@ -81,7 +99,7 @@ reports no Chinese/Japanese segmentation model; CJK is unsupported for both
 catalog coverage and this initial line-breaking profile. WASM layout parity and
 the engine's regression suite are verified separately.
 
-Both Latin families contain GPOS kerning and mark positioning. Their Latin
+The original Arimo and Tinos Latin families contain GPOS kerning and mark positioning. Their Latin
 ligatures are discretionary (`dlig`), not the default `liga` feature; ordinary
 `office` text must not be assumed to ligate. Noto Sans Arabic includes standard
 and required ligature features. Do not enable discretionary typography silently
