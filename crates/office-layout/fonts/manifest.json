@@ -1,5 +1,5 @@
 {
-  "catalog_id": "writer-fonts-v4",
+  "catalog_id": "writer-fonts-v5",
   "format_version": 1,
   "entries": [
     {
@@ -1212,15 +1212,312 @@
       "kind": "license",
       "spdx": "OFL-1.1",
       "sha256": "152a1e283e23b42c4940da4c72f2f5bebaa17969cb77c76d7af05903846006f1"
+    },
+    {
+      "file": "WorkSans-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/worksans/WorkSans[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/worksans/WorkSans%5Bwght%5D.ttf",
+      "git_blob_sha1": "588dc07e6904ba80deeefb88ecc41d139d56ebfb",
+      "byte_length": 361072,
+      "kind": "font",
+      "sha256": "f50f61f2ba738e239442d40bf1069adb195c224b6a5a73a581fc2f3ed62a9f63",
+      "family": "Work Sans",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "WorkSans.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "WorkSans-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/worksans/WorkSans-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/worksans/WorkSans-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "b114392cc4f8ac63324aee656c2a869cd853abbe",
+      "byte_length": 336756,
+      "kind": "font",
+      "sha256": "0a9f935ea490d3477fc97e40248f356c29bce11a1973939056c4316b122341ec",
+      "family": "Work Sans",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "WorkSans.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "CrimsonPro-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/crimsonpro/CrimsonPro[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/crimsonpro/CrimsonPro%5Bwght%5D.ttf",
+      "git_blob_sha1": "b8c1f6da0acbf2cb6d0af49ce89557288c829daa",
+      "byte_length": 246324,
+      "kind": "font",
+      "sha256": "16aa9fb7300a93637da51fac03a071b2ff08b6bbf65f99c794c25f040b58af6a",
+      "family": "Crimson Pro",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "CrimsonPro.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 200,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "CrimsonPro-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/crimsonpro/CrimsonPro-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/crimsonpro/CrimsonPro-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "d8fb3a3c3ad32ca5608969654feb002df9dd78f9",
+      "byte_length": 253176,
+      "kind": "font",
+      "sha256": "a74dc11dcf2fbb1452064e42395a40a907ca630b49cff86012223785e52b2559",
+      "family": "Crimson Pro",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "CrimsonPro.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 200,
+          "maximum": 900
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "Fraunces-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/fraunces/Fraunces[SOFT,WONK,opsz,wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/fraunces/Fraunces%5BSOFT,WONK,opsz,wght%5D.ttf",
+      "git_blob_sha1": "8210f9488d3c732359a9292dd09aca3f2bae830e",
+      "byte_length": 360440,
+      "kind": "font",
+      "sha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
+      "family": "Fraunces",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Fraunces.OFL.txt",
+      "axes": [
+        {
+          "tag": "opsz",
+          "minimum": 9,
+          "maximum": 144
+        },
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        },
+        {
+          "tag": "SOFT",
+          "minimum": 0,
+          "maximum": 100
+        },
+        {
+          "tag": "WONK",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "Fraunces-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/fraunces/Fraunces-Italic[SOFT,WONK,opsz,wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/fraunces/Fraunces-Italic%5BSOFT,WONK,opsz,wght%5D.ttf",
+      "git_blob_sha1": "2ddf59a11b89a3d6b2816ea6ae7965026c08143a",
+      "byte_length": 414904,
+      "kind": "font",
+      "sha256": "b24448c43702fac4ee856781d461a0dfba8d8e594b6e8e190234b75fed2c0e01",
+      "family": "Fraunces",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "Fraunces.OFL.txt",
+      "axes": [
+        {
+          "tag": "opsz",
+          "minimum": 9,
+          "maximum": 144
+        },
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 900
+        },
+        {
+          "tag": "SOFT",
+          "minimum": 0,
+          "maximum": 100
+        },
+        {
+          "tag": "WONK",
+          "minimum": 0,
+          "maximum": 1
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "RobotoMono-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/robotomono/RobotoMono[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/robotomono/RobotoMono%5Bwght%5D.ttf",
+      "git_blob_sha1": "f21d1d716bce3cc756bc618d32be71ce6f733f81",
+      "byte_length": 183700,
+      "kind": "font",
+      "sha256": "66a80e79d17e4c7cabd162e2916578a4cc08fd19eef6e2a643305eae9c567b2b",
+      "family": "Roboto Mono",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "RobotoMono.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "RobotoMono-Italic.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/robotomono/RobotoMono-Italic[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/robotomono/RobotoMono-Italic%5Bwght%5D.ttf",
+      "git_blob_sha1": "414a5121f4ca743f0c64e82e22d91e426aa7d432",
+      "byte_length": 196792,
+      "kind": "font",
+      "sha256": "49ac343bb7b070071e53f0a8a501d68d140ed98ebd0a43b6b8fb96cf22f09ff7",
+      "family": "Roboto Mono",
+      "style": "italic",
+      "weight": 400,
+      "license_file": "RobotoMono.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 100,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "Oswald-Regular.ttf",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/oswald/Oswald[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/oswald/Oswald%5Bwght%5D.ttf",
+      "git_blob_sha1": "d1a3b9cb1325bf20b3a06ef9849d21c411212a3b",
+      "byte_length": 172088,
+      "kind": "font",
+      "sha256": "5b38c246e255a12f5712d640d56bcced0472466fc68983d2d0410ec0457c2817",
+      "family": "Oswald",
+      "style": "normal",
+      "weight": 400,
+      "license_file": "Oswald.OFL.txt",
+      "axes": [
+        {
+          "tag": "wght",
+          "minimum": 200,
+          "maximum": 700
+        }
+      ],
+      "face_index": 0
+    },
+    {
+      "file": "WorkSans.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/worksans/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/worksans/OFL.txt",
+      "git_blob_sha1": "d3a046cf574819c79d216914d71d987d6a2be34b",
+      "byte_length": 4396,
+      "kind": "license",
+      "sha256": "749aca05078664ce682dce1b1b10096ac397cb088c1a6df4e1bb56f0092a9272",
+      "spdx": "OFL-1.1"
+    },
+    {
+      "file": "CrimsonPro.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/crimsonpro/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/crimsonpro/OFL.txt",
+      "git_blob_sha1": "6a7d97cd277b519a8bd3d38fcc56b5a133ac8354",
+      "byte_length": 4393,
+      "kind": "license",
+      "sha256": "1820869bd5baa1c2d88fa87c89eea532cf9442d841008acab720654b7f82823d",
+      "spdx": "OFL-1.1"
+    },
+    {
+      "file": "Fraunces.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/fraunces/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/fraunces/OFL.txt",
+      "git_blob_sha1": "22fa7ce5733434d0c634f6e55116f410858e938c",
+      "byte_length": 4391,
+      "kind": "license",
+      "sha256": "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b",
+      "spdx": "OFL-1.1"
+    },
+    {
+      "file": "RobotoMono.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/robotomono/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/robotomono/OFL.txt",
+      "git_blob_sha1": "8e7df338d36eb52c49548ecc58afcb7eb3f73898",
+      "byte_length": 4395,
+      "kind": "license",
+      "sha256": "50ab8dd54680d3473f649c9db86fece88434d097c7834475c1c72d2f8c429215",
+      "spdx": "OFL-1.1"
+    },
+    {
+      "file": "Oswald.OFL.txt",
+      "repository": "google/fonts",
+      "commit": "cc39c4c2c304bc368c9b7c311ea2bcc6013299fe",
+      "source_path": "ofl/oswald/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/oswald/OFL.txt",
+      "git_blob_sha1": "4d4e319b6114be0174e6de5d8090408f78dc65b8",
+      "byte_length": 4483,
+      "kind": "license",
+      "sha256": "0fd731a904b729a4e02eaf5e8ebd06783edd9abe400e8882760160230675b652",
+      "spdx": "OFL-1.1"
     }
   ],
   "retrieved_on": "2026-11-16",
-  "font_bytes": 18929220,
+  "font_bytes": 21454472,
   "derived_files": [
     {
       "file": "NOTICE.txt",
-      "byte_length": 89508,
-      "sha256": "3e90a64a0d559437d8802b10052f1b4a9b54dea9635151123f5f59ef6ce64623",
+      "byte_length": 112985,
+      "sha256": "1e5b8532765566a5a692b3ae745e91409466885907d379468a3e6209fbaae688",
       "description": "Complete unmodified upstream notices, combined with source headings."
     }
   ]
