@@ -4,10 +4,11 @@
 use serde::Deserialize;
 
 use super::{
-    Block, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, Section,
-    SectionProperties, TextRun,
+    Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section,
+    SectionProperties,
 };
 use crate::{DocumentError, ParagraphFormat};
+use super::v3::{V3NamedStyle, V3TextRun};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16,7 +17,7 @@ struct V2Document {
     id: Id,
     metadata: DocumentMetadata,
     sections: Vec<V2Section>,
-    styles: Vec<NamedStyle>,
+    styles: Vec<V3NamedStyle>,
 }
 
 #[derive(Deserialize)]
@@ -37,7 +38,7 @@ enum V2Block {
 #[serde(deny_unknown_fields)]
 struct V2Paragraph {
     id: Id,
-    runs: Vec<TextRun>,
+    runs: Vec<V3TextRun>,
     style: Option<Id>,
     format: ParagraphFormat,
 }
@@ -49,7 +50,7 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
     let sections = value.sections.into_iter().map(|section| {
         let blocks = section.blocks.into_iter().map(|block| match block {
             V2Block::Paragraph(old) => {
-                let mut paragraph = Paragraph::new(old.id, old.runs)
+                let mut paragraph = Paragraph::new(old.id, old.runs.into_iter().map(Into::into).collect())
                     .with_format(old.format)
                     .with_list(None::<ListKind>);
                 if let Some(style) = old.style {
@@ -64,6 +65,7 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
         }
         current
     }).collect();
-    Document::from_parts(value.id, value.metadata, sections, value.styles)
+    Document::from_parts(value.id, value.metadata, sections,
+        value.styles.into_iter().map(Into::into).collect())
         .map_err(DocumentError::from)
 }
