@@ -263,6 +263,78 @@
 }
 
 @font-face {
+  font-family: 'Work Sans';
+  src: url('../../../crates/office-layout/fonts/WorkSans-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Work Sans';
+  src: url('../../../crates/office-layout/fonts/WorkSans-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Crimson Pro';
+  src: url('../../../crates/office-layout/fonts/CrimsonPro-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Crimson Pro';
+  src: url('../../../crates/office-layout/fonts/CrimsonPro-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('../../../crates/office-layout/fonts/Fraunces-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  src: url('../../../crates/office-layout/fonts/Fraunces-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../../../crates/office-layout/fonts/RobotoMono-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../../../crates/office-layout/fonts/RobotoMono-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Oswald';
+  src: url('../../../crates/office-layout/fonts/Oswald-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Noto Sans Arabic';
   src: url('../../../crates/office-layout/fonts/NotoSansArabic.ttf') format('truetype');
   font-style: normal;

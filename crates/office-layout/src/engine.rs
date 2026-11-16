@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v4";
+const CATALOG_ID: &str = "writer-fonts-v5";
 
 struct PinnedFont {
     id: &'static str,
@@ -112,6 +112,16 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("DMSans-Italic.ttf", include_bytes!("../fonts/DMSans-Italic.ttf")),
     ("Bitter-Regular.ttf", include_bytes!("../fonts/Bitter-Regular.ttf")),
     ("Bitter-Italic.ttf", include_bytes!("../fonts/Bitter-Italic.ttf")),
+    // v5: opt-in official OFL faces, preserving existing fallback order.
+    ("WorkSans-Regular.ttf", include_bytes!("../fonts/WorkSans-Regular.ttf")),
+    ("WorkSans-Italic.ttf", include_bytes!("../fonts/WorkSans-Italic.ttf")),
+    ("CrimsonPro-Regular.ttf", include_bytes!("../fonts/CrimsonPro-Regular.ttf")),
+    ("CrimsonPro-Italic.ttf", include_bytes!("../fonts/CrimsonPro-Italic.ttf")),
+    ("Fraunces-Regular.ttf", include_bytes!("../fonts/Fraunces-Regular.ttf")),
+    ("Fraunces-Italic.ttf", include_bytes!("../fonts/Fraunces-Italic.ttf")),
+    ("RobotoMono-Regular.ttf", include_bytes!("../fonts/RobotoMono-Regular.ttf")),
+    ("RobotoMono-Italic.ttf", include_bytes!("../fonts/RobotoMono-Italic.ttf")),
+    ("Oswald-Regular.ttf", include_bytes!("../fonts/Oswald-Regular.ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -972,6 +982,11 @@ fn resolved_family(requested: &str) -> &'static str {
         "montserrat" => "Montserrat",
         "dm sans" => "DM Sans",
         "bitter" => "Bitter",
+        "work sans" => "Work Sans",
+        "crimson pro" => "Crimson Pro",
+        "fraunces" => "Fraunces",
+        "roboto mono" => "Roboto Mono",
+        "oswald" => "Oswald",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
         "noto sans devanagari" => "Noto Sans Devanagari",
         "noto sans hebrew" => "Noto Sans Hebrew",
