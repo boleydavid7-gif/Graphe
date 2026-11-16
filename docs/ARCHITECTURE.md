@@ -206,12 +206,12 @@ Individually assembled property records can contain invalid values until they
 are accepted into a document.
 
 The document payload representation is UTF-8 JSON, currently schema version
-**2**. Its version is independent of the engine crate version and the native
+**3**. First-level semantic list membership is an optional paragraph field. Its version is independent of the engine crate version and the native
 file envelope version. A minimal valid model payload is:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "id": "document-1",
   "metadata": { "title": "" },
   "sections": [],
@@ -234,8 +234,9 @@ fixture rather than being relabeled with a newer schema.
 checks shape and invariants. It returns `DocumentError` variants for unsupported
 versions, JSON errors, or validation errors. Future versions are rejected even
 if their payload shape differs. Schema 1 is decoded with its strict historical
-section/paragraph-property records, then migrated to schema 2 with new properties
-unspecified. New fields inside a schema-1 payload are errors, even when null.
+section/paragraph-property records, then migrated to the current schema with new
+properties unspecified. Schema 2 has a separate strict migration; neither
+old version can carry new list fields. Unknown fields are rejected even when null.
 Stable IDs, optional-value distinctions, text and ordered collections survive.
 Direct Serde JSON loading preserves raw object text and delegates to the same
 versioned decoder, retaining duplicate-key rejection; generic Serde errors lose
@@ -256,9 +257,9 @@ UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
 ```json
 {
   "format": "office-writer",
-  "format_version": 2,
+  "format_version": 3,
   "document": {
-    "schema_version": 2,
+    "schema_version": 3,
     "id": "document-1",
     "metadata": { "title": "" },
     "sections": [],
@@ -271,8 +272,8 @@ UTF-8 JSON envelope, without ZIP packaging or a custom binary layer:
 these native format values. `format_version` describes the file envelope;
 `document.schema_version` describes the enclosed model. The engine's application
 version is separate and is not written into the file. The current writer emits
-native format 2/model schema 2. Native format 1/model schema 1 is supported through
-the strict migration; mixing these envelope/model versions is rejected. Bare model JSON remains useful through
+native format 3/model schema 3. Native formats 1/2 and model schemas 1/2
+are supported through strict migrations; mixing envelope/model versions is rejected. Bare model JSON remains useful through
 `Document::from_json` but is not accepted as an implicit `.writer` file.
 
 `serialize_document(&Document)` validates the complete model and returns
@@ -384,9 +385,10 @@ do not claim protection against adversarial concurrent pathname changes.
 #### Compatibility and future adapters
 
 Loading never changes the source file. Unsupported native or model versions fail
-explicitly. The only migration is native format 1/schema 1 into format 2/schema 2
-state, with no retained source synthesized. Reading does not rewrite the original;
-later serialization emits the current version. Further migrations require an
+explicitly. Formats 1 and 2 migrate independently into native format 3/schema 3
+without synthesizing a retained source or list membership. Reading never
+rewrites the original; later serialization emits the current version.
+Further migrations require an
 explicit source/target transformation, validated results and retained fixtures.
 Old payloads must not silently acquire newer fields or meanings.
 
