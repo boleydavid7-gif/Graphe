@@ -158,6 +158,7 @@ pub struct CharacterFormat {
     /// An explicit color or automatic color request.
     pub color: Option<TextColor>,
     /// Optional safe HTTP(S) link target on a text run (not inherited from HTML).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hyperlink: Option<String>,
 }
 
