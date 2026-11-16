@@ -1189,3 +1189,18 @@ Increase the font-catalog identity to v2. Keep a native grouped font selector
 and small inspector preview, with unknown imported names preserved and labeled
 as substituted. Defer more large families until WebAssembly bundle growth and
 real-device performance are measured.
+
+## 2026-11-16 — Four more pinned Graphe font families
+
+Choose Lora, Montserrat, DM Sans and Bitter as opt-in families with real
+upstream original TTF files, each including separate upright and italic
+variable faces with actual weight axes. Add them to the Rust collection,
+the native font menu and the lazy browser previews without changing the
+fallback order or rewriting preserved imported font-family names. Increase
+the pinned catalog marker to `writer-fonts-v4`; no document schema change.
+
+Retain their complete unmodified SIL OFL 1.1 licenses alongside each source
+asset and in the existing combined NOTICE; update provenance, immutable blob
+identity and SHA-256 checksums. Expect 3.11 MB extra uncompressed font data
+in the Rust/WASM build. Require native, WASM, browser and real-device checks
+before claiming performance or rendering parity across platforms.

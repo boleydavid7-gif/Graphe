@@ -199,6 +199,70 @@
 }
 
 @font-face {
+  font-family: 'Lora';
+  src: url('../../../crates/office-layout/fonts/Lora-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lora';
+  src: url('../../../crates/office-layout/fonts/Lora-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('../../../crates/office-layout/fonts/Montserrat-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('../../../crates/office-layout/fonts/Montserrat-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('../../../crates/office-layout/fonts/DMSans-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('../../../crates/office-layout/fonts/DMSans-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 1000;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bitter';
+  src: url('../../../crates/office-layout/fonts/Bitter-Regular.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Bitter';
+  src: url('../../../crates/office-layout/fonts/Bitter-Italic.ttf') format('truetype');
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Noto Sans Arabic';
   src: url('../../../crates/office-layout/fonts/NotoSansArabic.ttf') format('truetype');
   font-style: normal;
