@@ -331,6 +331,14 @@ impl LayoutEngine {
         for run in paragraph.runs() {
             let mut format = base.clone();
             overlay_character(&mut format, &run.format);
+            if format.hyperlink.is_some() {
+                if format.underline.is_none() {
+                    format.underline = Some(Underline::Single);
+                }
+                if format.color.is_none() {
+                    format.color = Some(TextColor::Rgb { red: 23, green: 98, blue: 166 });
+                }
+            }
             formats.push(format);
             ranges.push((offset..offset + run.text.len(), formats.len() - 1));
             offset += run.text.len();
