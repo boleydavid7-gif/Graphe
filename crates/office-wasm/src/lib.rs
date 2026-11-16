@@ -342,6 +342,13 @@ impl BrowserEngine {
                 selection,
                 ..
             } => self.format_paragraph(alignment, selection),
+            Command::SetParagraphMetrics {
+                spacing_before_pt, spacing_after_pt, line_spacing_multiple,
+                indent_left_in, indent_right_in, first_line_in, selection, ..
+            } => self.set_paragraph_metrics(
+                spacing_before_pt, spacing_after_pt, line_spacing_multiple,
+                indent_left_in, indent_right_in, first_line_in, selection,
+            ),
             Command::SetList { list, selection, .. } => self.set_list(list, selection),
             Command::SetHyperlink { url, text, selection, .. } =>
                 self.set_hyperlink(url, text, selection),
