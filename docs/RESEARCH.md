@@ -1202,3 +1202,47 @@ Full browser, Windows, Linux and macOS suites are excluded at owner request;
 real-device/mobile checks must be performed manually. The connected
 development environment cannot independently compile the Rust/WASM target,
 so a Cloudflare build and targeted test execution are still required.
+
+## Expanded pinned typography catalog — November 2026
+
+**Question:** How can Graphe add credible fonts without host-dependent layout,
+network font fetching, unlicensed redistribution, or pretending unsupported
+typefaces are genuinely rendered?
+
+**Primary material reviewed:** Graphe's existing deterministic Parley/Skrifa
+catalog, manifest and offline verifier; the [Google Fonts repository pinned at
+cc39c4c](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl);
+each family's full SIL Open Font License 1.1; official family metadata for
+variable-weight axes and actual font binaries. Carlito is an approximate
+Calibri-metric substitute, Caladea a Cambria-metric substitute; neither proves
+Word-pagination parity. An open upstream Carlito issue also documents some
+metric differences, so documents keep requested names and receive substitution
+diagnostics rather than being relabeled.
+
+**Alternatives considered:** Allow host-installed fonts (rejected: identical
+documents paginate differently by device); fetch fonts during Rust layout
+(rejected: offline/privacy/licensing consistency); add menu-only names pointing
+to Arimo (rejected: misleading); install dozens of faces (rejected: WASM size);
+add four curated families with original binary files and complete licenses
+(chosen). Carlito and Caladea provide actual regular/bold/italic/bold-italic
+faces; Source Sans 3 and JetBrains Mono provide distinct upright and italic
+variable-weight files. Bundled font count rises from 10 to 22, bytes from
+6,884,780 to 11,372,728. Browser previews use the same locally shipped
+assets via on-demand CSS faces. No runtime third-party font service exists.
+
+**Compatibility:** Bump pinned layout-font catalog from
+`writer-fonts-v1` to `writer-fonts-v2`; do not change document or Writer
+native schemas. Preserve every requested DOCX font-family name and report
+substitution when the pinned family differs. Add Calibri→Carlito,
+Cambria→Caladea and Source Sans Pro→Source Sans 3 as known mappings.
+More fonts are not proof of full Microsoft Word layout equivalence.
+
+**Provenance and verification:** Copy the official binaries byte-for-byte
+using their upstream Git blob identities; pin original URL/revision, size,
+SHA-256 and licensing in `fonts/manifest.json`, `SHA256SUMS`, per-family
+`*.OFL.txt` and regenerated combined `NOTICE.txt`. Existing independent
+font verifier must continue to pass. Added Rust tests for genuine font
+outlines, style variants and substitutions. Browser, Windows, Linux and macOS
+suites remain deliberately excluded from this change per owner preference;
+Rust/WASM compilation, visual review and real-device font-loading still need
+deployment verification.
