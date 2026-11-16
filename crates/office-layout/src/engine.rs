@@ -79,6 +79,21 @@ const FONT_FILES: &[(&str, &[u8])] = &[
         include_bytes!("../fonts/NotoSansHebrew.ttf"),
     ),
     ("NotoEmoji.ttf", include_bytes!("../fonts/NotoEmoji.ttf")),
+    // Additive, opt-in OFL fonts. Existing fallback ordering stays unchanged.
+    ("Carlito-Regular.ttf", include_bytes!("../fonts/Carlito-Regular.ttf")),
+    ("Carlito-Italic.ttf", include_bytes!("../fonts/Carlito-Italic.ttf")),
+    ("Carlito-Bold.ttf", include_bytes!("../fonts/Carlito-Bold.ttf")),
+    ("Carlito-BoldItalic.ttf", include_bytes!("../fonts/Carlito-BoldItalic.ttf")),
+    ("Caladea-Regular.ttf", include_bytes!("../fonts/Caladea-Regular.ttf")),
+    ("Caladea-Italic.ttf", include_bytes!("../fonts/Caladea-Italic.ttf")),
+    ("Caladea-Bold.ttf", include_bytes!("../fonts/Caladea-Bold.ttf")),
+    ("Caladea-BoldItalic.ttf", include_bytes!("../fonts/Caladea-BoldItalic.ttf")),
+    ("SourceSans3-Regular.ttf", include_bytes!("../fonts/SourceSans3-Regular.ttf")),
+    ("SourceSans3-Italic.ttf", include_bytes!("../fonts/SourceSans3-Italic.ttf")),
+    ("EBGaramond-Regular.ttf", include_bytes!("../fonts/EBGaramond-Regular.ttf")),
+    ("EBGaramond-Italic.ttf", include_bytes!("../fonts/EBGaramond-Italic.ttf")),
+    ("JetBrainsMono-Regular.ttf", include_bytes!("../fonts/JetBrainsMono-Regular.ttf")),
+    ("JetBrainsMono-Italic.ttf", include_bytes!("../fonts/JetBrainsMono-Italic.ttf")),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -924,8 +939,14 @@ fn validate_spacing(spacing: LineSpacing) -> Result<(), LayoutError> {
 }
 
 fn resolved_family(requested: &str) -> &'static str {
-    match requested.to_ascii_lowercase().as_str() {
+    match requested.trim().to_ascii_lowercase().as_str() {
         "tinos" | "times" | "times new roman" | "serif" => "Tinos",
+        // Carlito/Caladea were designed as metric-compatible alternatives.
+        "carlito" | "calibri" => "Carlito",
+        "caladea" | "cambria" => "Caladea",
+        "source sans 3" | "source sans pro" => "Source Sans 3",
+        "eb garamond" => "EB Garamond",
+        "jetbrains mono" | "jetbrainsmono" => "JetBrains Mono",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
         "noto sans devanagari" => "Noto Sans Devanagari",
         "noto sans hebrew" => "Noto Sans Hebrew",
@@ -935,8 +956,10 @@ fn resolved_family(requested: &str) -> &'static str {
 }
 
 fn font_list(primary: &str) -> String {
+    // Never select host/system fonts. Keep the original fallback faces first
+    // so existing documents retain their pinned glyph and page geometry.
     format!(
-        "{primary}, Arimo, Tinos, Noto Sans Arabic, Noto Sans Devanagari, Noto Sans Hebrew, Noto Emoji"
+        "{primary}, Arimo, Tinos, Noto Sans Arabic, Noto Sans Devanagari, Noto Sans Hebrew, Noto Emoji, Carlito, Caladea, Source Sans 3, EB Garamond, JetBrains Mono"
     )
 }
 
