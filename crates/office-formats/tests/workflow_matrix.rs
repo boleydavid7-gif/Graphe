@@ -47,6 +47,7 @@ fn sample() -> Document {
                                 green: 70,
                                 blue: 110,
                             }),
+                            hyperlink: None,
                         },
                     },
                     TextRun::new(". Unicode e\u{301} 👩🏽‍💻 العربية नमस्ते שלום."),
