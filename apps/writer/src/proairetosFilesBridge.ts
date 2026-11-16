@@ -1,6 +1,6 @@
 /** Only the embedding ProairetOS origin can receive document bytes.
  * No file is sent until the user explicitly selects Save to ProairetOS. */
-const HOSTS = new Set(['https://proairetos.com', 'https://research-and-development-proairetos.boleydavid7.workers.dev https://feature-graphe-integration-isolated-20261116-proairetos.boleydavid7.workers.dev']);
+const HOSTS = new Set(['https://proairetos.com', 'https://research-and-development-proairetos.boleydavid7.workers.dev', 'https://feature-graphe-integration-isolated-20261116-proairetos.boleydavid7.workers.dev']);
 const MAX_BYTES = 10 * 1024 * 1024;
 let connectedHost: string | null = null;
 export type FilesOpenPayload = { fileId: string; name: string; mime: string; data: ArrayBuffer };
