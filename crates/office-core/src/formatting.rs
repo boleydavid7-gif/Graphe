@@ -157,6 +157,8 @@ pub struct CharacterFormat {
     pub font_size: Option<HalfPoints>,
     /// An explicit color or automatic color request.
     pub color: Option<TextColor>,
+    /// Optional safe HTTP(S) link target on a text run (not inherited from HTML).
+    pub hyperlink: Option<String>,
 }
 
 impl CharacterFormat {
@@ -173,6 +175,13 @@ impl CharacterFormat {
             ));
         }
 
+        if let Some(url) = &self.hyperlink {
+            if !valid_hyperlink(url) {
+                return Err(invalid(path, "hyperlink",
+                    "link must be an HTTP or HTTPS URL without credentials, controls, or whitespace"));
+            }
+        }
+
         if self.font_size.is_some_and(|size| size.0 == 0) {
             return Err(invalid(
                 path,
@@ -183,6 +192,24 @@ impl CharacterFormat {
 
         Ok(())
     }
+}
+
+/// Validate a bounded, navigation-safe HTTP(S) destination without network access.
+/// Only the browser can decide whether to open a validated external link.
+/// Credentials, backslashes, whitespace and control characters are forbidden.
+#[must_use]
+pub fn valid_hyperlink(url: &str) -> bool {
+    if url.len() > 2048 || url.is_empty() || url.chars().any(|ch|
+        ch.is_whitespace() || ch.is_control() || matches!(ch, '\\' | '<' | '>' | '"')
+    ) {
+        return false;
+    }
+    let Some(tail) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) else {
+        return false;
+    };
+    let authority = tail.split(&['/', '?', '#'][..]).next().unwrap_or("");
+    !authority.is_empty() && !authority.contains('@')
+        && !authority.starts_with(':') && !authority.ends_with(':')
 }
 
 /// Horizontal paragraph alignment.
