@@ -40,7 +40,6 @@ fn all_new_families_are_shaped_from_their_actual_bundled_font_files() {
         ("Bitter", "Bitter"),
         ("Work Sans", "WorkSans"),
         ("Crimson Pro", "CrimsonPro"),
-        ("Fraunces", "Fraunces"),
         ("Roboto Mono", "RobotoMono"),
         ("Oswald", "Oswald"),
     ] {
@@ -72,7 +71,7 @@ fn variable_faces_support_italic_and_weight_selection() {
         "Source Sans 3", "JetBrains Mono", "EB Garamond",
         "Inter", "Libre Baskerville", "Playfair Display",
         "Lora", "Montserrat", "DM Sans", "Bitter",
-        "Work Sans", "Crimson Pro", "Fraunces", "Roboto Mono",
+        "Work Sans", "Crimson Pro", "Roboto Mono",
     ] {
         let normal = sample(family, false, false);
         let italic = sample(family, false, true);
@@ -107,4 +106,12 @@ fn oswald_uses_its_own_real_variable_weight_font() {
     assert!(regular.outlines.iter().all(|face| face.font_id.starts_with("Oswald")));
     assert!(bold.outlines.iter().all(|face| face.font_id.starts_with("Oswald")));
     assert_ne!(regular.outlines[0].path, bold.outlines[0].path);
+}
+
+#[test]
+fn retired_fraunces_family_uses_bundled_playfair_display_with_substitution_notice() {
+    let layout = sample("Fraunces", false, false);
+    assert!(!layout.outlines.is_empty());
+    assert!(layout.outlines.iter().all(|face| face.font_id.starts_with("PlayfairDisplay")));
+    assert!(layout.diagnostics.iter().any(|issue| issue.kind == "font_substitution"));
 }
