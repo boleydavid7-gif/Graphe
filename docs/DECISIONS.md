@@ -1173,3 +1173,19 @@ cannot become an independent document model.
 Do not change native schema version or regenerate document content to achieve
 paragraph spacing. Native pages and DOCX already support these properties.
 This release deliberately excludes page margins, style editing and tab stops.
+
+## 2026-11-16 — Four new locally pinned font families
+
+Add Carlito, Caladea, Source Sans 3 and JetBrains Mono as *real fonts* in both
+the deterministic Rust shaping catalog and the UI's demand-loaded previews.
+Keep the existing sans, serif and international fallback order. Native document
+formats and requested font names do not change. Explicit substitutions:
+Calibri→Carlito, Cambria→Caladea, Source Sans Pro→Source Sans 3; these are
+compatibility aids, not Word pagination guarantees.
+
+Maintain one complete OFL license per new family, combined NOTICE and hash-/
+blob-verified manifest; never rely on network fonts or commercial system fonts.
+Increase the font-catalog identity to v2. Keep a native grouped font selector
+and small inspector preview, with unknown imported names preserved and labeled
+as substituted. Defer more large families until WebAssembly bundle growth and
+real-device performance are measured.
