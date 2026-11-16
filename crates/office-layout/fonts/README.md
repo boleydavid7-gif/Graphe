@@ -1,9 +1,9 @@
-# Writer font catalog `writer-fonts-v5`
+# Writer font catalog `writer-fonts-v6`
 
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The 48 pinned fonts total **21,454,472 bytes** (20.46 MiB). The new families
+operating system and browser. The 46 pinned fonts total **20,679,128 bytes** (19.72 MiB). The new families
 increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
@@ -42,7 +42,6 @@ face.
 | Bitter-Regular.ttf / Bitter-Italic.ttf | Google Fonts pinned | Slab serif, `wght` 100–900; upright and genuine italic |
 | WorkSans-Regular.ttf / WorkSans-Italic.ttf | Google Fonts pinned | Sans serif, `wght` 100–900; upright and genuine italic |
 | CrimsonPro-Regular.ttf / CrimsonPro-Italic.ttf | Google Fonts pinned | Classical serif, `wght` 200–900; upright and genuine italic |
-| Fraunces-Regular.ttf / Fraunces-Italic.ttf | Google Fonts pinned | Display serif, `wght` 100–900, `opsz` 9–144, `SOFT` 0–100, `WONK` 0–1; upright/italic |
 | RobotoMono-Regular.ttf / RobotoMono-Italic.ttf | Google Fonts pinned | Monospace, `wght` 100–700; upright and genuine italic |
 | Oswald-Regular.ttf | Google Fonts pinned | Condensed display sans, `wght` 200–700; upright only (no bundled italic) |
 
@@ -73,7 +72,7 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   pinned from the same [google/fonts `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl) revision.
   Their complete, unmodified OFL licenses are appended to the existing `NOTICE.txt`.
 
-All twenty-four families use **SIL Open Font License 1.1**. Each complete upstream
+All twenty-three currently bundled families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
 distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
 No font binaries or internal font names have been modified, and the original
@@ -172,3 +171,5 @@ a genuine Oswald italic. Fraunces has additional optical-size, softness and
 WONK variation axes; Graphe currently exposes only normal/italic and bold
 controls (other axes remain at their file defaults). This is an opt-in
 catalog expansion with no change to the fallback chain or document format.
+
+Catalog v6 retires Fraunces (regular and italic, 775,344 original font bytes) for the Cloudflare 25 MiB per-asset limit. Playfair Display remains available and is the declared substitution for documents that still request Fraunces; their requested family names remain unchanged. The old v5 description above is historical; Fraunces binaries and notices are not distributed in v6. All other pinned font families and document capabilities remain unchanged.
