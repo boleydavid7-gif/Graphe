@@ -996,7 +996,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app" onKeyDownCapture={(event) => {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
-      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog) {
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog) {
       event.preventDefault();
       event.stopPropagation();
       openHyperlink();
