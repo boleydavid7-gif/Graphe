@@ -1126,3 +1126,38 @@ styles, arbitrary restart values and mixed numbering definitions are deferred.
 current container has no Rust toolchain or network route; code review and
 regression additions are possible, but CI/Cloudflare compile feedback and
 manual phone testing are still required before treating this feature as stable.
+
+## Hyperlink subsystem — November 2026
+
+Question: How can Graphe support external links without browser-owned document
+state, unsafe navigation, or losing data across the native/OOXML adapters?
+
+Evidence: ECMA-376 / OOXML OPC relationships and WordprocessingML use
+`w:hyperlink r:id` referencing external hyperlink relationships with
+`TargetMode="External"`, not inline URL text:
+https://download.microsoft.com/download/e/1/4/e14fb96f-83b8-4a2a-84db-7fa8acbe061a/Office%20Open%20XML%20Part%201%20-%20Fundamentals.pdf .
+ProseMirror treats links as non-inclusive inline marks with URL attributes:
+https://prosemirror.net/examples/schema/ .
+
+Alternatives: (1) browser-only HTML anchors: rejected (breaks Rust selection,
+undo, native and external copies); (2) separate document-wide offset annotations:
+rejected for v1 (every edit must rebase ranges); (3) a validated optional link
+target on Rust's per-run character properties: chosen, because existing
+transactions split and preserve Unicode-grapheme-bounded run formatting and
+styles resolve to a read-only view. Hyperlink commands are single core
+transactions. HTTP(S) only; forbid credentials, C0 controls, whitespace,
+backslashes and oversized URIs. No network or link execution in Rust.
+The browser's explicit Open action checks URL protocol and credentials again.
+
+Word export uses external relationships; Word import follows only validated
+relationship references (never fetches targets). Unknown relationship types
+and unsupported linked content remain preserved read-only. DOCX source-aware
+copy reattaches the generated link relationships, not stale source content.
+TXT/RTF/ODT/PDF exports warn when link targets would be lost.
+
+Native model and Writer envelope move from v3 to v4 with strict v1/v2/v3
+decoders; new link attributes must not be allowed under old version labels.
+Known limitations: first release supports HTTP/HTTPS only and link text
+selection, not internal anchors, email, automatic URL recognition, or cross-
+paragraph annotations. Browser/OS suites and real device checks are excluded
+at user request; code cannot be considered device-verified until manually tested.
