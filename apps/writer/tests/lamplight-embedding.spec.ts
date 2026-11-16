@@ -27,8 +27,9 @@ async function openHost(page: Page, hostUrl = host): Promise<Frame> {
   await page.route(hostUrl, (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
     <style>html,body{margin:0;height:100%;overflow:hidden}iframe{display:block;border:0;width:100%;height:100%}</style></head>
-    <body><script>window.writerReady=[];addEventListener('message',event=>{
+    <body><script>window.writerReady=[];window.writerFilesReady=[];addEventListener('message',event=>{
       if(event.data?.type==='writer:lamplight-ready')window.writerReady.push({origin:event.origin,data:event.data});
+      if(event.data?.type==='writer:files-ready')window.writerFilesReady.push({origin:event.origin,data:event.data});
     });</script><iframe title="Writer integration test" referrerpolicy="origin" src="${writer}/"></iframe></body></html>` }));
   await page.goto(hostUrl);
   await expect.poll(() => page.frames().filter((frame) => frame.url() === `${writer}/`).length).toBe(1);
@@ -65,6 +66,7 @@ test('isolated Graphe Worker Preview can embed the real editor and exchange Lamp
   await expect.poll(() => page.evaluate(() => (window as Window & { writerReady?: unknown[] }).writerReady?.length)).toBe(1);
   await theme(page);
   await expect(frame.locator('html')).toHaveAttribute('data-writer-appearance', 'dark');
+  await expect.poll(() => page.evaluate(() => (window as Window & { writerFilesReady?: unknown[] }).writerFilesReady?.length)).toBeGreaterThan(0);
   // An unrelated origin is never accepted even when it claims to be the host frame.
   await frame.evaluate((palette) => {
     window.dispatchEvent(new MessageEvent('message', { source: window.parent, origin: 'https://untrusted.invalid',
