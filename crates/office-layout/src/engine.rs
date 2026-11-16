@@ -941,10 +941,11 @@ fn validate_spacing(spacing: LineSpacing) -> Result<(), LayoutError> {
 fn resolved_family(requested: &str) -> &'static str {
     match requested.trim().to_ascii_lowercase().as_str() {
         "tinos" | "times" | "times new roman" | "serif" => "Tinos",
-        // Carlito/Caladea were designed as metric-compatible alternatives.
-        "carlito" | "calibri" => "Carlito",
-        "caladea" | "cambria" => "Caladea",
-        "source sans 3" | "source sans pro" => "Source Sans 3",
+        // New families are opt-in. Imported Calibri/Cambria/Source Sans Pro
+        // retain their prior fallback instead of silently reflowing documents.
+        "carlito" => "Carlito",
+        "caladea" => "Caladea",
+        "source sans 3" => "Source Sans 3",
         "eb garamond" => "EB Garamond",
         "jetbrains mono" | "jetbrainsmono" => "JetBrains Mono",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
@@ -956,10 +957,10 @@ fn resolved_family(requested: &str) -> &'static str {
 }
 
 fn font_list(primary: &str) -> String {
-    // Never select host/system fonts. Keep the original fallback faces first
-    // so existing documents retain their pinned glyph and page geometry.
+    // A newly selected font can be primary; the complete original fallback
+    // chain stays byte-for-byte unchanged for existing documents and tests.
     format!(
-        "{primary}, Arimo, Tinos, Noto Sans Arabic, Noto Sans Devanagari, Noto Sans Hebrew, Noto Emoji, Carlito, Caladea, Source Sans 3, EB Garamond, JetBrains Mono"
+        "{primary}, Arimo, Tinos, Noto Sans Arabic, Noto Sans Devanagari, Noto Sans Hebrew, Noto Emoji"
     )
 }
 
