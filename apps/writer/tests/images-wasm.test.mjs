@@ -202,3 +202,32 @@ for (const format of ['docx', 'odt']) {
     assert.notEqual(reimported.images[0].id, created.selectedImageId, 'External adapters allocate new document identities');
   });
 }
+
+
+test('image move/reflow is one Rust edit, retains image asset, and rejects cross-section targets', (context) => {
+  const value = engine(context);
+  const created = insert(value, png);
+  const imageId = created.selectedImageId;
+  const initial = native(value);
+  assert.deepEqual(created.bodyBlocks.map((block) => block.kind), ['paragraph', 'image', 'paragraph']);
+  const moved = command(value, { type: 'move_image', beforeBlockId: null,
+    alignment: 'right', expectedRevision: created.revision });
+  assert.deepEqual(moved.bodyBlocks.map((block) => block.kind), ['paragraph', 'paragraph', 'image']);
+  assert.equal(moved.images[0].alignment, 'right');
+  assert.equal(moved.selectedImageId, imageId);
+  assert.equal(picture(native(value)).asset.bytes_base64, picture(initial).asset.bytes_base64);
+  const after = native(value);
+  const invalid = JSON.parse(value.dispatch(JSON.stringify({
+    type: 'move_image', beforeBlockId: 'missing-block', alignment: 'left', expectedRevision: moved.revision,
+  })));
+  assert.equal(invalid.ok, false);
+  assert.deepEqual(native(value), after);
+  command(value, { type: 'undo' });
+  assert.deepEqual(native(value), initial);
+  command(value, { type: 'redo' });
+  assert.deepEqual(native(value), after);
+  const first = moved.bodyBlocks[0].id;
+  const back = command(value, { type: 'move_image', beforeBlockId: first, alignment: 'center' });
+  assert.deepEqual(back.bodyBlocks.map((block) => block.kind), ['image', 'paragraph', 'paragraph']);
+  assert.equal(back.images[0].alignment, 'center');
+});

@@ -281,6 +281,19 @@ impl BrowserEngine {
         Ok(())
     }
 
+    /// One atomic alignment and body-block ordering update.
+    pub(super) fn move_selected_image(
+        &mut self,
+        before_block_id: Option<String>,
+        alignment: ImageAlignment,
+    ) -> Result<(), EngineError> {
+        let image = self.selected_image_value()?;
+        let before = before_block_id.map(Id::new).transpose()?;
+        let mut transaction = self.session.begin_transaction();
+        transaction.move_image_before(image.id(), before.as_ref(), alignment)?;
+        self.commit(transaction, self.selection.clone())
+    }
+
     pub(super) fn resize_selected_image(
         &mut self,
         width_pt: Option<f64>,

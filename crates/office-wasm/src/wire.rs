@@ -38,6 +38,11 @@ pub(crate) enum Command {
         image_id: Option<String>,
         expected_revision: Option<String>,
     },
+    MoveImage {
+        before_block_id: Option<String>,
+        alignment: ImageAlignment,
+        expected_revision: Option<String>,
+    },
     ResizeImage {
         width_pt: Option<f64>,
         height_pt: Option<f64>,
@@ -231,6 +236,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::ResizeImage {
+                expected_revision, ..
+            }
+            | Self::MoveImage {
                 expected_revision, ..
             }
             | Self::UpdateImage {

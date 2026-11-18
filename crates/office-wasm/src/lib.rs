@@ -295,6 +295,7 @@ impl BrowserEngine {
                 | Command::SetSelection { .. }
                 | Command::SelectImage { .. }
                 | Command::ResizeImage { .. }
+                | Command::MoveImage { .. }
                 | Command::UpdateImage { .. }
                 | Command::SetImageAltText { .. }
                 | Command::SetImageAlignment { .. }
@@ -345,6 +346,9 @@ impl BrowserEngine {
                 Ok(())
             }
             Command::SelectImage { image_id, .. } => self.select_image(image_id),
+            Command::MoveImage { before_block_id, alignment, .. } => {
+                self.move_selected_image(before_block_id, alignment)
+            }
             Command::ResizeImage {
                 width_pt,
                 height_pt,

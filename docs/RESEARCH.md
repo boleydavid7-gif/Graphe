@@ -1413,3 +1413,23 @@ diagnostic; table-cell placement remains row-based. Empty/mixed multi-paragraph
 selections require further device testing. Validate native migration from v1–6,
 compiled WASM, DOCX/ODT/RTF round trips, TXT loss assessment and browser actions
 before release; a Cloudflare compilation alone does not establish these claims.
+
+## November 2026 — Graphe image direct manipulation
+
+Existing image support already has typed body image blocks, Rust-owned
+size/left-center-right alignment commands, immutable image assets, SVG
+projection in ImageLayer, and one-revision-per-edit history. The first
+drag-and-drop implementation can retain the current schema by selecting
+a target block ID in the rendered Rust layout and issuing a single atomic
+MoveImage command (alignment plus in-section ordering). Resize handles and
+two-pointer touch pinch use the existing resize_image command. Browser-only
+previews do not become persisted layout; the Rust engine regenerates the
+authoritative placed rectangle on release.
+
+Alternative floating images would require a new absolute/anchored model,
+text wrapping/collision rules, pagination interaction, additional external
+format mapping, schema migration and stronger touch/hit testing. Deferred
+rather than treating CSS transforms as real saved positions. Tests cover
+native transaction atomicity, exported image bytes, WASM command revision
+guards, and desktop pointer controls; physical iOS and Android gesture
+verification is still required.

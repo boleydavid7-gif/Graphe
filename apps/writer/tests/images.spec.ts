@@ -482,3 +482,47 @@ test.describe('mobile image interaction', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 });
+
+
+test('desktop resize handles and dragging use one Rust image edit each, retaining native pixels', async ({ page }) => {
+  await start(page);
+  const { bytes } = await insertPng(page);
+  const baseline = images(await nativeFile(page))[0]!;
+  const handle = page.locator('[data-image-resize-handle="se"]').first();
+  await expect(handle).toBeVisible();
+  const grip = await handle.boundingBox();
+  if (!grip) throw new Error('Resize handle has no visible bounds');
+  const x = grip.x + grip.width / 2;
+  const y = grip.y + grip.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 65, y + 32, { steps: 8 });
+  await page.mouse.up();
+  await readyPages(page);
+  const resized = images(await nativeFile(page))[0]!;
+  expect(resized.width).toBeGreaterThan(baseline.width);
+  expect(resized.height).toBeGreaterThan(baseline.height);
+  expect(resized.width * baseline.height).toBeCloseTo(resized.height * baseline.width, -1);
+  expect(Buffer.from(resized.asset.bytes_base64, 'base64')).toEqual(bytes);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(images(await nativeFile(page))).toEqual([baseline]);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  expect(images(await nativeFile(page))).toEqual([resized]);
+
+  const rect = await renderedImages(page).boundingBox();
+  const paper = await page.locator('svg[data-layout-page]').first().boundingBox();
+  if (!rect || !paper) throw new Error('No page or image bounds for dragging');
+  const startX = rect.x + rect.width / 2;
+  const startY = rect.y + rect.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + Math.max(150, (paper.width - rect.width) / 2), startY, { steps: 10 });
+  await page.mouse.up();
+  await readyPages(page);
+  const moved = images(await nativeFile(page))[0]!;
+  expect(moved.alignment).not.toBe(resized.alignment);
+  expect(moved.id).toBe(resized.id);
+  expect(moved.asset).toEqual(resized.asset);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(images(await nativeFile(page))).toEqual([resized]);
+});

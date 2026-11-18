@@ -169,6 +169,8 @@ export type WriterCommand =
   | ({ readonly type: 'table_action'; readonly action: TableAction } & EditOrigin)
   | ({ readonly type: 'move_table_cell'; readonly direction: 'forward' | 'backward' } & EditOrigin)
   | { readonly type: 'select_image'; readonly imageId: string | null; readonly expectedRevision?: string }
+  | { readonly type: 'move_image'; readonly beforeBlockId: string | null;
+      readonly alignment: ImageView['alignment']; readonly expectedRevision?: string }
   | { readonly type: 'resize_image'; readonly widthPt?: number; readonly heightPt?: number;
       readonly lockAspect?: boolean; readonly expectedRevision?: string }
   | { readonly type: 'set_image_alt_text'; readonly altText: string; readonly expectedRevision?: string }

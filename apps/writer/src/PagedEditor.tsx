@@ -9,7 +9,7 @@ import { ImageLayer } from './ImageLayer';
 import type { LayoutOrigin, PreviewZoom } from './PagePreview';
 import type {
   CaretGeometry, LayoutAction, LayoutGlyphOutline, LayoutLine, LayoutPage, LayoutSelectionView, LayoutView,
-  WriterSelection, WriterView,
+  ImageView, WriterCommand, WriterSelection, WriterView,
 } from './types';
 
 export interface PageInfo {
@@ -796,6 +796,68 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     cancelGesture();
   }
 
+
+  function commitImageEdit(imageId: string, action: WriterCommand): void {
+    const live = latest.current.getCurrentView();
+    const displayed = current.current;
+    if (!live || latest.current.disabled || composingRef.current
+        || displayed.status !== 'ready' || !displayed.snapshot
+        || live.selectedImageId !== imageId
+        || !sameOrigin(displayed.snapshot, origin(live))) return;
+    const next = latest.current.onCommand({ ...action, expectedRevision: live.revision });
+    if (next) {
+      input.current?.syncView(next);
+      refresh(origin(next));
+    }
+  }
+
+  // Find a structural insertion point in Rust's already-positioned body flow.
+  // Images remain in-flow, not floating overlays: dropping before a paragraph,
+  // table or image moves the image block rather than inventing a CSS position.
+  function commitImageMove(imageId: string, alignment: ImageView['alignment'],
+    clientX: number, clientY: number): void {
+    const live = latest.current.getCurrentView();
+    const value = current.current;
+    if (!live || !value.snapshot || !sameOrigin(value.snapshot, origin(live))) return;
+    const source = live.bodyBlocks.find((block) => block.id === imageId && block.kind === 'image');
+    if (!source || live.selectedImageId !== imageId) return;
+    let nearest: { page: LayoutPage; bounds: DOMRect; distance: number } | undefined;
+    for (const page of value.snapshot.layout.pages) {
+      if (page.sectionId !== source.sectionId) continue;
+      const bounds = pages.current.get(page.number)?.getBoundingClientRect();
+      if (!bounds || !bounds.height || !bounds.width) continue;
+      const dx = Math.max(bounds.left - clientX, 0, clientX - bounds.right);
+      const dy = Math.max(bounds.top - clientY, 0, clientY - bounds.bottom);
+      const distance = dx * dx + dy * dy;
+      if (!nearest || distance < nearest.distance) nearest = { page, bounds, distance };
+    }
+    if (!nearest) return;
+    const hoverPage = nearest.page.number;
+    const hoverY = (clientY - nearest.bounds.top) / nearest.bounds.height * nearest.page.height;
+    const sectionBlocks = live.bodyBlocks.filter((block) => block.sectionId === source.sectionId);
+    const candidates = sectionBlocks.filter((block) => block.id !== imageId);
+    const locate = (block: (typeof candidates)[number]): { pageNumber: number; y: number } | undefined => {
+      for (const page of value.snapshot!.layout.pages) {
+        if (page.sectionId !== source.sectionId) continue;
+        const y = block.kind === 'paragraph'
+          ? page.lines.find((line) => line.paragraphId === block.id)?.y
+          : block.kind === 'table'
+            ? page.tableCells?.find((cell) => cell.tableId === block.id)?.rect.y
+            : page.images?.find((image) => image.imageId === block.id)?.rect.y;
+        if (y !== undefined) return { pageNumber: page.number, y };
+      }
+      return undefined;
+    };
+    const beforeBlockId = candidates.find((block) => {
+      const found = locate(block);
+      return !!found && (found.pageNumber > hoverPage || found.pageNumber === hoverPage && found.y > hoverY);
+    })?.id ?? null;
+    const originalIndex = sectionBlocks.findIndex((block) => block.id === imageId);
+    const originalNext = sectionBlocks[originalIndex + 1]?.id ?? null;
+    if (originalNext === beforeBlockId && live.images?.find((image) => image.id === imageId)?.alignment === alignment) return;
+    commitImageEdit(imageId, { type: 'move_image', beforeBlockId, alignment });
+  }
+
   const snapshot = display.snapshot;
   const layout = snapshot?.documentId === props.view.documentId && snapshot.sessionId === props.view.sessionId
     ? snapshot.layout : undefined;
@@ -934,7 +996,10 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                   style={{ touchAction: 'pan-x pan-y pinch-zoom', userSelect: 'none', cursor: 'text' }}>
                   <TableGrid page={page} />
                   <ImageLayer page={page} images={props.view.images ?? []} urls={props.imageUrls ?? EMPTY_IMAGE_URLS}
-                    selectedId={props.view.selectedImageId} onSelect={(id) => {
+                    selectedId={props.view.selectedImageId} unitsPerPoint={layout.unitsPerPoint}
+                    onResize={(id, widthPt, heightPt, lockAspect) => commitImageEdit(id,
+                      { type: 'resize_image', widthPt, ...(heightPt !== undefined ? { heightPt } : {}), lockAspect })}
+                    onMove={commitImageMove} onSelect={(id) => {
                       if (props.disabled || composingRef.current || !snapshot || !sameOrigin(snapshot, origin(props.getCurrentView() ?? props.view))) return;
                       cancelGesture();
                       setTouchSelection(null);

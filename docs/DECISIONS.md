@@ -1326,3 +1326,18 @@ measurement. See PARAGRAPH_PAGINATION_8C3.md.
 ## 2026-11-18 — Step 8C.4 widow/orphan control defaults
 
 Enforce a bounded two-line widow/orphan minimum in the authoritative Rust body paragraph pagination, without changing the native schema or introducing frontend text measurement. Two- and three-line paragraphs move whole when they fit a blank page; longer paragraphs reserve their first two lines and keep the final pair on the same page if at least two lines of the paragraph are already placed there. A forced Keep with next also reserves the following two lines when possible. Unavoidable tall-line and small-page cases fall back to the established pagination rather than silently dropping content or looping. Table-row pagination and explicit source-level widow-control toggles are deferred.
+
+## 2026-11-18 — Direct image manipulation, in-flow editing
+
+Image manipulation is native Rust document editing, not CSS document placement.
+The selected image paints eight handles. Corner resizing preserves aspect ratio;
+side handles can change one dimension. On touch, two-pointer pinch changes image
+dimensions and a single-finger drag reorders the in-flow image relative to
+neighboring body blocks. Desktop drag uses the same structural operation.
+Drag placement snaps horizontally to left, center or right, and vertically to
+an insertion boundary between block IDs in the same section. It is one
+transaction and one undo step. No new schema, new packages, free-floating
+coordinates, paragraph wrap-around or cross-section moves. The browser may
+render a transient gesture preview but never persists viewport coordinates.
+Image bytes, native IDs, precise Image Properties and PDF page layout continue
+to be Rust-owned. See IMAGE_DIRECT_MANIPULATION.md for UX and limitations.

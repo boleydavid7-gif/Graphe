@@ -5,6 +5,13 @@ use crate::{
 fn invalid(reason: &'static str) -> EditError {
     EditError::InvalidImageOperation { reason }
 }
+fn body_block_id(block: &Block) -> &Id {
+    match block {
+        Block::Paragraph(paragraph) => paragraph.id(),
+        Block::Table(table) => table.id(),
+        Block::Image(image) => image.id(),
+    }
+}
 fn section_with_blocks(section: &Section, blocks: Vec<Block>) -> Section {
     let current = Section::new(section.id().clone(), blocks);
     match section.properties() {
@@ -84,6 +91,41 @@ impl Transaction {
     ) -> Result<bool, EditError> {
         self.update_image(id, |image| Some(image.with_alignment(alignment)))
     }
+    /// Reorders a body image within its original section and changes horizontal
+    /// alignment in one undoable transaction. A None target means section end.
+    /// This is in-flow placement, not absolute positioning or text wrapping.
+    pub fn move_image_before(
+        &mut self,
+        image_id: &Id,
+        before_block_id: Option<&Id>,
+        alignment: ImageAlignment,
+    ) -> Result<bool, EditError> {
+        let before = self.candidate()?;
+        let mut sections = before.sections().to_vec();
+        for section in &mut sections {
+            let Some(index) = section.blocks().iter().position(|block|
+                matches!(block, Block::Image(image) if image.id() == image_id))
+            else { continue };
+            if let Some(target) = before_block_id
+                && !section.blocks().iter().any(|block| body_block_id(block) == target)
+            {
+                return Err(invalid("image position target must be a block in the same section"));
+            }
+            let mut blocks = section.blocks().to_vec();
+            let Block::Image(image) = blocks.remove(index) else { unreachable!() };
+            let target_index = match before_block_id {
+                Some(target) if target == image_id => index,
+                Some(target) => blocks.iter().position(|block| body_block_id(block) == target)
+                    .ok_or_else(|| invalid("image position target is no longer available"))?,
+                None => blocks.len(),
+            };
+            blocks.insert(target_index, Block::Image(image.with_alignment(alignment)));
+            *section = section_with_blocks(section, blocks);
+            return self.accept_image_sections(before, sections);
+        }
+        Err(invalid("image block was not found"))
+    }
+
     /// Deletes an image block without deleting neighboring paragraphs.
     pub fn remove_image(&mut self, id: &Id) -> Result<bool, EditError> {
         self.update_image(id, |_| None)
