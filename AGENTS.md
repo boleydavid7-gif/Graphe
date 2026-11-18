@@ -175,13 +175,35 @@ and explicit approvals govern the task's scope.
 - Tables are format-neutral typed blocks with stable table/row/cell IDs and
   existing paragraphs. Keep destructive text edits inside one cell or a body
   flow that does not cross a table. Structural edits use core transactions.
-- Native envelope/model version 5 requires strict legacy migrations. Never
-  accept tables under earlier version labels or discard retained originals.
+- Tables shipped in native envelope/model 5; Step 8A advances the current
+  version to 6. Keep strict migrations; never accept tables under pre-5 labels,
+  images under pre-6 labels, or discard retained originals.
 - Render Rust-provided cell and paragraph geometry. The semantic HTML table is
   an input/accessibility projection, not a competing document/layout engine.
 - Preserve explicit total width when editing columns. Keep unsupported merged,
   nested or content-bearing table imports guarded. Never silently flatten a
   table on export; consult `docs/TABLES.md` and `docs/TABLES_RESEARCH.md`.
+
+## Step 8A images
+
+- The owner authorized embedded PNG/JPEG images on `dev/graphe-step8a-images`
+  from main `184364a`. This authorizes implementation and a review PR, not merge
+  or deployment. Preserve separate unfinished audit work.
+- Images are stable, format-neutral standalone body blocks. Rust owns raster
+  validation, selected-image identity, transactions/history and page geometry.
+  Text edits cannot silently cross an image. Do not use DOM measurements or a
+  JavaScript asset model to replace engine decisions.
+- Keep exact raster originals and original imported files. Derived normalized
+  PNG/RGBA caches are shared runtime data, not persisted undo payloads. Preserve
+  resource preflight before pixel allocation, strict CRC/metadata handling and
+  explicit color-approximation notices. Consult `docs/IMAGES.md` and research.
+- Keep unsupported mixed/floating/cropped/cell images guarded. Rebuild exported
+  relationships from current content; retained source media must not resurrect
+  deleted images. RTF export must fail and TXT must warn rather than omit images.
+- Keep pixel bytes out of ordinary snapshots. Preserve image Blob URL cleanup,
+  trusted tap focus, IME exclusion, revision/selection checks after file I/O,
+  and all local-save protections. Physical-device checks remain distinct from
+  emulated mobile tests. Enforce the production WASM static asset size budget.
 
 ## Required engine checks
 

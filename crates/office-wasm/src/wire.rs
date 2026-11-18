@@ -1,4 +1,4 @@
-use office_core::{Alignment, ListKind};
+use office_core::{Alignment, ImageAlignment, ListKind};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +32,41 @@ pub(crate) enum Command {
     SetSelection {
         selection: Option<BrowserSelection>,
         affinity: Option<Affinity>,
+        expected_revision: Option<String>,
+    },
+    SelectImage {
+        image_id: Option<String>,
+        expected_revision: Option<String>,
+    },
+    ResizeImage {
+        width_pt: Option<f64>,
+        height_pt: Option<f64>,
+        #[serde(default = "locked_aspect")]
+        lock_aspect: bool,
+        expected_revision: Option<String>,
+    },
+    UpdateImage {
+        width_pt: Option<f64>,
+        height_pt: Option<f64>,
+        #[serde(default = "locked_aspect")]
+        lock_aspect: bool,
+        alt_text: Option<String>,
+        alignment: Option<ImageAlignment>,
+        expected_revision: Option<String>,
+    },
+    SetImageAltText {
+        alt_text: String,
+        expected_revision: Option<String>,
+    },
+    SetImageAlignment {
+        alignment: ImageAlignment,
+        expected_revision: Option<String>,
+    },
+    DeleteImage {
+        expected_revision: Option<String>,
+    },
+    MoveImageCursor {
+        direction: Direction,
         expected_revision: Option<String>,
     },
     ReplaceText {
@@ -121,6 +156,10 @@ pub(crate) enum Command {
     },
 }
 
+fn locked_aspect() -> bool {
+    true
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum TableAction {
@@ -155,6 +194,25 @@ impl Command {
                 expected_revision, ..
             }
             | Self::SetSelection {
+                expected_revision, ..
+            }
+            | Self::SelectImage {
+                expected_revision, ..
+            }
+            | Self::ResizeImage {
+                expected_revision, ..
+            }
+            | Self::UpdateImage {
+                expected_revision, ..
+            }
+            | Self::SetImageAltText {
+                expected_revision, ..
+            }
+            | Self::SetImageAlignment {
+                expected_revision, ..
+            }
+            | Self::DeleteImage { expected_revision }
+            | Self::MoveImageCursor {
                 expected_revision, ..
             }
             | Self::ReplaceText {
@@ -213,8 +271,11 @@ pub(crate) struct View {
     pub document_id: String,
     pub title: String,
     pub paragraphs: Vec<ParagraphView>,
+    pub body_blocks: Vec<BodyBlockView>,
     pub styles: Vec<StyleSummary>,
     pub selection: Option<BrowserSelection>,
+    pub images: Vec<ImageView>,
+    pub selected_image_id: Option<String>,
     pub table: Option<TableCellView>,
     pub format: FormatSummary,
     pub can_undo: bool,
@@ -222,6 +283,29 @@ pub(crate) struct View {
     pub word_count: usize,
     pub original_source: Option<OriginalSourceView>,
     pub import_warnings: CompatibilityReportView,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct BodyBlockView {
+    pub kind: &'static str,
+    pub id: String,
+    pub section_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageView {
+    pub id: String,
+    pub section_id: String,
+    pub width_pt: f64,
+    pub height_pt: f64,
+    pub pixel_width: u32,
+    pub pixel_height: u32,
+    pub color_approximation: bool,
+    pub orientation_applied: bool,
+    pub alt_text: String,
+    pub alignment: ImageAlignment,
 }
 
 #[derive(Debug, Serialize)]

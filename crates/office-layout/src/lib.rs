@@ -12,8 +12,8 @@ mod options;
 mod style;
 
 pub use dto::{
-    Caret, CaretAffinity, Decoration, DocumentLayout, GlyphOutline, LayoutDiagnostic, LineLayout,
-    PageLayout, PositionedGlyph, Rect, TableCellLayout, TextRange, UNITS_PER_POINT,
+    Caret, CaretAffinity, Decoration, DocumentLayout, GlyphOutline, ImageLayout, LayoutDiagnostic,
+    LineLayout, PageLayout, PositionedGlyph, Rect, TableCellLayout, TextRange, UNITS_PER_POINT,
 };
 pub use engine::{LayoutEngine, layout_document};
 pub use error::LayoutError;

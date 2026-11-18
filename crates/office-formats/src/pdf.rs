@@ -4,11 +4,14 @@
 //! This first profile deliberately does not promise searchable text, semantic
 //! tagging, PDF/UA or PDF/A; the format facade reports those limits before save.
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    io::{self, Write},
+};
 
-use office_core::Document;
+use office_core::{Block, Document, ImageAsset};
 use office_layout::{DocumentLayout, LayoutOptions, layout_document};
-use pdf_writer::{Content, Name, Pdf, Rect, Ref, Settings, TextStr};
+use pdf_writer::{Content, Filter, Name, Pdf, Rect, Ref, Settings, TextStr};
 use svgtypes::{PathParser, PathSegment, Transform};
 
 use crate::{FormatDiagnostic, FormatError};
@@ -34,7 +37,7 @@ pub(crate) fn assess_document(document: &Document) -> Result<Vec<FormatDiagnosti
 
 pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, FormatError> {
     let layout = layout(document)?;
-    write_layout(&layout, &document.metadata().title)
+    write_layout(&layout, document)
 }
 
 fn layout(document: &Document) -> Result<DocumentLayout, FormatError> {
@@ -43,7 +46,8 @@ fn layout(document: &Document) -> Result<DocumentLayout, FormatError> {
         .map_err(|error| FormatError::new("pdf_layout", error.to_string()))
 }
 
-fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatError> {
+fn write_layout(layout: &DocumentLayout, document: &Document) -> Result<Vec<u8>, FormatError> {
+    let title = &document.metadata().title;
     check_size(title.len().saturating_mul(4))?;
     if layout.units_per_point != office_layout::UNITS_PER_POINT || layout.pages.is_empty() {
         return Err(invalid("Invalid PDF layout units or page collection."));
@@ -61,7 +65,17 @@ fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatE
 
     // References are allocated once in deterministic outline/page order; no
     // clock, random document identifier or original-source bytes enter the PDF.
-    let page_start = 4 + layout.outlines.len();
+    let image_models = document
+        .sections()
+        .iter()
+        .flat_map(|section| section.blocks())
+        .filter_map(|block| match block {
+            Block::Image(image) => Some(image),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let image_start = 4 + layout.outlines.len();
+    let page_start = image_start + image_models.len() * 2;
     let content_start = page_start + layout.pages.len();
     let page_refs = (0..layout.pages.len())
         .map(|index| reference(page_start + index))
@@ -80,6 +94,19 @@ fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatE
         let (path, bounds) = outline_content(&outline.path)?;
         check_size(pdf.len().saturating_add(path.len()))?;
         pdf.form_xobject(form, &path).bbox(bounds).resources();
+    }
+
+    let mut images = BTreeMap::new();
+    for (index, model) in image_models.iter().enumerate() {
+        let image_ref = reference(image_start + index * 2)?;
+        let mask_ref = reference(image_start + index * 2 + 1)?;
+        write_image(&mut pdf, image_ref, mask_ref, model.asset())?;
+        if images
+            .insert(model.id().as_str(), (image_ref, format!("i{index}")))
+            .is_some()
+        {
+            return Err(invalid("Duplicate PDF image identifier."));
+        }
     }
 
     let units = layout.units_per_point as f64;
@@ -109,6 +136,29 @@ fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatE
             );
             content.stroke();
             check_size(pdf.len().saturating_add(content.len()))?;
+        }
+        let mut used_images = BTreeMap::new();
+        for placed in &page.images {
+            let (image_ref, name) = images
+                .get(placed.image_id.as_str())
+                .ok_or_else(|| invalid("PDF image geometry refers to an absent image."))?;
+            if placed.rect.width <= 0 || placed.rect.height <= 0 {
+                return Err(invalid("Invalid PDF image geometry."));
+            }
+            content.save_state();
+            // Image samples begin at the top of their native unit square.
+            // Undo the page's downward-y flip inside this image placement.
+            content.transform([
+                number(placed.rect.width as f64)?,
+                0.,
+                0.,
+                number(-(placed.rect.height as f64))?,
+                number(placed.rect.x as f64)?,
+                number((placed.rect.y + placed.rect.height) as f64)?,
+            ]);
+            content.x_object(Name(name.as_bytes()));
+            content.restore_state();
+            used_images.insert(placed.image_id.as_str(), (*image_ref, name));
         }
         let mut used_forms = BTreeMap::new();
         for line in &page.lines {
@@ -165,6 +215,9 @@ fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatE
             for (form, name) in used_forms.values() {
                 x_objects.pair(Name(name.as_bytes()), *form);
             }
+            for (image, name) in used_images.values() {
+                x_objects.pair(Name(name.as_bytes()), *image);
+            }
         }
         pdf.stream(content_ref, &content.finish());
         check_size(pdf.len())?;
@@ -172,6 +225,94 @@ fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatE
     let bytes = pdf.finish();
     check_size(bytes.len())?;
     Ok(bytes)
+}
+
+fn write_image(
+    pdf: &mut Pdf,
+    image_ref: Ref,
+    mask_ref: Ref,
+    asset: &ImageAsset,
+) -> Result<(), FormatError> {
+    let width = i32::try_from(asset.width_px()).map_err(|_| size_error())?;
+    let height = i32::try_from(asset.height_px()).map_err(|_| size_error())?;
+    let rgb = image_stream(asset.rgba(), false)?;
+    let transparent = asset
+        .rgba()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .any(|pixel| pixel[3] != 255);
+    if transparent {
+        let alpha = image_stream(asset.rgba(), true)?;
+        check_size(
+            pdf.len()
+                .saturating_add(rgb.len())
+                .saturating_add(alpha.len())
+                .saturating_add(512),
+        )?;
+        let mut mask = pdf.image_xobject(mask_ref, &alpha);
+        mask.width(width)
+            .height(height)
+            .bits_per_component(8)
+            .filter(Filter::FlateDecode);
+        mask.color_space().device_gray();
+    }
+    check_size(pdf.len().saturating_add(rgb.len()).saturating_add(512))?;
+    let mut image = pdf.image_xobject(image_ref, &rgb);
+    image
+        .width(width)
+        .height(height)
+        .bits_per_component(8)
+        .filter(Filter::FlateDecode);
+    image.color_space().device_rgb();
+    if transparent {
+        image.s_mask(mask_ref);
+    }
+    Ok(())
+}
+
+#[derive(Default)]
+struct BoundedImageStream(Vec<u8>);
+impl Write for BoundedImageStream {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if self.0.len().saturating_add(bytes.len()) > MAX_PDF_BYTES {
+            return Err(io::Error::other(
+                "PDF image stream exceeds the output budget",
+            ));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn image_stream(rgba: &[u8], alpha: bool) -> Result<Vec<u8>, FormatError> {
+    if !rgba.len().is_multiple_of(4) {
+        return Err(invalid("Invalid canonical RGBA buffer."));
+    }
+    let mut encoder =
+        flate2::write::ZlibEncoder::new(BoundedImageStream::default(), flate2::Compression::new(6));
+    // Keep transient conversion memory fixed rather than copying every RGB or
+    // alpha plane before compression. Codec output is separately bounded.
+    let mut buffer = [0_u8; 12_288];
+    for chunk in rgba.chunks(4096 * 4) {
+        let mut count = 0;
+        for pixel in chunk.as_chunks::<4>().0 {
+            if alpha {
+                buffer[count] = pixel[3];
+                count += 1;
+            } else {
+                buffer[count..count + 3].copy_from_slice(&pixel[..3]);
+                count += 3;
+            }
+        }
+        encoder
+            .write_all(&buffer[..count])
+            .map_err(|_| size_error())?;
+    }
+    Ok(encoder.finish().map_err(|_| size_error())?.0)
 }
 
 fn reference(index: usize) -> Result<Ref, FormatError> {

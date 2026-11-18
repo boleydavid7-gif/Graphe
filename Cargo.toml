@@ -23,6 +23,11 @@ pdf-writer = "=0.15.0"
 svgtypes = { version = "=0.16.2", default-features = false, features = ["libm"] }
 rclip-rtf = { version = "=0.1.0", default-features = false }
 
+png = { version = "=0.18.1", default-features = false }
+zune-jpeg = { version = "=0.5.15", default-features = false, features = ["std"] }
+zune-core = { version = "=0.5.3", default-features = false, features = ["std"] }
+kamadak-exif = "=0.6.2"
+
 [workspace.lints.rust]
 warnings = "deny"
 missing_docs = "deny"

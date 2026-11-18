@@ -5,6 +5,7 @@ import {
 import { EditorSurface, type EditorSurfaceHandle, type EditorSurfaceProps } from './EditorSurface';
 import { SelectionActions } from './SelectionActions';
 import { TableGrid } from './TableGrid';
+import { ImageLayer } from './ImageLayer';
 import type { LayoutOrigin, PreviewZoom } from './PagePreview';
 import type {
   CaretGeometry, LayoutAction, LayoutGlyphOutline, LayoutLine, LayoutPage, LayoutSelectionView, LayoutView,
@@ -28,6 +29,8 @@ export interface PagedEditorProps extends EditorSurfaceProps {
   readonly onInteraction: (action: LayoutAction, expectedOrigin?: LayoutOrigin) => WriterView | undefined;
   readonly onPageInfo?: (info: PageInfo) => void;
 }
+
+const EMPTY_IMAGE_URLS: ReadonlyMap<string, string> = new Map();
 
 interface Display {
   readonly status: 'loading' | 'ready' | 'error';
@@ -593,6 +596,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     focus: () => { input.current?.focus(); refresh(); },
     restoreSelection: () => { input.current?.restoreSelection(); refresh(); },
     syncView: (view) => { input.current?.syncView(view); refresh(origin(view)); },
+    focusDocument: () => root.current?.focus({ preventScroll: true }),
     revealSelection: (view) => {
       revealEndpoint.current = 'focus';
       if (fallbackRef.current || !view.selection) { pendingReveal.current = null; return; }
@@ -802,7 +806,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     && (!collapsed(props.view) || draggingHandle);
   const scale = props.zoom === 'fit' ? 1 : Number(props.zoom) / 100;
   const widest = layout?.pages.reduce((maximum, page) => Math.max(maximum, page.width), 0) ?? 0;
-  const empty = props.view.paragraphs.length <= 1 && props.view.paragraphs.every((paragraph) =>
+  const empty = !(props.view.images?.length) && props.view.paragraphs.length <= 1 && props.view.paragraphs.every((paragraph) =>
     paragraph.runs.every((run) => run.text === ''));
 
   function enterTextView(): void {
@@ -814,7 +818,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
 
   function inputSurface(inputOnly: boolean) {
     return <EditorSurface key={inputOnly ? 'paged-input' : 'text-input'} ref={input}
-      view={props.view} disabled={props.disabled} inputOnly={inputOnly}
+      view={props.view} disabled={props.disabled} inputOnly={inputOnly} imageUrls={props.imageUrls}
       onCommand={(command) => {
         revealEndpoint.current = 'focus';
         const next = latest.current.onCommand(command);
@@ -840,13 +844,49 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }
 
   return <div ref={root} className={`paged-editor${fallback ? ' text-mode' : ''}`} data-testid="paged-editor"
+    role="group" aria-label={props.view.selectedImageId
+      ? `Selected image: ${props.view.images?.find((image) => image.id === props.view.selectedImageId)?.altText || 'Document image'}. Enter to continue writing; Delete to remove.`
+      : 'Document editor'} tabIndex={-1} data-selected-image-id={props.view.selectedImageId ?? ''}
     data-layout-document-id={snapshot?.documentId} data-layout-revision={snapshot?.revision}
     aria-busy={!fallback && display.status !== 'error' && !ready}
     onFocusCapture={(event) => { if (event.target instanceof HTMLElement && event.target.dataset.testid === 'editor') setFocused(true); }}
-    onBlurCapture={(event) => { if (!(event.relatedTarget instanceof Node) || !root.current?.contains(event.relatedTarget)) setFocused(false); }}>
+    onBlurCapture={(event) => { if (!(event.relatedTarget instanceof Node) || !root.current?.contains(event.relatedTarget)) setFocused(false); }}
+    onKeyDown={(event) => {
+      if (event.target !== root.current || props.disabled || composingRef.current || event.nativeEvent.isComposing) return;
+      const modifier = event.ctrlKey || event.metaKey;
+      let command: Parameters<EditorSurfaceProps['onCommand']>[0] | undefined;
+      if (modifier && !event.altKey && event.key.toLowerCase() === 'z') command = { type: event.shiftKey ? 'redo' : 'undo' };
+      else if (modifier && !event.altKey && event.key.toLowerCase() === 'y') command = { type: 'redo' };
+      else if (props.view.selectedImageId && !modifier && !event.altKey) {
+        if (event.key === 'Delete' || event.key === 'Backspace') command = { type: 'delete_image' };
+        else if (event.key === 'Enter' || event.key === 'Escape' || event.key.startsWith('Arrow')) command = {
+          type: 'move_image_cursor', direction: event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? 'backward' : 'forward',
+        };
+      }
+      if (command) {
+        event.preventDefault();
+        const next = props.onCommand(command);
+        if (next) {
+          input.current?.syncView(next);
+          refresh(origin(next));
+          if (command.type === 'move_image_cursor') input.current?.focus();
+        }
+      }
+    }}
+    onCopyCapture={(event) => { if (props.view.selectedImageId) { event.preventDefault(); event.stopPropagation(); props.onError('Image clipboard copying is not supported yet. Your image is unchanged.'); } }}
+    onCutCapture={(event) => { if (props.view.selectedImageId) { event.preventDefault(); event.stopPropagation(); props.onError('Image clipboard cutting is not supported yet. Use Delete image and Undo.'); } }}
+    onPasteCapture={(event) => { if (props.view.selectedImageId) { event.preventDefault(); event.stopPropagation(); props.onError('Press Enter or choose Back to text before pasting. Your image is unchanged.'); } }}>
     {fallback ? <>
       <div className="paged-editor-notice" role="status"><span>Text view · Page layout unavailable. Your document is preserved.</span>
         <button onClick={() => { fallbackRef.current = false; setFallback(false); refresh(); }}>Try pages again</button></div>
+      {!!props.view.images?.length && <div className="fallback-image-controls" role="group" aria-label="Document images">
+        {props.view.images.map((image) => <button key={image.id} disabled={props.disabled || composing}
+          aria-pressed={props.view.selectedImageId === image.id} onClick={() => {
+            if (composingRef.current || latest.current.disabled) return;
+            const next = props.onCommand({ type: 'select_image', imageId: image.id, expectedRevision: props.view.revision });
+            if (next) { input.current?.syncView(next); root.current?.focus({ preventScroll: true }); }
+          }}>Select image: {image.altText || 'Document image'}</button>)}
+      </div>}
       {inputSurface(false)}
     </> : <>
       <div ref={proxy} className="paged-editor-input" style={{ position: 'fixed', left: 0, top: 0, width: 2,
@@ -893,10 +933,18 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                   // scrolling; pan-y alone disables the browser's pinch zoom.
                   style={{ touchAction: 'pan-x pan-y pinch-zoom', userSelect: 'none', cursor: 'text' }}>
                   <TableGrid page={page} />
-                  {selection?.rectangles.filter((rectangle) => rectangle.pageNumber === page.number).map((rectangle, index) =>
+                  <ImageLayer page={page} images={props.view.images ?? []} urls={props.imageUrls ?? EMPTY_IMAGE_URLS}
+                    selectedId={props.view.selectedImageId} onSelect={(id) => {
+                      if (props.disabled || composingRef.current || !snapshot || !sameOrigin(snapshot, origin(props.getCurrentView() ?? props.view))) return;
+                      cancelGesture();
+                      setTouchSelection(null);
+                      const next = props.onCommand({ type: 'select_image', imageId: id, expectedRevision: snapshot.revision });
+                      if (next) { input.current?.syncView(next); root.current?.focus({ preventScroll: true }); refresh(origin(next)); }
+                    }} />
+                  {!props.view.selectedImageId && selection?.rectangles.filter((rectangle) => rectangle.pageNumber === page.number).map((rectangle, index) =>
                     <rect key={`selection-${index}`} className="paged-editor-selection" {...rectangle.rect} data-editor-selection="true" />)}
                   <GlyphLines lines={page.lines} namespace={namespace} />
-                  {selection?.focus.pageNumber === page.number && focused && collapsed(props.view) && !composing
+                  {!props.view.selectedImageId && selection?.focus.pageNumber === page.number && focused && collapsed(props.view) && !composing
                     && <rect className="paged-editor-caret" {...selection.focus.rect} data-editor-caret="true"
                       data-editor-paragraph-id={selection.focus.position.paragraphId}
                       data-editor-utf16={selection.focus.position.utf16} data-editor-grapheme={selection.focus.position.grapheme} />}

@@ -56,6 +56,26 @@ export interface TableCellContext {
 export type TableAction = 'insert_row_above' | 'insert_row_below' | 'delete_row'
   | 'insert_column_before' | 'insert_column_after' | 'delete_column' | 'delete_table';
 
+/** Read-only image metadata. Original raster bytes and sizing rules live in Rust. */
+export interface ImageView {
+  readonly id: string;
+  readonly sectionId: string;
+  readonly widthPt: number;
+  readonly heightPt: number;
+  readonly pixelWidth: number;
+  readonly pixelHeight: number;
+  readonly altText: string;
+  readonly alignment: 'left' | 'center' | 'right';
+  readonly colorApproximation?: boolean;
+  readonly orientationApplied?: boolean;
+}
+
+export interface BodyBlockView {
+  readonly kind: 'paragraph' | 'table' | 'image';
+  readonly id: string;
+  readonly sectionId: string;
+}
+
 export interface ParagraphView {
   readonly id: string;
   readonly sectionId: string;
@@ -84,6 +104,9 @@ export interface WriterView {
   readonly styles: readonly { readonly id: string; readonly name: string }[];
   readonly selection: WriterSelection | null;
   readonly table?: TableCellContext | null;
+  readonly images?: readonly ImageView[];
+  readonly selectedImageId?: string | null;
+  readonly bodyBlocks?: readonly BodyBlockView[];
   readonly format: {
     readonly bold: boolean | null;
     readonly italic: boolean | null;
@@ -134,6 +157,15 @@ export type WriterCommand =
   | ({ readonly type: 'insert_table'; readonly rows: number; readonly columns: number } & EditOrigin)
   | ({ readonly type: 'table_action'; readonly action: TableAction } & EditOrigin)
   | ({ readonly type: 'move_table_cell'; readonly direction: 'forward' | 'backward' } & EditOrigin)
+  | { readonly type: 'select_image'; readonly imageId: string | null; readonly expectedRevision?: string }
+  | { readonly type: 'resize_image'; readonly widthPt?: number; readonly heightPt?: number;
+      readonly lockAspect?: boolean; readonly expectedRevision?: string }
+  | { readonly type: 'set_image_alt_text'; readonly altText: string; readonly expectedRevision?: string }
+  | { readonly type: 'set_image_alignment'; readonly alignment: 'left' | 'center' | 'right'; readonly expectedRevision?: string }
+  | { readonly type: 'update_image'; readonly widthPt?: number; readonly heightPt?: number; readonly lockAspect?: boolean;
+      readonly altText?: string; readonly alignment?: 'left' | 'center' | 'right'; readonly expectedRevision?: string }
+  | { readonly type: 'delete_image'; readonly expectedRevision?: string }
+  | { readonly type: 'move_image_cursor'; readonly direction: 'forward' | 'backward'; readonly expectedRevision?: string }
   | ({ readonly type: 'delete'; readonly direction: 'backward' | 'forward' } & EditOrigin)
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
@@ -270,6 +302,7 @@ export interface LayoutPage {
   readonly height: number;
   readonly contentRect: LayoutRect;
   readonly lines: readonly LayoutLine[];
+  readonly images?: readonly { readonly imageId: string; readonly rect: LayoutRect }[];
   readonly tableCells?: readonly {
     readonly tableId: string;
     readonly rowId: string;

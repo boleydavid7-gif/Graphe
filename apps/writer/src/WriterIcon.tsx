@@ -1,6 +1,6 @@
 /** Small local interface icons. Document glyphs are rendered separately by Rust. */
 export function WriterIcon({ name, className = '' }: {
-  name: 'lantern' | 'new' | 'open' | 'save' | 'search' | 'more' | 'text-format' | 'list-bullet' | 'list-numbered' | 'link' | 'table' | 'undo' | 'redo' | 'export' | 'minus' | 'plus';
+  name: 'lantern' | 'new' | 'open' | 'save' | 'search' | 'more' | 'text-format' | 'list-bullet' | 'list-numbered' | 'link' | 'table' | 'image' | 'undo' | 'redo' | 'export' | 'minus' | 'plus';
   className?: string;
 }) {
   const paths: Record<typeof name, string> = {
@@ -15,6 +15,7 @@ export function WriterIcon({ name, className = '' }: {
     'list-numbered': 'M3 5h1v4M2.5 13c0-1 3-1 3 0s-3 2-3 3h3M3 19h2m-2 2h2M9 6h11M9 12h11M9 18h11',
     link: 'M10 13a5 5 0 0 0 7.1 0l2.7-2.7a5 5 0 0 0-7.1-7.1l-1.5 1.5M14 11a5 5 0 0 0-7.1 0L4.2 13.7a5 5 0 0 0 7.1 7.1l1.5-1.5',
     table: 'M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18',
+    image: 'M3 3h18v18H3zM3 17l5-5 4 4 3-3 6 6M16 7h.01',
     undo: 'm8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12',
     redo: 'm16 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12',
     export: 'M12 16V2m-5 5 5-5 5 5M5 11H3v10h18V11h-2',

@@ -7,6 +7,7 @@
 
 mod find;
 mod formats;
+mod images;
 mod layout;
 mod operations;
 mod tables;
@@ -73,6 +74,8 @@ convert_error!(office_docx::ConversionError, "invalid_docx");
 struct CursorHistory {
     before: Option<BrowserSelection>,
     after: Option<BrowserSelection>,
+    image_before: Option<Id>,
+    image_after: Option<Id>,
 }
 
 /// Owns one live validated document, Rust undo history, and browser cursor state.
@@ -86,6 +89,7 @@ pub struct BrowserEngine {
     session_id: String,
     session: DocumentSession,
     selection: Option<BrowserSelection>,
+    selected_image: Option<Id>,
     typing: Option<CharacterFormat>,
     undo_cursor: Vec<CursorHistory>,
     redo_cursor: Vec<CursorHistory>,
@@ -112,6 +116,7 @@ impl BrowserEngine {
             session_id: String::new(),
             session: DocumentSession::with_history_limit(document, HISTORY_LIMIT),
             selection: None,
+            selected_image: None,
             typing: None,
             undo_cursor: Vec::new(),
             redo_cursor: Vec::new(),
@@ -280,6 +285,30 @@ impl BrowserEngine {
                 "This input belongs to an earlier document revision.",
             ));
         }
+        if self.selected_image.is_some() {
+            match &command {
+                Command::NewDocument {}
+                | Command::ForkDocument {}
+                | Command::SetTitle { .. }
+                | Command::SetSelection { .. }
+                | Command::SelectImage { .. }
+                | Command::ResizeImage { .. }
+                | Command::UpdateImage { .. }
+                | Command::SetImageAltText { .. }
+                | Command::SetImageAlignment { .. }
+                | Command::DeleteImage { .. }
+                | Command::MoveImageCursor { .. }
+                | Command::Undo { .. }
+                | Command::Redo { .. } => {}
+                Command::Delete { .. } => return self.delete_image(),
+                _ => {
+                    return Err(EngineError::new(
+                        "image_selected",
+                        "Press Enter or an arrow key to return to text before editing it.",
+                    ));
+                }
+            }
+        }
         match command {
             Command::NewDocument {} => self.new_document(),
             Command::ForkDocument {} => {
@@ -309,8 +338,34 @@ impl BrowserEngine {
                     self.typing = None;
                 }
                 self.selection = next;
+                self.selected_image = None;
                 Ok(())
             }
+            Command::SelectImage { image_id, .. } => self.select_image(image_id),
+            Command::ResizeImage {
+                width_pt,
+                height_pt,
+                lock_aspect,
+                ..
+            } => self.resize_selected_image(width_pt, height_pt, lock_aspect),
+            Command::UpdateImage {
+                width_pt,
+                height_pt,
+                lock_aspect,
+                alt_text,
+                alignment,
+                ..
+            } => self.update_selected_image(images::ImageUpdate {
+                width_pt,
+                height_pt,
+                lock_aspect,
+                alt_text,
+                alignment,
+            }),
+            Command::SetImageAltText { alt_text, .. } => self.set_image_alt_text(alt_text),
+            Command::SetImageAlignment { alignment, .. } => self.set_image_alignment(alignment),
+            Command::DeleteImage { .. } => self.delete_image(),
+            Command::MoveImageCursor { direction, .. } => self.move_image_cursor(direction),
             Command::SetTitle { title, .. } => {
                 let mut transaction = self.session.begin_transaction();
                 transaction.draft_mut().metadata.title = title;
@@ -400,6 +455,7 @@ impl BrowserEngine {
                     .pop()
                     .expect("cursor history follows core history");
                 self.selection = cursor.before.clone();
+                self.selected_image = cursor.image_before.clone();
                 self.redo_cursor.push(cursor);
                 self.typing = None;
                 self.repair_cursor();
@@ -413,6 +469,7 @@ impl BrowserEngine {
                     .pop()
                     .expect("cursor history follows core history");
                 self.selection = cursor.after.clone();
+                self.selected_image = cursor.image_after.clone();
                 self.undo_cursor.push(cursor);
                 self.typing = None;
                 self.repair_cursor();
@@ -449,6 +506,7 @@ impl BrowserEngine {
         self.next_session = number;
         self.session_id = format!("{}:s{number}", self.namespace);
         self.selection = first_cursor(self.session.document());
+        self.selected_image = None;
         self.typing = None;
         self.undo_cursor.clear();
         self.redo_cursor.clear();
@@ -472,6 +530,7 @@ impl BrowserEngine {
                     section.id().as_str() == value
                         || section.blocks().iter().any(|block| match block {
                             Block::Paragraph(paragraph) => paragraph.id().as_str() == value,
+                            Block::Image(image) => image.id().as_str() == value,
                             Block::Table(table) => {
                                 table.id().as_str() == value
                                     || table.rows().iter().any(|row| {
@@ -507,6 +566,23 @@ impl BrowserEngine {
         before: Option<BrowserSelection>,
         after: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
+        self.commit_with_image(
+            transaction,
+            before,
+            after,
+            self.selected_image.clone(),
+            self.selected_image.clone(),
+        )
+    }
+
+    fn commit_with_image(
+        &mut self,
+        transaction: Transaction,
+        before: Option<BrowserSelection>,
+        after: Option<BrowserSelection>,
+        image_before: Option<Id>,
+        image_after: Option<Id>,
+    ) -> Result<(), EngineError> {
         let candidate = transaction_document(&transaction)?;
         self.check_candidate(&candidate)?;
         let outcome = self.session.commit(transaction)?;
@@ -515,6 +591,8 @@ impl BrowserEngine {
             self.undo_cursor.push(CursorHistory {
                 before,
                 after: after.clone(),
+                image_before,
+                image_after: image_after.clone(),
             });
             if self.undo_cursor.len() > HISTORY_LIMIT {
                 self.undo_cursor.remove(0);
@@ -522,10 +600,18 @@ impl BrowserEngine {
             self.redo_cursor.clear();
         }
         self.selection = after;
+        self.selected_image = image_after;
         Ok(())
     }
 
     fn repair_cursor(&mut self) {
+        if self
+            .selected_image
+            .as_ref()
+            .is_some_and(|id| self.image(id).is_none())
+        {
+            self.selected_image = None;
+        }
         self.selection = self
             .selection
             .as_ref()
@@ -563,12 +649,36 @@ impl BrowserEngine {
                 })
                 .collect(),
             paragraphs,
+            body_blocks: document
+                .sections()
+                .iter()
+                .flat_map(|section| {
+                    section.blocks().iter().map(|block| {
+                        let (kind, id) = match block {
+                            Block::Paragraph(paragraph) => ("paragraph", paragraph.id()),
+                            Block::Table(table) => ("table", table.id()),
+                            Block::Image(image) => ("image", image.id()),
+                        };
+                        wire::BodyBlockView {
+                            kind,
+                            id: id.as_str().into(),
+                            section_id: section.id().as_str().into(),
+                        }
+                    })
+                })
+                .collect(),
             selection: self.selection.clone(),
-            table: self.selection.as_ref().and_then(|selection| {
-                let anchor = view::table_cell(document, &selection.anchor.paragraph_id)?;
-                let focus = view::table_cell(document, &selection.focus.paragraph_id)?;
-                (anchor.cell_id == focus.cell_id).then_some(focus)
-            }),
+            images: self.image_views(),
+            selected_image_id: self.selected_image.as_ref().map(|id| id.as_str().into()),
+            table: self
+                .selection
+                .as_ref()
+                .filter(|_| self.selected_image.is_none())
+                .and_then(|selection| {
+                    let anchor = view::table_cell(document, &selection.anchor.paragraph_id)?;
+                    let focus = view::table_cell(document, &selection.focus.paragraph_id)?;
+                    (anchor.cell_id == focus.cell_id).then_some(focus)
+                }),
             format,
             can_undo: self.session.can_undo(),
             can_redo: self.session.can_redo(),
@@ -860,6 +970,20 @@ mod wasm {
         /// Copies the native document into owned JavaScript bytes.
         pub fn export_document(&self) -> Result<Vec<u8>, JsValue> {
             self.inner.export_document().map_err(js_error)
+        }
+        /// Inserts validated local raster bytes as one revision-guarded edit.
+        pub fn insert_image(&mut self, bytes: &[u8], expected_revision: Option<String>) -> String {
+            self.inner.insert_image(bytes, expected_revision.as_deref())
+        }
+        /// Reads canonical PNG presentation bytes without publishing a document edit.
+        pub fn image_png(
+            &self,
+            image_id: &str,
+            expected_revision: Option<String>,
+        ) -> Result<Vec<u8>, JsValue> {
+            self.inner
+                .image_png(image_id, expected_revision.as_deref())
+                .map_err(js_error)
         }
         /// Imports supported DOCX into a detached candidate before browser preservation.
         pub fn import_docx(&mut self, bytes: &[u8], filename: &str) -> String {

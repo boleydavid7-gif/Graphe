@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PageInfo } from './PagedEditor';
-import type { LayoutView } from './types';
+import type { ImageView, LayoutView } from './types';
 import { TableGrid } from './TableGrid';
+import { ImageLayer } from './ImageLayer';
 
 export interface LayoutOrigin {
   readonly sessionId: string;
@@ -17,6 +18,8 @@ interface PagePreviewProps extends LayoutOrigin {
   readonly onZoomChange: (zoom: PreviewZoom) => void;
   readonly onClose: () => void;
   readonly onPageInfo?: (info: PageInfo) => void;
+  readonly images?: readonly ImageView[];
+  readonly imageUrls?: ReadonlyMap<string, string>;
 }
 
 type PreviewState =
@@ -36,7 +39,7 @@ const zoomOptions: readonly { readonly value: PreviewZoom; readonly label: strin
 
 /** Read-only projection of Rust page geometry and glyph outlines. */
 export function PagePreview({
-  sessionId, revision, documentId, loadLayout, zoom, onZoomChange, onClose, onPageInfo,
+  sessionId, revision, documentId, loadLayout, zoom, onZoomChange, onClose, onPageInfo, images = [], imageUrls = new Map(),
 }: PagePreviewProps) {
   const namespace = useId();
   const instructions = useId();
@@ -166,6 +169,9 @@ export function PagePreview({
         {layout.pages.map((page) => <section key={page.number} aria-label={`Page ${page.number}`}>
           <h2>Page {page.number}</h2>{page.lines.map((line) =>
             <p key={JSON.stringify([line.paragraphId, line.lineIndex])} dir="auto">{line.text}</p>)}
+          {page.images?.map((placement) => <p key={placement.imageId} role="img"
+            aria-label={images.find((image) => image.id === placement.imageId)?.altText || 'Document image without alternative text'}>
+            {images.find((image) => image.id === placement.imageId)?.altText || 'Document image'}</p>)}
         </section>)}
       </div>
       <svg className="layout-glyph-definitions" width="0" height="0" aria-hidden="true" focusable="false">
@@ -181,6 +187,7 @@ export function PagePreview({
               <svg ref={(element) => { if (element) pages.current.set(page.number, element); else pages.current.delete(page.number); }}
                 viewBox={`0 0 ${page.width} ${page.height}`} width="100%" height="100%" aria-hidden="true" focusable="false">
                 <TableGrid page={page} />
+                <ImageLayer page={page} images={images} urls={imageUrls} />
                 {page.lines.map((line) => <g key={JSON.stringify([line.paragraphId, line.lineIndex])}
                   data-layout-line={line.lineIndex} data-layout-paragraph-id={line.paragraphId}
                   data-layout-utf16-start={line.textRange.startUtf16} data-layout-utf16-end={line.textRange.endUtf16}

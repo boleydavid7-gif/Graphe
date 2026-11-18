@@ -177,8 +177,8 @@ test('native Save As retains identifiers, existing styles and metadata when open
   const file = await saveAs(page, 'writer', 'native-copy.writer');
   const expected = JSON.parse(original.toString('utf8')) as NativeFile;
   const actual = JSON.parse(file.bytes.toString('utf8')) as NativeFile;
-  expect(withoutUnspecified(actual)).toEqual(withoutUnspecified({ ...expected, format_version: 5,
-    document: { ...expected.document, schema_version: 5 } }));
+  expect(withoutUnspecified(actual)).toEqual(withoutUnspecified({ ...expected, format_version: 6,
+    document: { ...expected.document, schema_version: 6 } }));
   expect(actual.document.styles.length).toBeGreaterThan(0);
   await expect(page.locator('.save-state')).toHaveText('Not saved yet');
 });

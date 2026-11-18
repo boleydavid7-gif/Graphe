@@ -166,6 +166,20 @@ pub struct TableCellLayout {
     pub paragraph_ids: Vec<String>,
 }
 
+/// A standalone image's immutable placement, without encoded or decoded pixels.
+///
+/// Renderers obtain the image asset through its stable source ID and draw it in
+/// this exact rectangle. Images participate in page flow and are never split,
+/// silently resized, or measured by a frontend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageLayout {
+    /// Stable source image identifier, independent of its array position.
+    pub image_id: String,
+    /// Page-local border box in fixed output units.
+    pub rect: Rect,
+}
+
 /// One physical page. Sections start on a new page in this first layout profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -185,6 +199,9 @@ pub struct PageLayout {
     /// Rust-positioned cell borders; absent from serialized tableless layouts.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub table_cells: Vec<TableCellLayout>,
+    /// In-flow image placements; absent from serialized image-free layouts.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub images: Vec<ImageLayout>,
 }
 
 /// A supported layout completed with a clearly reported fidelity limitation.

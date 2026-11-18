@@ -1251,3 +1251,26 @@ is an input/assistive projection. An over-page row reports a layout limitation
 instead of silently clipping content. Unsupported imports/exports keep explicit
 loss/error/original safeguards. No dependencies were introduced. Primary sources,
 alternatives and unresolved compatibility limits are in `TABLES_RESEARCH.md`.
+
+## 2026-11-18 — Step 8A uses bounded, immutable raster blocks
+
+Add format-neutral standalone `Block::Image` with stable IDs, original PNG/JPEG
+bytes, twip dimensions, alt text and alignment. Reuse transactions, bounded undo
+and Rust layout instead of adding an object editor or a browser document model.
+A selected image is Rust state; structural image barriers protect text edits.
+
+Use pinned low-level `png`, `zune-jpeg`/`zune-core` and `kamadak-exif` rather than
+host/browser codecs or a general image-processing framework. Bound compressed
+bytes, metadata, dimensions and aggregate pixels before decoding. Share immutable
+derived oriented RGBA/PNG across clones, apply all eight EXIF orientations, and
+disclose unsupported color-management approximations. Preserve complete upstream
+licenses in the repository and production About notices. Native preservation may
+retain private EXIF metadata; it is not a sanitization operation.
+
+Advance native model/envelope to 6 with strict 1–5 migrations. Keep DOCX and ODT
+pictures in adapters and reject incomplete supported projections. Regenerate
+media relationships from current content; never graft deleted original images.
+PDF paints the same normalized pixels/geometry with alpha. TXT requires meaningful
+loss disclosure and RTF images are refused until represented safely. Ordinary
+PNG/JPEG bytes can be retained externally; orientation/color normalization uses
+canonical PNG and reports its limits. See IMAGES.md and IMAGES_RESEARCH.md.

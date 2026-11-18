@@ -167,15 +167,17 @@ impl DocumentLayout {
             .iter()
             .find(|page| page.number == page_number)
             .ok_or_else(|| invalid("page number does not identify this layout"))?;
+        // Images have their own stable object selection, not a fabricated text
+        // cursor. A point on an image must not jump to a nearby paragraph.
+        if page.images.iter().any(|image| contains(image.rect, x, y)) {
+            return Ok(None);
+        }
         // Multiple table cells share a physical y range. Restrict a point in a
         // cell to that cell's source paragraphs, including its blank padding.
-        let cell = page.table_cells.iter().find(|cell| {
-            let rect = cell.rect;
-            x >= rect.x
-                && i128::from(x) < i128::from(rect.x) + i128::from(rect.width)
-                && y >= rect.y
-                && i128::from(y) < i128::from(rect.y) + i128::from(rect.height)
-        });
+        let cell = page
+            .table_cells
+            .iter()
+            .find(|cell| contains(cell.rect, x, y));
         let Some(line) = page
             .lines
             .iter()
@@ -364,6 +366,13 @@ impl DocumentLayout {
             preferred_x: preferred,
         })
     }
+}
+
+fn contains(rect: Rect, x: i64, y: i64) -> bool {
+    x >= rect.x
+        && i128::from(x) < i128::from(rect.x) + i128::from(rect.width)
+        && y >= rect.y
+        && i128::from(y) < i128::from(rect.y) + i128::from(rect.height)
 }
 
 fn horizontal_distance(line: &LineLayout, x: i64) -> i128 {

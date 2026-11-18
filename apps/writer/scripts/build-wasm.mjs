@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const workspace = fileURLToPath(new URL('../../../', import.meta.url));
@@ -21,6 +21,12 @@ try {
     cwd: workspace,
     stdio: 'inherit',
   });
+  const size = statSync(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)).size;
+  const assetLimit = 25 * 1024 * 1024;
+  if (size > assetLimit) {
+    throw new Error(`WebAssembly asset is ${size} bytes; Cloudflare's per-asset limit is ${assetLimit} bytes.`);
+  }
+  console.log(`Writer WebAssembly asset: ${size} bytes (${assetLimit - size} bytes below the static asset limit).`);
 } catch (error) {
   console.error('Writer WebAssembly build failed. Install stable Rust, wasm32-unknown-unknown, and wasm-bindgen-cli 0.2.130.');
   if (process.env.WORKERS_CI === '1') console.error('For Cloudflare Workers Builds, use npm run build:cloudflare as the build command.');

@@ -7,6 +7,15 @@ conversion statements. Research alone is not a compatibility or completion claim
 
 ## DOCX relationship review (2026-11-15)
 
+Step 8A's current [image research and retrospective](IMAGES_RESEARCH.md) reviews
+PNG/JPEG/EXIF, resource bounds, DrawingML/ODF mapping, immutable assets, PDF alpha,
+browser selection/focus and commercial-compatible low-level codec alternatives.
+The accepted design keeps a format-neutral Rust image block and existing
+transaction/layout boundaries. It corrects image-crossing text-edit risks,
+preflights cumulative decode budgets, verifies complete raster streams and
+handles EXIF consistently. These findings supplement the historical reviews
+below; actual execution results belong in [IMAGES_VERIFICATION.md](IMAGES_VERIFICATION.md).
+
 The owner subsequently authorized [safe formatting normalization](DOCX_NORMALIZATION.md).
 The supplied private Word-for-the-web file exposed 82 metadata/formatting-only
 blockers despite having ordinary paragraph content and disabled tracking.

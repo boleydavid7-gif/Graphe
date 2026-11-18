@@ -294,10 +294,10 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
         .sections()
         .iter()
         .flat_map(|section| section.blocks())
-        .any(|block| matches!(block, Block::Table(_)))
+        .any(|block| matches!(block, Block::Table(_) | Block::Image(_)))
     {
         return Err(unsupported(
-            "RTF table export is not supported yet. Keep a native Graphe, DOCX, ODT or PDF copy.",
+            "RTF table and image export is not supported yet. Keep a native Graphe, DOCX, ODT or PDF copy.",
         ));
     }
     let tables = Tables::new(document)?;

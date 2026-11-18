@@ -96,7 +96,7 @@ fn serialization_is_deterministic_pretty_utf8_with_one_final_newline() {
     let second = serialize_document(&document).unwrap();
     assert_eq!(first, second);
     assert!(first.starts_with(
-        b"{\n  \"format\": \"office-writer\",\n  \"format_version\": 5,\n  \"document\": {"
+        b"{\n  \"format\": \"office-writer\",\n  \"format_version\": 6,\n  \"document\": {"
     ));
     assert!(first.ends_with(b"}\n"));
     assert!(!first.ends_with(b"\n\n"));
@@ -361,7 +361,7 @@ fn unknown_format_names_are_distinct_from_unsupported_versions() {
 
 #[test]
 fn unsupported_native_versions_are_checked_before_current_payload_shape() {
-    for version in [0, 6, u64::MAX] {
+    for version in [0, 7, u64::MAX] {
         let error = load(
             json!({"format":"office-writer", "format_version":version, "future_payload":true}),
         )
@@ -375,7 +375,7 @@ fn unsupported_native_versions_are_checked_before_current_payload_shape() {
 
 #[test]
 fn unsupported_model_schema_versions_retain_the_existing_structured_error() {
-    for version in [0, 6, u64::MAX] {
+    for version in [0, 7, u64::MAX] {
         let error = load(json!({"format":"office-writer", "format_version":1,
             "document":{"schema_version":version,"future_payload":true}}))
         .unwrap_err();
@@ -470,8 +470,8 @@ fn duplicate_object_keys_are_rejected_without_value_based_overwriting() {
             1,
         ),
         valid.replacen(
-            "\"format_version\": 5",
-            "\"format_version\": 5, \"format_version\": 5",
+            "\"format_version\": 6",
+            "\"format_version\": 6, \"format_version\": 6",
             1,
         ),
         valid.replacen("\"document\": {", "\"document\": {}, \"document\": {", 1),
@@ -483,8 +483,8 @@ fn duplicate_object_keys_are_rejected_without_value_based_overwriting() {
     }
     for duplicate in [
         valid.replacen(
-            "\"schema_version\": 5",
-            "\"schema_version\": 5, \"schema_version\": 5",
+            "\"schema_version\": 6",
+            "\"schema_version\": 6, \"schema_version\": 6",
             1,
         ),
         valid.replacen(
