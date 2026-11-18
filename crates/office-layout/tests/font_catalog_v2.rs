@@ -170,7 +170,17 @@ fn oswald_uses_its_own_real_variable_weight_font() {
 fn retired_serif_families_substitute_without_silent_font_loss() {
     for family in ["Bitter", "Crimson Pro", "Fraunces"] {
         let page = sample(family, false, false);
-        assert!(page.outlines.iter().all(|outline| outline.font_id.starts_with("Tinos")), "{family}");
-        assert!(page.diagnostics.iter().any(|issue| issue.kind == "font_substitution"), "{family}");
+        assert!(
+            page.outlines
+                .iter()
+                .all(|outline| outline.font_id.starts_with("Tinos")),
+            "{family}"
+        );
+        assert!(
+            page.diagnostics
+                .iter()
+                .any(|issue| issue.kind == "font_substitution"),
+            "{family}"
+        );
     }
 }
