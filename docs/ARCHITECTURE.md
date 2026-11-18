@@ -1168,7 +1168,7 @@ its existing outlined-text accessibility/search limitations remain. See
 ## External browser font assets
 
 Browser WASM uses a complete verified external catalog; native Rust retains the
-embedded default. Both preserve the same42 fonts, original registration order,
+embedded default. Both preserve the same 42 fonts, original registration order,
 font identifiers and layout profile. Rust validates lengths, hashes and font
 structure before atomic publication; all layout, selection and PDF entry points
 require that catalog. Vite publishes byte-exact versioned same-origin assets;

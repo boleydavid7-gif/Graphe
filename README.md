@@ -714,6 +714,6 @@ limited. See [table scope and checks](docs/TABLES.md).
 
 ### External browser fonts
 
-Graphe loads its unchanged42-face pinned catalog from verified, versioned `/fonts/`
+Graphe loads its unchanged 42-face pinned catalog from verified, versioned `/fonts/`
 static assets; native Rust retains embedded fonts. Startup waits for every face,
 with cached-font recovery, progress and retry. See [delivery and verification](docs/EXTERNAL_FONTS.md).

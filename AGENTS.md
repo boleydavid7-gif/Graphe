@@ -224,7 +224,7 @@ results; do not claim deployment or unperformed verification.
 ## External fonts
 
 The owner authorized external browser font loading on dev/graphe-external-fonts.
-Keep all canonical42 font binaries, manifest, checksums, notices and provenance.
+Keep all canonical 42 font binaries, manifest, checksums, notices and provenance.
 Native Rust remains embedded; WASM requires the complete independently verified
 catalog before layout, selection or PDF. Preserve registration order and catalog
 identity. Every cache read must verify length/hash; no host-font fallback or

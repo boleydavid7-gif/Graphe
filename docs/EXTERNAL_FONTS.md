@@ -55,8 +55,14 @@ No merge or deployment is authorized by this report.
 - `npm run test:wasm`: 85 passed, including 6 catalog lifecycle cases, native/WASM
   geometry/metrics/outlines and PDF parity; existing DOCX/ODT and image cycles pass.
 - `npm run test:build`: 10 passed, including real Vite dev/build/preview and asset limits.
-- Focused Chromium external-font suite: 12 passed. Full 234-case Chromium run is
-  in progress; its final result must be recorded before declaring verification complete.
+- Focused Chromium external-font suite: 12 passed.
+- Full Chromium stress run (`npm run test:browser -- --project=chromium --workers=4`):
+  204 passed, 30 failed. Failures included five-second cold-start waits and
+  transient save-state/timing assertions under concurrent load.
+- Serial recheck (`npx playwright test --project=chromium --last-failed --workers=1`):
+  all 30 passed. Thus every one of the 234 distinct cases passed in executed
+  coverage, but the four-worker suite was not clean and was not counted as passing.
+  No fresh complete single-worker run was performed. The PR remains draft.
 - Canonical font verifier: 42 unchanged fonts, 19,533,340 bytes, notices verified.
 
 Final WASM is **6,535,911 bytes**, down **19,495,149 bytes (74.9%)** from
@@ -79,3 +85,5 @@ Cached-font tests keep the application shell available and block font network;
 they do not certify a wholly offline application. Existing development-only
 picomatch advisory and hosted-CI availability limitations remain; no audit check
 was disabled. Merge and deployment require approval.
+
+Review: https://github.com/boleydavid7-gif/stuff/pull/58 . No merge or deployment.
