@@ -79,9 +79,10 @@ fn manual_page_break_splits_at_caret_in_one_history_entry() {
     assert_eq!(view(&engine)["paragraphs"][0]["runs"][0]["text"], "Alpha beta");
     send(&mut engine, json!({"type":"redo"}));
     assert_eq!(view(&engine)["paragraphs"][1]["format"]["pageBreakBefore"], true);
+    let second = view(&engine)["paragraphs"][1]["id"].as_str().unwrap().to_owned();
     send(&mut engine, json!({"type":"set_page_break_before", "enabled":false,
-        "selection":{"anchor":{"paragraphId":view(&engine)["paragraphs"][1]["id"],"utf16":0},
-            "focus":{"paragraphId":view(&engine)["paragraphs"][1]["id"],"utf16":0}}}));
+        "selection":{"anchor":{"paragraphId":second,"utf16":0},
+            "focus":{"paragraphId":second,"utf16":0}}}));
     assert_eq!(view(&engine)["paragraphs"][1]["format"]["pageBreakBefore"], false);
 }
 
