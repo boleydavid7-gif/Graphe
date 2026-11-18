@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible Graphe defect without exposing private data
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: issue
+    attributes:
+      label: Problem
+      description: Explain the behavior and expected result
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use a synthetic document, never private or third-party content
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Version/commit, browser, platform
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Paste a minimal error or synthetic screenshot. Do not include credentials, confidential documents, or security exploit details.
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, follow SECURITY.md instead of filing a public bug."

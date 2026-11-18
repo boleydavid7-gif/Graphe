@@ -1,0 +1,21 @@
+[package]
+name        = "rclip-core"
+description = "Shared vocabulary for rich-clipboard codecs: flavors, bounds-checked reader, errors"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+authors.workspace      = true
+
+[features]
+default = []
+## Enables serializers and any API that must own its output.
+alloc = []
+std = ["alloc"]
+
+[dependencies]
+
+[dev-dependencies]
+# The payload type needs an allocator; the library still defaults to neither.
+rclip-core = { path = ".", features = ["alloc"] }

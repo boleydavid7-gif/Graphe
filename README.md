@@ -1,4 +1,7 @@
-# Office Engine
+# Graphe — Office Engine
+
+**Open-source release candidate, not publicly released.** Graphe is a free document editor powered by an independent Rust-based Office Engine, with a React and WebAssembly interface. Read the [release checklist](docs/OPEN_SOURCE_RELEASE.md) before distributing this branch.
+
 
 Office Engine is an independent Rust engine intended to power a professional
 productivity suite, with correctness, performance, compatibility, maintainability,
@@ -696,14 +699,19 @@ necessary.
 
 ## Licensing
 
-Graphe and the Office Engine are proprietary software. The repository-root
-[`LICENSE`](LICENSE) grants free use of the software as supplied; it does not
-make the source open-source or grant redistribution rights over proprietary
-code. Third-party libraries and bundled fonts retain their separate licenses.
+**Open-source preparation (private branch; not yet published).** The intended
+license for Graphe's application source and independent Rust Office Engine
+is the [Mozilla Public License 2.0](LICENSE), subject to unresolved
+[release readiness checks](docs/OPEN_SOURCE_RELEASE.md). The existing private
+production `main` branch remains proprietary until a release is approved,
+built and published. This branch is **not** a public-source grant or release
+announcement.
 
-For the current commercial-license/IP review, see
-[the licensing audit](docs/COMMERCIAL_LICENSING_AUDIT.md).
-This is a review in progress, not a claim of legal clearance.
+Third-party dependencies, bundled OFL fonts, external test fixtures, and
+Graphe/ProairetOS trademarks retain their own rights. See [Notices](NOTICE.md),
+[Branding](TRADEMARKS.md), [Contributing](CONTRIBUTING.md), and the
+[commercial licensing audit](docs/COMMERCIAL_LICENSING_AUDIT.md)
+and [current dependency-license evidence](docs/DEPENDENCY_LICENSE_AUDIT.md).
 
 ### Tables
 

@@ -1,0 +1,11 @@
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+The complete license is in the repository-root LICENSE.
+This directory-level notice applies only to original project source code
+that its contributors have rights to license. Third-party font binaries,
+license files, fixtures and artwork are not relicensed by this notice.
+See the repository-root NOTICE.md and COPYRIGHT.md.
+
+Status: open-source preparation within a private repository; not a public release.

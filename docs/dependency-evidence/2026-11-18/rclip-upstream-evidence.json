@@ -1,0 +1,20 @@
+[
+  {
+    "commit": "2be8cabe96655f98bec3d5dc9781f1713cd46246",
+    "url": "https://raw.githubusercontent.com/fschutt/rich-clipboard/2be8cabe96655f98bec3d5dc9781f1713cd46246/Cargo.toml",
+    "sha256": "74dc6f278438ec3f781e970478428be6f22c3647e0e4dddfb3b03baedd4dbfbc",
+    "license": "MIT OR Apache-2.0",
+    "authors": [
+      "Felix Sch\u00fctt <felix.schuett@maps4print.com>"
+    ]
+  },
+  {
+    "commit": "371c7203faeb3a5f13604a574a7a2e37bba48226",
+    "url": "https://raw.githubusercontent.com/fschutt/rich-clipboard/371c7203faeb3a5f13604a574a7a2e37bba48226/Cargo.toml",
+    "sha256": "74dc6f278438ec3f781e970478428be6f22c3647e0e4dddfb3b03baedd4dbfbc",
+    "license": "MIT OR Apache-2.0",
+    "authors": [
+      "Felix Sch\u00fctt <felix.schuett@maps4print.com>"
+    ]
+  }
+]

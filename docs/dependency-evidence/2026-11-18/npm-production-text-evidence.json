@@ -1,0 +1,44 @@
+[
+  {
+    "package": "node_modules/react",
+    "version": "19.3.1",
+    "declaredLicense": "MIT",
+    "lockIntegrity": "sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==",
+    "licenseFiles": [
+      {
+        "file": "LICENSE",
+        "bytes": 1088,
+        "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+      }
+    ],
+    "status": "INSTALLED_TEXT_EVIDENCE_ONLY"
+  },
+  {
+    "package": "node_modules/react-dom",
+    "version": "19.3.1",
+    "declaredLicense": "MIT",
+    "lockIntegrity": "sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==",
+    "licenseFiles": [
+      {
+        "file": "LICENSE",
+        "bytes": 1088,
+        "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+      }
+    ],
+    "status": "INSTALLED_TEXT_EVIDENCE_ONLY"
+  },
+  {
+    "package": "node_modules/scheduler",
+    "version": "0.28.0",
+    "declaredLicense": "MIT",
+    "lockIntegrity": "sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==",
+    "licenseFiles": [
+      {
+        "file": "LICENSE",
+        "bytes": 1088,
+        "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+      }
+    ],
+    "status": "INSTALLED_TEXT_EVIDENCE_ONLY"
+  }
+]

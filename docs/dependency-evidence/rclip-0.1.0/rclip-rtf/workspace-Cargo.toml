@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "tools/*"]
+# cargo-fuzz keeps its own nightly-only workspace.
+exclude = ["fuzz"]
+
+[workspace.package]
+version      = "0.1.0"
+edition      = "2021"
+rust-version = "1.85"
+license      = "MIT OR Apache-2.0"
+repository   = "https://github.com/fschutt/rich-clipboard"
+authors      = ["Felix Schütt <felix.schuett@maps4print.com>"]
+
+[workspace.dependencies]
+rclip-bookmark = { version = "0.1.0", path = "crates/rclip-bookmark" }
+rclip-cf-html = { version = "0.1.0", path = "crates/rclip-cf-html" }
+rclip-codepage = { version = "0.1.0", path = "crates/rclip-codepage" }
+rclip-core = { version = "0.1.0", path = "crates/rclip-core" }
+rclip-desktop-entry = { version = "0.1.0", path = "crates/rclip-desktop-entry" }
+rclip-dib = { version = "0.1.0", path = "crates/rclip-dib" }
+rclip-dropfiles = { version = "0.1.0", path = "crates/rclip-dropfiles" }
+rclip-file-desc = { version = "0.1.0", path = "crates/rclip-file-desc" }
+rclip-html = { version = "0.1.0", path = "crates/rclip-html" }
+rclip-idlist = { version = "0.1.0", path = "crates/rclip-idlist" }
+rclip-rtf = { version = "0.1.0", path = "crates/rclip-rtf" }
+rclip-shell-link = { version = "0.1.0", path = "crates/rclip-shell-link" }
+rclip-uri-list = { version = "0.1.0", path = "crates/rclip-uri-list" }
+rclip-url-file = { version = "0.1.0", path = "crates/rclip-url-file" }
+rclip-webloc = { version = "0.1.0", path = "crates/rclip-webloc" }
+
+# Third-party. Only ever an optional dependency: PNG/TIFF are deliberately
+# out of scope for rclip-dib (PLAN.md 4.4), so the facade delegates behind an
+# opt-in feature rather than every consumer paying for a decoder.
+image = { version = "0.25", default-features = false, features = ["png", "tiff"] }
+
+[profile.test]
+opt-level = 1

@@ -4,6 +4,7 @@ description = "Interface-independent foundations for the Office Engine"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 base64.workspace = true

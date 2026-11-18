@@ -6,3 +6,21 @@
 /apps/writer/test-results/
 /apps/writer/artifacts/
 /apps/writer/.cache/
+
+# Local developer credentials and working files (never commit)
+/.env
+/.env.*
+/apps/writer/.env
+/apps/writer/.env.*
+/.npmrc
+/.pypirc
+/.cargo/credentials
+/.cargo/credentials.toml
+*.pem
+*.p12
+*.pfx
+*.key
+.DS_Store
+
+# Generated local dependency audit files
+/artifacts/dependency-audit/

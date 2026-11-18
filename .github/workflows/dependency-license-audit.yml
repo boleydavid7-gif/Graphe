@@ -1,0 +1,57 @@
+name: Dependency License Evidence
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - chore/graphe-open-source-prep
+    paths:
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - apps/writer/package-lock.json
+      - scripts/audit-dependencies.mjs
+      - scripts/audit-license-texts.py
+      - scripts/verify-rclip-evidence.py
+      - scripts/test_verify_rclip_evidence.py
+      - docs/dependency-evidence/rclip-0.1.0/**
+      - crates/office-formats/THIRD_PARTY_NOTICES.txt
+      - .github/workflows/dependency-license-audit.yml
+permissions:
+  contents: read
+jobs:
+  evidence:
+    name: Cargo & npm dependency evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out audited branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Inventory exact pinned registry metadata and target graphs
+        run: node scripts/audit-dependencies.mjs
+      - name: Install production npm license evidence without lifecycle scripts
+        run: npm ci --omit=dev --ignore-scripts --prefix apps/writer
+      - name: Verify pinned rclip declaration and reference-text evidence
+        run: |
+          python3 scripts/verify-rclip-evidence.py
+          python3 scripts/test_verify_rclip_evidence.py
+      - name: Collect checksum-verified crate license texts
+        run: python3 scripts/audit-license-texts.py
+      - name: Upload evidence (not a legal clearance)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: graphe-dependency-evidence
+          path: artifacts/dependency-audit/
+          if-no-files-found: warn
+      - name: Summary
+        if: success()
+        shell: bash
+        run: |
+          echo "Cargo & npm metadata inventory generated. These are license declarations, NOT verified redistribution rights." >> "$GITHUB_STEP_SUMMARY"
+          sed -n '1,55p' artifacts/dependency-audit/dependency-audit.md >> "$GITHUB_STEP_SUMMARY"
