@@ -28,11 +28,14 @@ open-source release, or deploy the staging branch before the gates below pass.
       confirm any other contributor/employer rights, and independently examine
       third-party snippets. A 100-commit author scan showed a small set of
       identities but cannot prove ownership of the entire repository history.
-- [ ] **Complete Rust dependency clearance:** identify each released-WASM/native
-      dependency and its exact license terms; generate accurate third-party
-      notice texts and an SBOM from the *release* artifacts. Keep historical
-      `docs/DEPENDENCIES.md` and incomplete subset notices separate. Resolve
-      the `rclip-rtf`/`rclip-core` upstream license-file question.
+- [ ] **Complete Rust dependency clearance:** exact locked package identity
+      inventory is complete for **123 external Cargo packages** in
+      [the dependency audit](DEPENDENCY_LICENSE_AUDIT.md) and
+      [CSV inventory](DEPENDENCY_LOCK_INVENTORY.csv). A separate workflow and
+      `scripts/audit-dependencies.mjs` stage a runtime license evidence scan.
+      **Still open:** run Cargo metadata and fresh scanners on a working runner,
+      review exact license texts/notice obligations, generate an accurate
+      full release notice/SBOM, and resolve `rclip-rtf`/`rclip-core` evidence.
 - [ ] **Asset provenance:** verify all Git-tracked SVG/PNG logos, image samples,
       screenshots, Office documents, RTF/ODT fixtures and other binaries.
       Non-public/restricted fixtures must be removed or replaced **before**
