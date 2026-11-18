@@ -1,5 +1,14 @@
 # Writer dependency review
 
+> **Historical dependency review, not the current release clearance.**
+> This document was initially prepared under a proprietary/pending license
+> decision. The separate private release-preparation branch now stages
+> MPL-2.0. Consult the [current exact lockfile dependency audit](DEPENDENCY_LICENSE_AUDIT.md),
+> its [123-crate inventory](DEPENDENCY_LOCK_INVENTORY.csv), and the
+> [release gate](OPEN_SOURCE_RELEASE.md) for current status. Previous
+> references to a pending project license are preserved as dated research.
+
+
 Reviewed on 2026-11-14. This inventory records upstream dependency licenses;
 Graphe's proprietary software notice is in the repository root LICENSE. No Office engine or existing
 rich-text editor is embedded. The npm lockfile and Cargo.lock pin the resolved
