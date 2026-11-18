@@ -2082,3 +2082,14 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     min-height: 44px; font-size: 16px;
   }
 }
+
+/* Step 8C.2: identify the active Rust section without introducing a new toolbar. */
+.section-position {
+  color: var(--writer-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 0 5px;
+}
+@media (max-width: 620px) {
+  .section-position { display: none; }
+}

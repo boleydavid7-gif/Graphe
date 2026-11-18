@@ -128,6 +128,16 @@ pub(crate) enum Command {
         page_margins: PageMargins,
         expected_revision: Option<String>,
     },
+    InsertSectionBreak {
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
+    RemoveSectionBreak {
+        section_id: String,
+        #[serde(default)]
+        confirm_layout_change: bool,
+        expected_revision: Option<String>,
+    },
     InsertPageBreak {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
@@ -263,6 +273,12 @@ impl Command {
             | Self::SetPageSetup {
                 expected_revision, ..
             }
+            | Self::InsertSectionBreak {
+                expected_revision, ..
+            }
+            | Self::RemoveSectionBreak {
+                expected_revision, ..
+            }
             | Self::InsertPageBreak {
                 expected_revision, ..
             }
@@ -314,6 +330,8 @@ pub(crate) struct View {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PageSetupView {
     pub section_id: String,
+    pub section_index: usize,
+    pub section_count: usize,
     pub page_size: PageSize,
     pub page_margins: PageMargins,
 }

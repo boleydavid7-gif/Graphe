@@ -420,6 +420,10 @@ impl BrowserEngine {
                 section_id, page_size, page_margins, ..
             } => self.set_page_setup(&section_id, page_size, page_margins),
             Command::InsertPageBreak { selection, .. } => self.insert_page_break(selection),
+            Command::InsertSectionBreak { selection, .. } => self.insert_section_break(selection),
+            Command::RemoveSectionBreak { section_id, confirm_layout_change, .. } => {
+                self.remove_section_break(&section_id, confirm_layout_change)
+            },
             Command::SetPageBreakBefore { enabled, selection, .. } => {
                 self.set_page_break_before(enabled, selection)
             }
@@ -723,6 +727,9 @@ impl BrowserEngine {
         let defaults = office_layout::LayoutOptions::default();
         Some(wire::PageSetupView {
             section_id: section.id().as_str().into(),
+            section_index: document.sections().iter()
+                .position(|candidate| candidate.id() == section.id()).unwrap_or(0),
+            section_count: document.sections().len(),
             page_size: section.properties().and_then(|value| value.page_size).unwrap_or(defaults.page_size),
             page_margins: section.properties().and_then(|value| value.page_margins).unwrap_or(defaults.page_margins),
         })
