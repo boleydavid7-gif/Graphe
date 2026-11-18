@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { URL } from 'node:url';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
-await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
+await initializeWithFonts();
 
 function engine(context) {
   const value = new WriterEngine(context.name);

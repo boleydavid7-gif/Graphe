@@ -711,3 +711,9 @@ stable identities and structure. Supported DOCX/ODT tables can be exchanged; PDF
 uses Rust table geometry. TXT warns before flattening; RTF table export reports
 that it is unsupported. Merged/nested tables and rows taller than a page remain
 limited. See [table scope and checks](docs/TABLES.md).
+
+### External browser fonts
+
+Graphe loads its unchanged 42-face pinned catalog from verified, versioned `/fonts/`
+static assets; native Rust retains embedded fonts. Startup waits for every face,
+with cached-font recovery, progress and retry. See [delivery and verification](docs/EXTERNAL_FONTS.md).

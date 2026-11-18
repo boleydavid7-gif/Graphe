@@ -5,10 +5,11 @@ import { inflateRawSync } from 'node:zlib';
 import test from 'node:test';
 import { URL } from 'node:url';
 import { TextDecoder, TextEncoder } from 'node:util';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
 // Execute the compiled release engine; no JavaScript document or import mock.
-await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
+await initializeWithFonts();
 const root = new URL('../../../tests/fixtures/docx/relationships/', import.meta.url);
 const safe = await readFile(new URL('supported-auxiliary-parts.docx', root));
 const encode = new TextEncoder();

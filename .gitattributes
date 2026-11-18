@@ -1,2 +1,5 @@
 # Preserve the official Unicode test data byte-for-byte, including upstream spaces.
 tests/fixtures/unicode/GraphemeBreakTest.txt -text -whitespace
+
+# Preserve pinned font metadata, licenses and binaries across Windows checkouts.
+crates/office-layout/fonts/** -text

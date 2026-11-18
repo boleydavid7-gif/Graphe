@@ -3,12 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { TextDecoder, TextEncoder } from 'node:util';
 import { URL } from 'node:url';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
 // Execute the real release WASM and generated target-web ABI in V8. This suite
 // complements native Rust tests and production browser tests; it mocks neither.
-const binary = await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url));
-const exports = await initialize({ module_or_path: binary });
+const exports = await initializeWithFonts();
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 

@@ -220,3 +220,14 @@ For the browser prototype, also run its documented TypeScript, lint, unit,
 real-browser, and production-build checks. Verify production WASM loading and
 capture screenshots from the running application. Report commands and actual
 results; do not claim deployment or unperformed verification.
+
+## External fonts
+
+The owner authorized external browser font loading on dev/graphe-external-fonts.
+Keep all canonical 42 font binaries, manifest, checksums, notices and provenance.
+Native Rust remains embedded; WASM requires the complete independently verified
+catalog before layout, selection or PDF. Preserve registration order and catalog
+identity. Every cache read must verify length/hash; no host-font fallback or
+editable partial readiness. Keep CSS previews on verified binary FontFace bytes
+and versioned asset URLs. No R2, deployment/security-setting changes, merge or
+deploy are authorized. See docs/EXTERNAL_FONTS.md and its research.

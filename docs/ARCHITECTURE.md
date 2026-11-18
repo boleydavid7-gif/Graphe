@@ -1164,3 +1164,13 @@ before replacing images with explicit alt-text placeholders; RTF image export is
 rejected. PDF emits compressed raster XObjects and alpha masks at Rust geometry;
 its existing outlined-text accessibility/search limitations remain. See
 [image contract](IMAGES.md) and [research](IMAGES_RESEARCH.md).
+
+## External browser font assets
+
+Browser WASM uses a complete verified external catalog; native Rust retains the
+embedded default. Both preserve the same 42 fonts, original registration order,
+font identifiers and layout profile. Rust validates lengths, hashes and font
+structure before atomic publication; all layout, selection and PDF entry points
+require that catalog. Vite publishes byte-exact versioned same-origin assets;
+CacheStorage and binary FontFace initialization support cached font use with
+explicit failure/retry states. See [EXTERNAL_FONTS.md](EXTERNAL_FONTS.md).

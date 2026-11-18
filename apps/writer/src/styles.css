@@ -1,142 +1,142 @@
-/* Actual bundled faces for UI font previews and text-mode projection.
+/* Checked catalog faces for UI font previews and text-mode projection.
    Rust remains authoritative for paged text shaping and measuring; these files
-   are only downloaded by browsers when a preview or fallback uses them. */
+   use the same immutable URLs as Rust font loading, without another asset copy. */
 @font-face {
   font-family: 'Arimo';
-  src: url('../../../crates/office-layout/fonts/Arimo-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Arimo-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Arimo';
-  src: url('../../../crates/office-layout/fonts/Arimo-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Arimo-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Tinos';
-  src: url('../../../crates/office-layout/fonts/Tinos-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Tinos-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Tinos';
-  src: url('../../../crates/office-layout/fonts/Tinos-Bold.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Tinos-Bold.ttf') format('truetype');
   font-style: normal;
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Tinos';
-  src: url('../../../crates/office-layout/fonts/Tinos-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Tinos-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Tinos';
-  src: url('../../../crates/office-layout/fonts/Tinos-BoldItalic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Tinos-BoldItalic.ttf') format('truetype');
   font-style: italic;
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Caladea';
-  src: url('../../../crates/office-layout/fonts/Caladea-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Caladea-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Caladea';
-  src: url('../../../crates/office-layout/fonts/Caladea-Bold.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Caladea-Bold.ttf') format('truetype');
   font-style: normal;
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Caladea';
-  src: url('../../../crates/office-layout/fonts/Caladea-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Caladea-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Caladea';
-  src: url('../../../crates/office-layout/fonts/Caladea-BoldItalic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Caladea-BoldItalic.ttf') format('truetype');
   font-style: italic;
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Carlito';
-  src: url('../../../crates/office-layout/fonts/Carlito-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Carlito-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Carlito';
-  src: url('../../../crates/office-layout/fonts/Carlito-Bold.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Carlito-Bold.ttf') format('truetype');
   font-style: normal;
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Carlito';
-  src: url('../../../crates/office-layout/fonts/Carlito-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Carlito-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'Carlito';
-  src: url('../../../crates/office-layout/fonts/Carlito-BoldItalic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Carlito-BoldItalic.ttf') format('truetype');
   font-style: italic;
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'Source Sans 3';
-  src: url('../../../crates/office-layout/fonts/SourceSans3-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/SourceSans3-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 200 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'Source Sans 3';
-  src: url('../../../crates/office-layout/fonts/SourceSans3-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/SourceSans3-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 200 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'EB Garamond';
-  src: url('../../../crates/office-layout/fonts/EBGaramond-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/EBGaramond-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400 800;
   font-display: swap;
 }
 @font-face {
   font-family: 'EB Garamond';
-  src: url('../../../crates/office-layout/fonts/EBGaramond-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/EBGaramond-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400 800;
   font-display: swap;
 }
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/JetBrainsMono-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 800;
   font-display: swap;
 }
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('../../../crates/office-layout/fonts/JetBrainsMono-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/JetBrainsMono-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 800;
   font-display: swap;
@@ -144,7 +144,7 @@
 
 @font-face {
   font-family: 'Inter';
-  src: url('../../../crates/office-layout/fonts/Inter-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Inter-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
@@ -152,7 +152,7 @@
 
 @font-face {
   font-family: 'Inter';
-  src: url('../../../crates/office-layout/fonts/Inter-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Inter-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
@@ -160,7 +160,7 @@
 
 @font-face {
   font-family: 'Libre Baskerville';
-  src: url('../../../crates/office-layout/fonts/LibreBaskerville-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/LibreBaskerville-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
@@ -168,7 +168,7 @@
 
 @font-face {
   font-family: 'Libre Baskerville';
-  src: url('../../../crates/office-layout/fonts/LibreBaskerville-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/LibreBaskerville-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400 700;
   font-display: swap;
@@ -176,7 +176,7 @@
 
 @font-face {
   font-family: 'Playfair Display';
-  src: url('../../../crates/office-layout/fonts/PlayfairDisplay-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/PlayfairDisplay-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400 900;
   font-display: swap;
@@ -184,7 +184,7 @@
 
 @font-face {
   font-family: 'Playfair Display';
-  src: url('../../../crates/office-layout/fonts/PlayfairDisplay-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/PlayfairDisplay-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400 900;
   font-display: swap;
@@ -192,7 +192,7 @@
 
 @font-face {
   font-family: 'Space Grotesk';
-  src: url('../../../crates/office-layout/fonts/SpaceGrotesk-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/SpaceGrotesk-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 300 700;
   font-display: swap;
@@ -200,7 +200,7 @@
 
 @font-face {
   font-family: 'Lora';
-  src: url('../../../crates/office-layout/fonts/Lora-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Lora-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
@@ -208,7 +208,7 @@
 
 @font-face {
   font-family: 'Lora';
-  src: url('../../../crates/office-layout/fonts/Lora-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Lora-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 400 700;
   font-display: swap;
@@ -216,7 +216,7 @@
 
 @font-face {
   font-family: 'Montserrat';
-  src: url('../../../crates/office-layout/fonts/Montserrat-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Montserrat-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
@@ -224,7 +224,7 @@
 
 @font-face {
   font-family: 'Montserrat';
-  src: url('../../../crates/office-layout/fonts/Montserrat-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Montserrat-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
@@ -232,7 +232,7 @@
 
 @font-face {
   font-family: 'DM Sans';
-  src: url('../../../crates/office-layout/fonts/DMSans-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/DMSans-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 1000;
   font-display: swap;
@@ -240,7 +240,7 @@
 
 @font-face {
   font-family: 'DM Sans';
-  src: url('../../../crates/office-layout/fonts/DMSans-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/DMSans-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 1000;
   font-display: swap;
@@ -250,7 +250,7 @@
 
 @font-face {
   font-family: 'Work Sans';
-  src: url('../../../crates/office-layout/fonts/WorkSans-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/WorkSans-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
@@ -258,7 +258,7 @@
 
 @font-face {
   font-family: 'Work Sans';
-  src: url('../../../crates/office-layout/fonts/WorkSans-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/WorkSans-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 900;
   font-display: swap;
@@ -270,7 +270,7 @@
 
 @font-face {
   font-family: 'Roboto Mono';
-  src: url('../../../crates/office-layout/fonts/RobotoMono-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/RobotoMono-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 700;
   font-display: swap;
@@ -278,7 +278,7 @@
 
 @font-face {
   font-family: 'Roboto Mono';
-  src: url('../../../crates/office-layout/fonts/RobotoMono-Italic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/RobotoMono-Italic.ttf') format('truetype');
   font-style: italic;
   font-weight: 100 700;
   font-display: swap;
@@ -286,7 +286,7 @@
 
 @font-face {
   font-family: 'Oswald';
-  src: url('../../../crates/office-layout/fonts/Oswald-Regular.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/Oswald-Regular.ttf') format('truetype');
   font-style: normal;
   font-weight: 200 700;
   font-display: swap;
@@ -294,28 +294,28 @@
 
 @font-face {
   font-family: 'Noto Sans Arabic';
-  src: url('../../../crates/office-layout/fonts/NotoSansArabic.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/NotoSansArabic.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'Noto Sans Devanagari';
-  src: url('../../../crates/office-layout/fonts/NotoSansDevanagari.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/NotoSansDevanagari.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'Noto Sans Hebrew';
-  src: url('../../../crates/office-layout/fonts/NotoSansHebrew.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/NotoSansHebrew.ttf') format('truetype');
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
   font-family: 'Noto Emoji';
-  src: url('../../../crates/office-layout/fonts/NotoEmoji.ttf') format('truetype');
+  src: url('__WRITER_FONT_ASSET_BASE__/NotoEmoji.ttf') format('truetype');
   font-style: normal;
   font-weight: 300 700;
   font-display: swap;

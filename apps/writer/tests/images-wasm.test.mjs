@@ -4,9 +4,10 @@ import { readFile } from 'node:fs/promises';
 import { URL } from 'node:url';
 import { crc32 } from 'node:zlib';
 import test from 'node:test';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
-await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
+await initializeWithFonts();
 const png = new Uint8Array(await readFile(new URL('../../../crates/office-wasm/tests/fixtures/images/sample.png', import.meta.url)));
 const jpeg = new Uint8Array(await readFile(new URL('../../../crates/office-wasm/tests/fixtures/images/sample.jpg', import.meta.url)));
 let namespace = 0;
