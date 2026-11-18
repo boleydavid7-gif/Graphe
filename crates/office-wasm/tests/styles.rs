@@ -118,3 +118,40 @@ fn final_paragraph_at_offset_zero_is_not_given_the_preceding_paragraph_style() {
     assert!(view["paragraphs"][0]["styleId"].is_null());
     assert_eq!(view["paragraphs"][1]["styleId"], "normal");
 }
+
+// Built-in headings are real, undoable native named styles even for old blank
+// documents. They are never injected into an imported source on open.
+#[test]
+fn applying_heading_to_blank_document_creates_undoable_named_style() {
+    let mut engine = BrowserEngine::new("heading-preset").unwrap();
+    command(&mut engine, json!({"type":"replace_text","text":"Overview"}));
+    let original = engine.export_document().unwrap();
+    let applied = command(&mut engine, json!({"type":"apply_heading","level":1}));
+    assert_eq!(applied["styles"].as_array().unwrap().len(), 1);
+    assert_eq!(applied["styles"][0]["name"], "Heading 1");
+    assert_eq!(applied["paragraphs"][0]["styleId"], applied["styles"][0]["id"]);
+    let saved: Value = serde_json::from_slice(&engine.export_document().unwrap()).unwrap();
+    assert_eq!(saved["document"]["styles"][0]["character_format"]["bold"], true);
+    assert_eq!(saved["document"]["styles"][0]["character_format"]["font_size"], 36);
+    command(&mut engine, json!({"type":"undo"}));
+    assert_eq!(engine.export_document().unwrap(), original);
+    let redo = command(&mut engine, json!({"type":"redo"}));
+    assert_eq!(redo["styles"][0]["name"], "Heading 1");
+    let repeated = command(&mut engine, json!({"type":"apply_heading","level":1}));
+    assert_eq!(repeated["styles"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn invalid_heading_levels_preserve_document_and_selection() {
+    let mut engine = BrowserEngine::new("invalid-heading").unwrap();
+    let before = engine.snapshot();
+    let original = engine.export_document().unwrap();
+    for level in [0, 4, 255] {
+        let response: Value = serde_json::from_str(
+            &engine.dispatch(&json!({"type":"apply_heading","level":level}).to_string())
+        ).unwrap();
+        assert_eq!(response["ok"], false);
+        assert_eq!(engine.snapshot(), before);
+        assert_eq!(engine.export_document().unwrap(), original);
+    }
+}

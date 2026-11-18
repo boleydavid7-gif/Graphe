@@ -184,6 +184,11 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    ApplyHeading {
+        level: u8,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     Undo {
         expected_revision: Option<String>,
     },
@@ -315,6 +320,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::AssignStyle {
+                expected_revision, ..
+            }
+            | Self::ApplyHeading {
                 expected_revision, ..
             }
             | Self::Undo { expected_revision }

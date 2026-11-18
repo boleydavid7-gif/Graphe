@@ -4,8 +4,9 @@ use crate::{
 };
 use office_core::{
     Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, LineSpacing,
-    ListKind, PageMargins, PageSize, Paragraph, ParagraphFormatPatch, ParagraphMetricsPatch,
-    PropertyChange, Section, SectionProperties, TextCoordinates, Transaction, Twips, Utf16Offset,
+    HalfPoints, ListKind, NamedStyle, PageMargins, PageSize, Paragraph, ParagraphFormatPatch,
+    ParagraphMetricsPatch, PropertyChange, Section, SectionProperties, TextCoordinates,
+    Transaction, Twips, Utf16Offset,
     valid_hyperlink,
 };
 
@@ -1190,6 +1191,48 @@ impl BrowserEngine {
         };
         let range = edit_selection(&transaction, &selection)?;
         transaction.set_paragraph_style(&range, style_id.as_ref())?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
+        self.typing = None;
+        Ok(())
+    }
+
+
+    /// Lazily create a named heading and assign it in one core transaction.
+    /// Existing imported style definitions are respected and never replaced.
+    pub(super) fn apply_heading(
+        &mut self,
+        level: u8,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let (name, size, before, after) = match level {
+            1 => ("Heading 1", 36, 240, 120),
+            2 => ("Heading 2", 30, 200, 100),
+            3 => ("Heading 3", 26, 160, 80),
+            _ => return Err(EngineError::new("invalid_command", "Heading level must be 1, 2 or 3.")),
+        };
+        let existing = self.session.document().styles().iter()
+            .find(|style| style.name.eq_ignore_ascii_case(name))
+            .map(|style| style.id.clone());
+        let allocated = if existing.is_none() { Some(self.allocate_id()?) } else { None };
+        let style_id = existing.or_else(|| allocated.clone())
+            .expect("existing or allocated named heading");
+        let selected = self.current_selection(supplied)?;
+        let mut transaction = self.session.begin_transaction();
+        let selection = match selected {
+            Some(selection) => selection,
+            None => self.materialize(&mut transaction)?,
+        };
+        if let Some(id) = allocated {
+            let mut style = NamedStyle::new(id, name);
+            style.character_format.bold = Some(true);
+            style.character_format.font_size = Some(HalfPoints(size));
+            style.paragraph_format.spacing_before = Some(Twips(before));
+            style.paragraph_format.spacing_after = Some(Twips(after));
+            style.paragraph_format.keep_with_next = Some(true);
+            transaction.draft_mut().styles.push(style);
+        }
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.set_paragraph_style(&range, Some(&style_id))?;
         self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
         self.typing = None;
         Ok(())

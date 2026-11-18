@@ -1338,6 +1338,19 @@ export default function App() {
     }
   }
 
+  // Show built-in headings even in unstyled files; the engine only creates a
+  // named style when it is applied, preserving imported originals on open.
+  const missingHeadingLevels = ([1, 2, 3] as const).filter((level) =>
+    !view?.styles.some((style) => style.name.replace(/[\s_-]/g, '').toLowerCase() === `heading${level}`));
+  function chooseParagraphStyle(value: string) {
+    const chosen = JSON.parse(value) as string | null;
+    if (typeof chosen === 'string' && /^graphe-heading:[123]$/.test(chosen)) {
+      format({ type: 'apply_heading', level: Number(chosen.slice(-1)) as 1 | 2 | 3 }, false);
+    } else {
+      format({ type: 'assign_style', styleId: chosen }, false);
+    }
+  }
+
   const unavailable = !view || !documentOpen || busy || composing;
   const selectedImage = view?.images?.find((image) => image.id === view.selectedImageId);
   const imageUrls = imagePresentation.sessionId === view?.sessionId ? imagePresentation.urls : EMPTY_IMAGE_URLS;
@@ -1461,9 +1474,10 @@ export default function App() {
           <label className="visually-hidden" htmlFor="paragraph-style">Paragraph style</label>
           <select id="paragraph-style" aria-label="Paragraph style" title="Apply a named style, or Paragraph for direct formatting"
             value={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
-            onChange={(event) => format({ type: 'assign_style', styleId: JSON.parse(event.target.value) as string | null }, false)}>
+            onChange={(event) => chooseParagraphStyle(event.target.value)}>
             {formatState?.styleMixed && <option value="mixed" disabled>Mixed styles</option>}
             <option value="null">Paragraph</option>
+          {missingHeadingLevels.map((level) => <option key={level} value={JSON.stringify(`graphe-heading:${level}`)}>Heading {level}</option>)}
             {view?.styles.map((style) => <option key={style.id} value={JSON.stringify(style.id)}>{style.name}</option>)}
           </select>
         </fieldset>
@@ -1672,9 +1686,10 @@ export default function App() {
         <label htmlFor="inspector-style">Paragraph style</label>
         <select id="inspector-style" disabled={unavailable}
           value={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
-          onChange={(event) => format({ type: 'assign_style', styleId: JSON.parse(event.target.value) as string | null }, false)}>
+          onChange={(event) => chooseParagraphStyle(event.target.value)}>
           {formatState?.styleMixed && <option value="mixed" disabled>Mixed styles</option>}
           <option value="null">Paragraph</option>
+          {missingHeadingLevels.map((level) => <option key={level} value={JSON.stringify(`graphe-heading:${level}`)}>Heading {level}</option>)}
           {view?.styles.map((style) => <option key={style.id} value={JSON.stringify(style.id)}>{style.name}</option>)}
         </select>
         <label htmlFor="inspector-font-family">Font family</label>

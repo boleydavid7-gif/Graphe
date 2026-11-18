@@ -2255,3 +2255,7 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
     width: min(320px, 55vw); height: 100%; max-height: 100%;
   }
 }
+
+/* Named heading choices remain readable in the single-row mobile ribbon. */
+#paragraph-style { width: 146px; }
+@media (max-width: 620px) { #paragraph-style { width: 128px; font-size: 12px; } }

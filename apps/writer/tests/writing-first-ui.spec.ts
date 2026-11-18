@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readyPages } from './step7-test-helpers';
+import { readyPages, focusEditor } from './step7-test-helpers';
 
 // Browser viewport coverage; physical keyboard and native touch still need device checks.
 test.describe('Graphe responsive Writing First UI', () => {
@@ -28,6 +28,22 @@ test.describe('Graphe responsive Writing First UI', () => {
     await more.click();
     await expect(ribbon).toHaveCSS('height', '52px');
     await expect(page.getByRole('combobox', { name: 'Font family', exact: true })).toBeVisible();
+  });
+
+  test('a new document can add a heading and navigate to it from Outline', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await readyPages(page);
+    await focusEditor(page);
+    await page.keyboard.insertText('Overview');
+    const styles = page.getByRole('combobox', { name: 'Paragraph style', exact: true });
+    await expect(styles.locator('option')).toContainText(['Paragraph', 'Heading 1', 'Heading 2', 'Heading 3']);
+    await styles.selectOption(JSON.stringify('graphe-heading:1'));
+    await expect(styles).not.toHaveValue(JSON.stringify('graphe-heading:1'));
+    await page.getByRole('navigation', { name: 'Document tools', exact: true })
+      .getByRole('button', { name: 'Outline' }).click();
+    await expect(page.getByRole('complementary', { name: 'Document outline', exact: true })
+      .getByRole('button', { name: /Overview/ })).toBeVisible();
   });
 
   test('tablet inspector is reachable and dismissible', async ({ page }) => {

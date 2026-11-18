@@ -202,6 +202,7 @@ export type WriterCommand =
   | ({ readonly type: 'set_list'; readonly list: ListKind | null } & EditOrigin)
   | ({ readonly type: 'set_hyperlink'; readonly url: string | null; readonly text?: string } & EditOrigin)
   | ({ readonly type: 'assign_style'; readonly styleId: string | null } & EditOrigin)
+  | ({ readonly type: 'apply_heading'; readonly level: 1 | 2 | 3 } & EditOrigin)
   | { readonly type: 'undo'; readonly expectedRevision?: string }
   | { readonly type: 'redo'; readonly expectedRevision?: string };
 

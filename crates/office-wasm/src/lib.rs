@@ -478,6 +478,7 @@ impl BrowserEngine {
                 selection,
                 ..
             } => self.assign_style(style_id, selection),
+            Command::ApplyHeading { level, selection, .. } => self.apply_heading(level, selection),
             Command::Undo { .. } => {
                 self.session.undo()?;
                 self.layout_state.invalidate();
