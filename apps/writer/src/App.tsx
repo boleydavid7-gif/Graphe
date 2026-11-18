@@ -1435,10 +1435,10 @@ export default function App() {
   }}>
     <header className="top-bar">
       <div className="identity">
-        <img src="/graphe-icon.svg" className="writer-lantern" alt="" />
         <span className="identity__label">
-          <span>Graphe</span>
-          <span className="identity__office">Proairet<span className="office-brand__os">OS</span>&nbsp;Office</span>
+          <strong className="identity__name">Graphe</strong>
+          <span className="identity__by">by</span>
+          <span className="identity__publisher">Proairet<span className="identity__os">OS</span></span>
         </span>
       </div>
       <div className="title-area">
@@ -1480,7 +1480,6 @@ export default function App() {
           </div>
         </details>
       </nav>
-      <div className="office-brand" aria-label="ProairetOS Office"><span>Proairet</span><span className="office-brand__os">OS</span><span className="office-brand__suite">{'\u00a0'}Office</span></div>
     </header>
     <nav className="editor-tabs" aria-label="Editor sections">
       <div className={`editor-tab-options editor-tab-options--${activeTab}`}>
@@ -1712,7 +1711,7 @@ export default function App() {
             loadLayout={loadPageLayout} zoom={previewZoom} onZoomChange={setPreviewZoom}
             onPageInfo={acceptPreviewPageInfo}
             onClose={togglePagePreview} />}</>
-          : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
+          : <div className="closed-document"><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
     {(outlineOpen || (inspectorOpen && !selectedImage)) && <button type="button" className="writer-mobile-sheet-scrim"
       aria-label="Close document tools" onClick={() => { setOutlineOpen(false); setInspectorOpen(false); }} />}

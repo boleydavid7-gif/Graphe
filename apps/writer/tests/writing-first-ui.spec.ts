@@ -59,3 +59,37 @@ test.describe('Graphe responsive Writing First UI', () => {
     await expect(inspector).toHaveCount(0);
   });
 });
+
+
+test('logo-free wordmark shows Graphe by ProairetOS, with accent-colored OS', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await page.goto('/');
+  await readyPages(page);
+  const wordmark = page.locator('.top-bar .identity');
+  await expect(wordmark).toBeVisible();
+  await expect(wordmark.locator('.identity__name')).toHaveText('Graphe');
+  await expect(wordmark.locator('.identity__by')).toHaveText('by');
+  await expect(wordmark.locator('.identity__publisher')).toHaveText('ProairetOS');
+  await expect(wordmark.locator('img')).toHaveCount(0);
+  await expect(page.locator('.top-bar .office-brand')).toHaveCount(0);
+  await page.evaluate(() => document.documentElement.style.setProperty('--writer-accent', 'rgb(25, 173, 215)'));
+  await expect(wordmark.locator('.identity__os')).toHaveCSS('color', 'rgb(25, 173, 215)');
+});
+
+test('embedded mobile header keeps the wordmark, title and document menu usable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await readyPages(page);
+  await page.evaluate(() => {
+    document.documentElement.dataset.writerAppearance = 'dark';
+    document.documentElement.style.setProperty('--writer-accent', 'rgb(54, 184, 145)');
+  });
+  const wordmark = page.locator('.top-bar .identity');
+  await expect(wordmark).toBeVisible();
+  await expect(wordmark.locator('.identity__publisher')).toHaveText('ProairetOS');
+  await expect(wordmark.locator('.identity__os')).toHaveCSS('color', 'rgb(54, 184, 145)');
+  await expect(page.getByRole('textbox', { name: 'Document title', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
+  await expect(page.locator('details.document-menu > summary')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
