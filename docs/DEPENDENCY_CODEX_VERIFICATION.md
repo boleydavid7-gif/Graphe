@@ -117,3 +117,13 @@ No fresh product/browser/device regression suite or Windows/macOS build was run
 for these evidence-tool/documentation changes. The release WASM compile above
 is not a frontend build or browser test. Hosted GitHub Actions results must be
 checked separately; local execution does not establish a hosted CI pass.
+
+### Hosted CI observation
+
+[CI run 44288789099](https://github.com/boleydavid7-gif/stuff/actions/runs/44288789099)
+for evidence commit `1a9a4b8` completed with failure. Its macOS, Windows, Linux
+and browser jobs all expose no execution steps and no logs through the GitHub
+API. This is not evidence that their test commands executed or failed. No
+infrastructure cause can be established from those fields alone. The connector
+lists pull-request runs only; the separate branch-triggered evidence workflow's
+status is not established by this query. Hosted coverage remains unverified.
