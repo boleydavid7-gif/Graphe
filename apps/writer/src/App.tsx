@@ -5,6 +5,7 @@ import type { EditorSurfaceHandle } from './EditorSurface';
 import { PagedEditor, type PageInfo } from './PagedEditor';
 import { PagePreview, type LayoutOrigin, type PreviewZoom } from './PagePreview';
 import { WriterIcon } from './WriterIcon';
+import { VisualPicker, type PreviewChoice } from './VisualPicker';
 import { FindBar } from './FindBar';
 import { StorageError, WriterStorage, type StoredDocument } from './storage';
 import { WriterSaveController, type SaveAssociation, type SaveState } from './autosave';
@@ -215,6 +216,17 @@ function bundledFontSample(font: string | null | undefined): string {
     case 'Noto Emoji': return '☀ ♥ ☺';
     default: return 'Aa Bb Cc 123';
   }
+}
+function fontVisualLabel(font: string): string {
+  const original = COMMON_FONT_SUBSTITUTIONS.find(({ substitute }) => substitute === font)?.name;
+  return original ? font + ' (' + original + ')' : font;
+}
+function stylePreviewSize(name: string): number {
+  if (/^heading[\s_-]*1$/i.test(name)) return 18;
+  if (/^heading[\s_-]*2$/i.test(name)) return 15;
+  if (/^heading[\s_-]*3$/i.test(name)) return 13;
+  if (/^title$/i.test(name)) return 20;
+  return 13;
 }
 function fontOptions(current: string | null | undefined) {
   return <>
@@ -1355,6 +1367,37 @@ export default function App() {
   const selectedImage = view?.images?.find((image) => image.id === view.selectedImageId);
   const imageUrls = imagePresentation.sessionId === view?.sessionId ? imagePresentation.urls : EMPTY_IMAGE_URLS;
   const formatState = view?.format;
+  const currentStyleName = formatState?.styleMixed ? 'Mixed styles'
+    : view?.styles.find((style) => style.id === formatState?.styleId)?.name ?? 'Paragraph';
+  const currentFontName = formatState?.fontFamily ?? 'Font family';
+  const styleChoices: PreviewChoice[] = [
+    { value: 'null', label: 'Paragraph', sample: 'Paragraph text', group: 'Styles', font: 'Arimo', size: 13 },
+    ...missingHeadingLevels.map((level) => ({
+      value: JSON.stringify('graphe-heading:' + level), label: 'Heading ' + level,
+      sample: 'Heading ' + level, group: 'Headings', font: 'Arimo',
+      size: level === 1 ? 18 : level === 2 ? 15 : 13, bold: true,
+    })),
+    ...(view?.styles ?? []).map((style) => ({
+      value: JSON.stringify(style.id), label: style.name, sample: style.name,
+      group: /^(heading|title)/i.test(style.name) ? 'Headings' : 'Document styles',
+      font: 'Arimo', size: stylePreviewSize(style.name),
+      bold: /^(heading|title)/i.test(style.name), note: 'Document style',
+    })),
+  ];
+  const fontChoices: PreviewChoice[] = FONT_GROUPS.flatMap((group) =>
+    group.names.map((name) => ({
+      value: name, label: bundledFontSample(name), sample: fontVisualLabel(name),
+      group: group.label, font: bundledFontPreview(name), size: 19,
+    })));
+  if (formatState?.fontFamily && !BUNDLED_FONTS.has(formatState.fontFamily)) {
+    fontChoices.unshift({
+      value: formatState.fontFamily, sample: formatState.fontFamily,
+      label: bundledFontSample(formatState.fontFamily),
+      group: 'From document', font: bundledFontPreview(formatState.fontFamily), size: 19,
+      note: 'Shown in ' + bundledFontPreview(formatState.fontFamily),
+    });
+  }
+
   const selectionForBreak = view?.selection;
   const currentParagraph = view?.paragraphs.find((paragraph) => paragraph.id === selectionForBreak?.focus.paragraphId);
   const hasPageBreakBefore = currentParagraph?.format.pageBreakBefore === true;
@@ -1472,7 +1515,9 @@ export default function App() {
         <fieldset disabled={unavailable} className="format-group paragraph-style-control">
           <legend className="visually-hidden">Paragraph style</legend>
           <label className="visually-hidden" htmlFor="paragraph-style">Paragraph style</label>
-          <select id="paragraph-style" aria-label="Paragraph style" title="Apply a named style, or Paragraph for direct formatting"
+          <div className="writer-picker-anchor">
+          <select id="paragraph-style" className="writer-native-picker" tabIndex={-1}
+            aria-label="Paragraph style" title="Apply a named style, or Paragraph for direct formatting"
             value={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
             onChange={(event) => chooseParagraphStyle(event.target.value)}>
             {formatState?.styleMixed && <option value="mixed" disabled>Mixed styles</option>}
@@ -1480,14 +1525,29 @@ export default function App() {
           {missingHeadingLevels.map((level) => <option key={level} value={JSON.stringify(`graphe-heading:${level}`)}>Heading {level}</option>)}
             {view?.styles.map((style) => <option key={style.id} value={JSON.stringify(style.id)}>{style.name}</option>)}
           </select>
+          <VisualPicker title="Styles" triggerLabel={currentStyleName} items={styleChoices}
+            selected={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
+            onChoose={chooseParagraphStyle} disabled={unavailable} />
+          </div>
         </fieldset>
         <fieldset disabled={unavailable} className="format-group font-selectors advanced-formatting">
           <legend className="visually-hidden">Font</legend>
           <label className="visually-hidden" htmlFor="font-family">Font family</label>
-          <select id="font-family" aria-label="Font family" value={formatState?.fontFamily ?? ''}
+          <div className="writer-picker-anchor">
+          <select id="font-family" className="writer-native-picker" tabIndex={-1}
+            aria-label="Font family" value={formatState?.fontFamily ?? ''}
             onChange={(event) => format({ type: 'format_character', fontFamily: event.target.value }, false)}>
             {fontOptions(formatState?.fontFamily)}
           </select>
+          <VisualPicker title="Fonts"
+            triggerLabel={formatState?.fontFamily
+              ? fontVisualLabel(commonFontSubstitute(formatState.fontFamily) ?? formatState.fontFamily)
+              : currentFontName}
+            triggerFont={bundledFontPreview(formatState?.fontFamily)} items={fontChoices}
+            selected={formatState?.fontFamily ?? ''}
+            onChoose={(family) => format({ type: 'format_character', fontFamily: family }, false)}
+            disabled={unavailable} />
+          </div>
           <label className="visually-hidden" htmlFor="font-size">Font size</label>
           <select id="font-size" aria-label="Font size" value={formatState?.fontSizePt ?? ''}
             onChange={(event) => format({ type: 'format_character', fontSizePt: Number(event.target.value) }, false)}>
@@ -1684,7 +1744,8 @@ export default function App() {
       <section className="writer-inspector-section" aria-label="Text formatting">
         <h3>Text</h3>
         <label htmlFor="inspector-style">Paragraph style</label>
-        <select id="inspector-style" disabled={unavailable}
+        <div className="writer-picker-anchor writer-inspector-picker">
+        <select id="inspector-style" className="writer-native-picker" tabIndex={-1} disabled={unavailable}
           value={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
           onChange={(event) => chooseParagraphStyle(event.target.value)}>
           {formatState?.styleMixed && <option value="mixed" disabled>Mixed styles</option>}
@@ -1692,12 +1753,26 @@ export default function App() {
           {missingHeadingLevels.map((level) => <option key={level} value={JSON.stringify(`graphe-heading:${level}`)}>Heading {level}</option>)}
           {view?.styles.map((style) => <option key={style.id} value={JSON.stringify(style.id)}>{style.name}</option>)}
         </select>
+        <VisualPicker title="Styles" triggerLabel={currentStyleName} items={styleChoices}
+          selected={formatState?.styleMixed ? 'mixed' : JSON.stringify(formatState?.styleId ?? null)}
+          onChoose={chooseParagraphStyle} disabled={unavailable} />
+        </div>
         <label htmlFor="inspector-font-family">Font family</label>
-        <select id="inspector-font-family" disabled={unavailable}
+        <div className="writer-picker-anchor writer-inspector-picker">
+        <select id="inspector-font-family" className="writer-native-picker" tabIndex={-1} disabled={unavailable}
           value={formatState?.fontFamily ?? ''}
           onChange={(event) => format({ type: 'format_character', fontFamily: event.target.value }, false)}>
           {fontOptions(formatState?.fontFamily)}
         </select>
+        <VisualPicker title="Fonts"
+          triggerLabel={formatState?.fontFamily
+            ? fontVisualLabel(commonFontSubstitute(formatState.fontFamily) ?? formatState.fontFamily)
+            : currentFontName}
+          triggerFont={bundledFontPreview(formatState?.fontFamily)} items={fontChoices}
+          selected={formatState?.fontFamily ?? ''}
+          onChoose={(family) => format({ type: 'format_character', fontFamily: family }, false)}
+          disabled={unavailable} />
+        </div>
         <div className="font-family-preview" aria-label="Typeface sample"
           style={{ fontFamily: `"${bundledFontPreview(formatState?.fontFamily)}", sans-serif` }}>
           <span>{bundledFontSample(formatState?.fontFamily)}</span>
@@ -2023,6 +2098,13 @@ export default function App() {
         <h3>Copyright and ownership</h3>
         <p>© 2026 David Boley. All rights reserved.</p>
         <p>Graphe is proprietary software distributed under the Proairetos brand. It is free to use for personal and commercial work. Your documents and original content remain yours.</p>
+      </section>
+      <section className="about-graphe-section" aria-label="Font substitutions">
+        <h3>Fonts and compatibility</h3>
+        <p>Graphe bundles open-source fonts, not proprietary Microsoft fonts.
+          Arimo (Arial), Tinos (Times New Roman), Carlito (Calibri), and Caladea (Cambria)
+          are substitutes. They may look different from the originals. Imported
+          font family names are preserved where supported.</p>
       </section>
       <section className="about-graphe-section" aria-label="Licenses and notices">
         <h3>Licenses and notices</h3>

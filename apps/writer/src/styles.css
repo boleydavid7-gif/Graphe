@@ -2259,3 +2259,108 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 /* Named heading choices remain readable in the single-row mobile ribbon. */
 #paragraph-style { width: 146px; }
 @media (max-width: 620px) { #paragraph-style { width: 128px; font-size: 12px; } }
+
+
+/* Visual Graphe style/font pickers. Native select transport stays available for
+   keyboard and document compatibility; the visible picker renders real previews. */
+.writer-picker-anchor {
+  position: relative; display: flex; align-items: center;
+  flex: 0 0 auto; min-width: 0; width: 146px; height: 36px;
+}
+.font-selectors .writer-picker-anchor { width: 164px; }
+.writer-inspector-picker { width: 100%; height: 40px; }
+.writer-picker-anchor > select.writer-native-picker {
+  position: absolute; inset: 0; z-index: 0; display: block;
+  width: 100%; height: 100%; opacity: 0; pointer-events: none; margin: 0;
+}
+.writer-preview-trigger {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%; min-width: 0;
+  justify-content: space-between; gap: 7px;
+  padding: 6px 9px; border: 1px solid var(--writer-border-control);
+  border-radius: 9px; background: var(--writer-control);
+  color: var(--writer-text-control); font-size: 12px;
+}
+.writer-preview-trigger-label {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; text-align: left;
+}
+.writer-preview-trigger-chevron {
+  font-size: 16px; color: var(--writer-text-muted); flex-shrink: 0;
+}
+.writer-preview-trigger[aria-expanded='true'] {
+  border-color: var(--writer-accent); color: var(--writer-text-strong);
+}
+.writer-picker-anchor:focus-within > .writer-preview-trigger {
+  outline: 2px solid var(--writer-focus); outline-offset: 1px;
+}
+.writer-app dialog.writer-visual-choice {
+  position: fixed; top: var(--picker-y); left: var(--picker-x);
+  right: auto; bottom: auto; margin: 0;
+  width: min(370px, calc(100vw - 16px)); max-height: min(510px, 72dvh);
+  padding: 0; overflow: hidden;
+  border: 1px solid var(--writer-border); border-radius: 14px;
+  background: var(--writer-surface-raised); color: var(--writer-text);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 38%);
+}
+.writer-app dialog.writer-visual-choice::backdrop { background: rgb(0 0 0 / 34%); }
+.writer-visual-choice-heading {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--writer-border-subtle);
+  background: var(--writer-surface-raised);
+}
+.writer-visual-choice-heading h2 { margin: 0; font-size: 14px; font-weight: 650; }
+.writer-visual-choice-heading button { min-width: 32px; min-height: 32px; font-size: 20px; }
+.writer-visual-choice-list {
+  max-height: min(445px, calc(72dvh - 56px));
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 7px 9px 14px;
+}
+.writer-visual-choice-group {
+  padding: 13px 9px 6px;
+  color: var(--writer-text-muted); font-size: 10px;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.writer-choice-row {
+  width: 100%; min-height: 56px;
+  justify-content: flex-start; text-align: left; gap: 9px;
+  padding: 9px 10px; border: 1px solid transparent; border-radius: 10px;
+}
+.writer-choice-row[aria-pressed='true'] {
+  background: var(--writer-control-selected);
+  border-color: var(--writer-border-control);
+}
+.writer-choice-row[aria-pressed='true'] .writer-choice-selected { visibility: visible; }
+.writer-choice-preview {
+  min-width: 0; flex: 1 1 auto;
+  color: var(--writer-text-strong); line-height: 1.2; overflow-wrap: anywhere;
+}
+.writer-choice-details {
+  flex: 0 0 auto; max-width: 43%;
+  display: flex; align-items: flex-end; flex-direction: column;
+  gap: 3px; font-size: 11px; color: var(--writer-text-muted);
+}
+.writer-choice-details small { font-size: 10px; }
+.writer-choice-selected {
+  visibility: hidden; flex-shrink: 0; width: 12px;
+  font-weight: 700; color: var(--writer-accent);
+}
+@media (max-width: 620px) {
+  .writer-picker-anchor { width: 128px; height: 36px; }
+  .font-selectors .writer-picker-anchor { width: 164px; }
+  .writer-inspector-picker { width: 100%; height: 44px; }
+  .writer-app dialog.writer-visual-choice {
+    position: fixed; inset: auto 0 0;
+    top: auto; left: 0;
+    width: 100%; max-width: none; max-height: min(76dvh, 680px);
+    border-radius: 20px 20px 0 0; border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .writer-app dialog.writer-visual-choice::backdrop { background: rgb(0 0 0 / 50%); }
+  .writer-visual-choice-list { max-height: min(67dvh, 580px); }
+  .writer-choice-row { min-height: 58px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .writer-app dialog.writer-visual-choice[open] { animation: none !important; }
+}
