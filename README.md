@@ -710,7 +710,8 @@ announcement.
 Third-party dependencies, bundled OFL fonts, external test fixtures, and
 Graphe/ProairetOS trademarks retain their own rights. See [Notices](NOTICE.md),
 [Branding](TRADEMARKS.md), [Contributing](CONTRIBUTING.md), and the
-[commercial licensing audit](docs/COMMERCIAL_LICENSING_AUDIT.md).
+[commercial licensing audit](docs/COMMERCIAL_LICENSING_AUDIT.md)
+and [current dependency-license evidence](docs/DEPENDENCY_LICENSE_AUDIT.md).
 
 ### Tables
 
