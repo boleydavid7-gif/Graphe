@@ -362,6 +362,7 @@ export default function App() {
   const proairetosSession = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const ribbonRef = useRef<HTMLDivElement | null>(null);
   const previousTabRef = useRef(activeTab);
   useLayoutEffect(() => {
@@ -1317,6 +1318,26 @@ export default function App() {
     if (next) { surface.current?.syncView(next); surface.current?.focus(); }
   }
 
+  // Read-only outline; all navigation and offsets remain under Rust control.
+  const outlineItems = view?.paragraphs.flatMap((paragraph) => {
+    const styleName = view.styles.find((style) => style.id === paragraph.styleId)?.name ?? '';
+    if (!/^(heading(?:\s+\d+)?|title)$/i.test(styleName)) return [];
+    const label = paragraph.runs.map((run) => run.text).join('').trim();
+    return label ? [{ id: paragraph.id, label, styleName }] : [];
+  }) ?? [];
+  function jumpToHeading(paragraphId: string) {
+    const current = viewRef.current;
+    if (!current || !documentOpenRef.current || busy || compositionActive.current) return;
+    const point = { paragraphId, utf16: 0 };
+    const next = command({ type: 'set_selection', selection: { anchor: point, focus: point },
+      expectedRevision: current.revision });
+    if (next) {
+      surface.current?.syncView(next);
+      setOutlineOpen(false);
+      surface.current?.revealSelection?.(next);
+    }
+  }
+
   const unavailable = !view || !documentOpen || busy || composing;
   const selectedImage = view?.images?.find((image) => image.id === view.selectedImageId);
   const imageUrls = imagePresentation.sessionId === view?.sessionId ? imagePresentation.urls : EMPTY_IMAGE_URLS;
@@ -1619,11 +1640,28 @@ export default function App() {
             onClose={togglePagePreview} />}</>
           : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
+    {(outlineOpen || inspectorOpen) && <button type="button" className="writer-mobile-sheet-scrim"
+      aria-label="Close document tools" onClick={() => { setOutlineOpen(false); setInspectorOpen(false); }} />}
+    {outlineOpen && <aside id="graphe-mobile-outline" className="writer-mobile-outline" aria-label="Document outline"
+      onKeyDown={(event) => { if (event.key === 'Escape') setOutlineOpen(false); }}>
+      <div className="writer-mobile-sheet-handle" aria-hidden="true" />
+      <div className="writer-mobile-sheet-title"><h2>Outline</h2>
+        <button type="button" aria-label="Close document outline" onClick={() => setOutlineOpen(false)}>×</button>
+      </div>
+      <div className="writer-outline-list">
+        {outlineItems.length === 0 ? <p>Use paragraph heading styles to build an outline.</p>
+          : outlineItems.map((item) => <button key={item.id} type="button"
+            onClick={() => jumpToHeading(item.id)} disabled={unavailable}>
+            <span>{item.label}</span><small>{item.styleName}</small>
+          </button>)}
+      </div>
+    </aside>}
     {inspectorOpen && !selectedImage && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector"
       onPointerDownCapture={(event) => { mobileFormattingPointer.current = event.pointerType === 'touch' || event.pointerType === 'pen'; }}
       onKeyDownCapture={() => { mobileFormattingPointer.current = false; }}>
+      <div className="writer-mobile-sheet-handle" aria-hidden="true" />
       <div className="writer-inspector-heading">
-        <div><span className="writer-inspector-eyebrow">Writer</span><h2>Formatting</h2></div>
+        <div><span className="writer-inspector-eyebrow">Graphe</span><h2>Formatting</h2></div>
         <button aria-label="Close formatting inspector" onClick={() => {
           ribbonRef.current?.querySelector<HTMLButtonElement>('.inspector-toggle')?.focus({ preventScroll: true });
           setInspectorOpen(false);
@@ -1703,6 +1741,26 @@ export default function App() {
         <button aria-label="Zoom in" disabled={!documentOpen || previewZoom === '200'} onClick={() => changeZoom(1)}><WriterIcon name="plus" /></button>
       </div>
     </footer>
+    <nav className="writer-mobile-tools" aria-label="Document tools">
+      <button type="button" aria-expanded={outlineOpen} aria-controls="graphe-mobile-outline"
+        disabled={unavailable || pagePreview}
+        onClick={() => { setInspectorOpen(false); setOutlineOpen((open) => !open); }}>
+        <WriterIcon name="list-bullet" /><span>Outline</span>
+      </button>
+      <button type="button" aria-expanded={inspectorOpen && !selectedImage} aria-controls="writer-inspector"
+        disabled={unavailable || !!selectedImage}
+        onClick={() => { setOutlineOpen(false); setInspectorOpen((open) => !open); }}>
+        <WriterIcon name="text-format" /><span>Format</span>
+      </button>
+      <button type="button" disabled={unavailable}
+        onClick={() => { setOutlineOpen(false); setInspectorOpen(false); openFind(); }}>
+        <WriterIcon name="search" /><span>Find</span>
+      </button>
+      <button type="button" disabled={unavailable} aria-pressed={pagePreview}
+        onClick={() => { setOutlineOpen(false); setInspectorOpen(false); togglePagePreview(); }}>
+        <WriterIcon name="open" /><span>Preview</span>
+      </button>
+    </nav>
     <input ref={fileInput} type="file" accept={`.writer,.docx,.odt,.rtf,.txt,application/json,${DOCX_MEDIA_TYPE},application/vnd.oasis.opendocument.text,application/rtf,text/rtf,text/plain`} className="visually-hidden" tabIndex={-1} aria-label="Import Writer file"
       onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) importFile(file); }} />
     {library !== null && <Dialog title="Open document" onClose={() => setLibrary(null)} busy={busy}>

@@ -2093,3 +2093,151 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 @media (max-width: 620px) {
   .section-position { display: none; }
 }
+
+
+/* Graphe Writing First — presentation-only, Rust stays responsible for geometry and editing. */
+:root:not([data-writer-appearance]) {
+  --writer-shell: #141d2a;
+  --writer-workspace: #111925;
+  --writer-surface: #1d2939;
+  --writer-surface-raised: #263348;
+  --writer-surface-menu: #263348;
+  --writer-control: #2b3a4e;
+  --writer-control-hover: #35475e;
+  --writer-control-selected: #40516a;
+  --writer-text: #f1f3f6;
+  --writer-text-strong: #fffdf9;
+  --writer-text-muted: #b9c6d4;
+  --writer-text-control: #f4f6f8;
+  --writer-border: #38485e;
+  --writer-border-control: #667c98;
+  --writer-border-subtle: #2d3b50;
+}
+.formatting-bar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  border-radius: 12px;
+  box-shadow: none;
+}
+.formatting-bar::-webkit-scrollbar { display: none; }
+.formatting-bar > * { flex-shrink: 0; }
+.top-bar, .editor-tabs, .status-bar { box-shadow: none; }
+.editor-tabs { border-bottom-color: var(--writer-border-subtle); }
+.writer-work-area > .workspace { padding-block: 24px 28px; }
+.writer-mobile-tools, .writer-mobile-outline, .writer-mobile-sheet-scrim,
+.writer-mobile-sheet-handle { display: none; }
+/* The host's semantic accent is authoritative for embedded application chrome.
+   Document page/text formatting must remain unchanged. */
+:root[data-writer-appearance] .office-brand__os { color: var(--writer-accent); }
+:root[data-writer-appearance] .paged-editor-selection {
+  fill: color-mix(in srgb, var(--writer-accent) 25%, white);
+}
+:root[data-writer-appearance] .paged-editor-caret { fill: var(--writer-accent); }
+:root[data-writer-appearance] .editor-surface ::selection {
+  background: color-mix(in srgb, var(--writer-accent) 30%, white);
+}
+@media (min-width: 621px) and (max-width: 899px) {
+  .inspector-toggle { display: inline-flex; }
+}
+@media (max-width: 620px) {
+  .writer-app { background-image: none; }
+  .top-bar, :root[data-writer-appearance] .top-bar { padding: 8px 12px 6px; row-gap: 2px; }
+  .identity__office { display: none; }
+  .top-bar .title-area { min-height: 28px; }
+  .document-title { font-size: 14px; }
+  .editor-tabs, :root[data-writer-appearance] .editor-tabs {
+    height: 40px; min-height: 40px; padding-inline: 10px;
+  }
+  .formatting-bar, :root[data-writer-appearance] .formatting-bar,
+  .formatting-bar.show-more-formatting {
+    display: flex; flex-wrap: nowrap;
+    height: 52px; min-height: 52px; max-height: 52px;
+    gap: 7px; margin: 5px 8px 0; padding: 6px 9px;
+    overflow-x: auto; overflow-y: hidden;
+    border-radius: 11px; box-shadow: none;
+  }
+  .formatting-bar .advanced-formatting { display: none; }
+  .formatting-bar.show-more-formatting .advanced-formatting { display: flex; }
+  .formatting-bar.show-more-formatting .font-selectors,
+  .formatting-bar.show-more-formatting .alignment-controls,
+  .formatting-bar.show-more-formatting .list-controls {
+    order: initial; flex: 0 0 auto; padding: 0 8px 0 0;
+    border-right: 1px solid var(--writer-border-subtle);
+  }
+  .formatting-bar .format-group, .formatting-bar .table-controls,
+  .formatting-bar .table-options[open], .formatting-bar .table-options-panel {
+    flex-wrap: nowrap; flex-basis: auto;
+  }
+  .formatting-bar .inspector-toggle { display: none; }
+  .formatting-bar .format-button, .formatting-bar .history-controls > button { border-radius: 8px; }
+  .writer-work-area > .workspace, :root[data-writer-appearance] .workspace {
+    padding: 12px 8px 24px; background-image: none;
+  }
+  .status-bar { min-height: 29px; border-color: var(--writer-border-subtle); }
+  .writer-mobile-tools {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    flex-shrink: 0; gap: 2px;
+    padding: 3px 10px calc(5px + env(safe-area-inset-bottom, 0px));
+    background: var(--writer-surface); border-top: 1px solid var(--writer-border-subtle);
+  }
+  .writer-mobile-tools > button {
+    display: flex; flex-direction: column; gap: 1px; min-height: 47px;
+    padding: 4px 3px; border-radius: 10px; font-size: 10px;
+    color: var(--writer-text-muted);
+  }
+  .writer-mobile-tools svg { width: 19px; height: 19px; }
+  .writer-mobile-tools > button[aria-expanded='true'],
+  .writer-mobile-tools > button[aria-pressed='true'] {
+    color: var(--writer-accent); background: var(--writer-control-selected);
+  }
+  .writer-mobile-sheet-scrim {
+    display: block; position: fixed; inset: 0; z-index: 35;
+    width: 100%; height: 100dvh; padding: 0; border: 0;
+    border-radius: 0; background: rgb(0 0 0 / 46%);
+  }
+  .writer-inspector, .writer-mobile-outline {
+    display: block; position: fixed; inset: auto 0 0; z-index: 36;
+    width: 100%; min-width: 0; max-height: min(72dvh, 630px);
+    padding: 12px 18px calc(22px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto; overscroll-behavior: contain;
+    border: 1px solid var(--writer-border); border-bottom: 0;
+    border-radius: 20px 20px 0 0; background: var(--writer-surface);
+    box-shadow: 0 -16px 45px rgb(0 0 0 / 30%);
+    color: var(--writer-text);
+    animation: writer-bottom-sheet-in 180ms ease-out both;
+  }
+  .writer-mobile-sheet-handle {
+    display: block; width: 38px; height: 4px; margin: 0 auto 18px;
+    border-radius: 999px; background: var(--writer-border-control);
+  }
+  .writer-mobile-sheet-title {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  }
+  .writer-mobile-sheet-title h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .writer-mobile-sheet-title button { min-height: 40px; min-width: 40px; font-size: 23px; }
+  .writer-inspector-heading { align-items: center; margin-bottom: 12px; }
+  .writer-inspector-heading h2 { font-size: 18px; }
+  .writer-inspector-eyebrow { display: none; }
+  .writer-outline-list { display: grid; gap: 3px; }
+  .writer-outline-list > p { color: var(--writer-text-muted); font-size: 13px; line-height: 1.5; }
+  .writer-outline-list > button {
+    display: flex; flex-direction: column; align-items: flex-start;
+    gap: 4px; width: 100%; min-height: 45px; padding: 10px 12px;
+    text-align: left; border-radius: 10px; overflow-wrap: anywhere;
+  }
+  .writer-outline-list > button > span { font-size: 14px; color: var(--writer-text); }
+  .writer-outline-list > button > small { font-size: 10px; color: var(--writer-text-muted); }
+  .writer-app:has(.paged-editor :focus-visible) .writer-mobile-tools,
+  .writer-app:has(.paged-editor textarea:focus) .writer-mobile-tools,
+  .writer-app:has(.paged-editor [contenteditable]:focus) .writer-mobile-tools { display: none; }
+}
+@keyframes writer-bottom-sheet-in {
+  from { opacity: .75; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 620px) and (prefers-reduced-motion: reduce) {
+  .writer-inspector, .writer-mobile-outline { animation: none; }
+}
