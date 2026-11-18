@@ -12,7 +12,7 @@ The following independently licensed resources are included in the repository:
 - **Format dependencies:** `crates/office-formats/THIRD_PARTY_NOTICES.txt`.
 - **Font-loading dependencies:** `crates/office-layout/THIRD_PARTY_NOTICES.txt`.
 - **Image processing dependencies:** `crates/office-core/THIRD_PARTY_NOTICES.txt`.
-- **Other dependencies:** `docs/DEPENDENCIES.md` describes a dated inventory, but **does not yet provide complete, verified release-time attribution for every Rust/WASM dependency**.
+- **Other dependencies:** `docs/DEPENDENCIES.md` describes a dated inventory, while `docs/DEPENDENCY_LICENSE_AUDIT.md` and `docs/DEPENDENCY_LOCK_INVENTORY.csv` record the exact lockfile audit. Neither yet supplies complete verified release-time Rust/WASM license attribution.
 - **Test documents and externally sourced examples:** retain their original owners' rights. They require separate provenance and privacy review; they are **not automatically relicensed** as part of the Graphe source license.
 - **Logos and branding:** source-code licensing does not grant trademarks. Review individual artwork rights and [TRADEMARKS.md](TRADEMARKS.md).
 
