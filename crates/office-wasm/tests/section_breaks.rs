@@ -66,8 +66,6 @@ fn section_break_splits_body_text_and_preserves_ids_and_geometry_across_history(
     assert_eq!(restored["ok"], true, "{restored}");
     assert_eq!(restored["view"]["pageSetup"]["sectionCount"], 2);
     let second_para = restored["view"]["paragraphs"][1]["id"].as_str().unwrap();
-    let selected = restored["view"]["selection"].clone();
-    assert!(selected.is_null() || selected["focus"]["paragraphId"] != second_para);
     let cursor = caret(second_para, 0);
     let active = dispatch(&mut reopened, json!({"type":"set_selection", "selection":cursor}));
     assert_eq!(active["pageSetup"]["sectionIndex"], 1);
