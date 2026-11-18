@@ -1487,7 +1487,7 @@ export default function App() {
             {hasPageBreakBefore ? 'Remove page break' : 'Start on new page'}
           </button>
         </>}
-      </div>
+      </div>}
       {activeTab === 'review' && <div className="format-group review-controls" role="group" aria-label="Review document">
         <button disabled={unavailable} onClick={openFind}><WriterIcon name="search" />Find</button>
         <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
