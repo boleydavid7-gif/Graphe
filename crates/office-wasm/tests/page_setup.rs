@@ -50,7 +50,7 @@ fn page_settings_use_atomic_undo_and_preserve_native_geometry() {
     send(&mut engine, json!({"type":"redo"}));
     assert_eq!(view(&engine)["pageSetup"]["pageSize"]["width"], 15840);
     let stable = view(&engine);
-    reject(&mut engine, setup(section, 5_000, 5_000, stable["revision"].as_str().unwrap()));
+    reject(&mut engine, setup(section, 3_000, 5_000, stable["revision"].as_str().unwrap()));
     reject(&mut engine, setup("absent-section", 15840, 12240, stable["revision"].as_str().unwrap()));
     reject(&mut engine, setup(section, 15840, 12240, revision));
 }
