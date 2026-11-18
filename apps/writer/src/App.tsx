@@ -1279,11 +1279,12 @@ export default function App() {
   const selectedImage = view?.images?.find((image) => image.id === view.selectedImageId);
   const imageUrls = imagePresentation.sessionId === view?.sessionId ? imagePresentation.urls : EMPTY_IMAGE_URLS;
   const formatState = view?.format;
-  const currentParagraph = view?.paragraphs.find((paragraph) => paragraph.id === view.selection?.focus.paragraphId);
+  const selectionForBreak = view?.selection;
+  const currentParagraph = view?.paragraphs.find((paragraph) => paragraph.id === selectionForBreak?.focus.paragraphId);
   const hasPageBreakBefore = currentParagraph?.format.pageBreakBefore === true;
-  const canInsertPageBreak = !unavailable && !selectedImage && !view?.table && !!view?.selection
-    && view.selection.anchor.paragraphId === view.selection.focus.paragraphId
-    && view.selection.anchor.utf16 === view.selection.focus.utf16;
+  const canInsertPageBreak = !unavailable && !selectedImage && !view?.table && !!selectionForBreak
+    && selectionForBreak.anchor.paragraphId === selectionForBreak.focus.paragraphId
+    && selectionForBreak.anchor.utf16 === selectionForBreak.focus.utf16;
   const importWarnings = view?.importWarnings;
   const importWarningCount = (importWarnings?.diagnostics.length ?? 0)
     + (importWarnings?.omittedDiagnostics ?? 0);
