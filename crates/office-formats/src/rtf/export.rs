@@ -258,6 +258,8 @@ fn merge_paragraph(result: &mut ParagraphFormat, parent: &ParagraphFormat) {
     result.spacing_after = result.spacing_after.or(parent.spacing_after);
     result.line_spacing = result.line_spacing.or(parent.line_spacing);
     result.page_break_before = result.page_break_before.or(parent.page_break_before);
+    result.keep_together = result.keep_together.or(parent.keep_together);
+    result.keep_with_next = result.keep_with_next.or(parent.keep_with_next);
     if let Some(parent) = &parent.indentation {
         let indent = result.indentation.get_or_insert_with(Default::default);
         indent.left = indent.left.or(parent.left);

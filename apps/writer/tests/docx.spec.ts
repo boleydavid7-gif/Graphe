@@ -148,8 +148,8 @@ test('DOCX original is saved before editing and survives native save, reopen, ex
 
   const bytes = await exportNative(page);
   const native = JSON.parse(bytes.toString('utf8')) as NativeFile;
-  expect(native.format_version).toBe(6);
-  expect(native.document.schema_version).toBe(6);
+  expect(native.format_version).toBe(7);
+  expect(native.document.schema_version).toBe(7);
   expect(Buffer.from(native.source?.bytes_base64 ?? '', 'base64')).toEqual(source);
   await page.reload();
   await expect(editor(page)).toBeVisible();
