@@ -6,8 +6,8 @@ use super::{
 };
 use crate::FormatError;
 use office_core::{
-    Block, CharacterFormat, Document, HalfPoints, LineSpacing, PageOrientation, ParagraphFormat,
-    TextColor, Twips, Underline,
+    Block, CharacterFormat, Document, HalfPoints, LineSpacing, PageOrientation, Paragraph,
+    ParagraphFormat, TextColor, Twips, Underline,
 };
 use std::{
     collections::BTreeMap,
@@ -15,7 +15,7 @@ use std::{
 };
 use zip::{CompressionMethod, DateTime, System, ZipWriter, write::SimpleFileOptions};
 
-const DECLARATIONS: &str = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" office:version=\"1.3\"";
+const DECLARATIONS: &str = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" office:version=\"1.3\"";
 
 fn error(error: impl std::fmt::Display) -> FormatError {
     FormatError::new("odt_export", error.to_string())
@@ -23,6 +23,20 @@ fn error(error: impl std::fmt::Display) -> FormatError {
 
 pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatError> {
     document.validate()?;
+    // Every generated paragraph/run style must fit the same strict importer
+    // profile. Refuse large conversions before publishing an unreopenable copy.
+    let paragraphs = document.paragraphs().count();
+    let styles = document
+        .styles()
+        .len()
+        .saturating_add(paragraphs)
+        .saturating_add(document.paragraphs().map(|p| p.runs().len()).sum::<usize>());
+    if paragraphs > 4096 || styles > 2048 {
+        return Err(FormatError::new(
+            "format_limit",
+            "ODT export exceeds the supported paragraph/style limit. Keep the native Graphe file.",
+        ));
+    }
     if document
         .sections()
         .iter()
@@ -113,24 +127,47 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?><office:document-content {DECLARATIONS}><office:automatic-styles>"
     );
     for (s, section) in document.sections().iter().enumerate() {
-        for (p, block) in section.blocks().iter().enumerate() {
-            let Block::Paragraph(paragraph) = block;
+        for (p, paragraph) in section.paragraphs().enumerate() {
             let parent = paragraph
                 .style()
                 .map(|id| format!(" style:parent-style-name=\"{}\"", named[id.as_str()]))
                 .unwrap_or_default();
-            let master = if p == 0 {
+            let master = if p == 0 && matches!(section.blocks().first(), Some(Block::Paragraph(_)))
+            {
                 format!(" style:master-page-name=\"M{s}\"")
             } else {
                 String::new()
             };
             let mut format = paragraph.format().clone();
-            if s > 0 && p == 0 {
+            if s > 0 && p == 0 && matches!(section.blocks().first(), Some(Block::Paragraph(_))) {
                 format.page_break_before = Some(true);
             }
             content.push_str(&format!("<style:style style:name=\"P{s}_{p}\" style:family=\"paragraph\"{parent}{master}>{}</style:style>",paragraph_xml(&format)));
             for (r, run) in paragraph.runs().iter().enumerate() {
                 content.push_str(&format!("<style:style style:name=\"T{s}_{p}_{r}\" style:family=\"text\">{}</style:style>",character_xml(&run.format)?));
+            }
+        }
+    }
+    content.push_str("<style:style style:name=\"GridCell\" style:family=\"table-cell\"><style:table-cell-properties fo:border=\"0.5pt solid #808080\" fo:padding=\"4pt\"/></style:style>");
+    for (s, section) in document.sections().iter().enumerate() {
+        for (b, block) in section.blocks().iter().enumerate() {
+            if let Block::Table(table) = block {
+                let master = if b == 0 {
+                    format!(" style:master-page-name=\"M{s}\"")
+                } else {
+                    String::new()
+                };
+                let properties = if s > 0 && b == 0 {
+                    "<style:table-properties fo:break-before=\"page\"/>"
+                } else {
+                    ""
+                };
+                content.push_str(&format!("<style:style style:name=\"B{s}_{b}\" style:family=\"table\"{master}>{properties}</style:style>"));
+                if let Some(widths) = table.column_widths() {
+                    for (c, width) in widths.iter().enumerate() {
+                        content.push_str(&format!("<style:style style:name=\"C{s}_{b}_{c}\" style:family=\"table-column\"><style:table-column-properties style:column-width=\"{}\"/></style:style>",points(*width)));
+                    }
+                }
             }
         }
     }
@@ -140,37 +177,41 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
     }
     for (s, section) in document.sections().iter().enumerate() {
         content.push_str(&format!("<text:section text:name=\"WriterSection{s}\">"));
-        for (p, block) in section.blocks().iter().enumerate() {
-            let Block::Paragraph(paragraph) = block;
-            content.push_str(&format!("<text:p text:style-name=\"P{s}_{p}\">"));
-            for (r, run) in paragraph.runs().iter().enumerate() {
-                content.push_str(&format!("<text:span text:style-name=\"T{s}_{p}_{r}\">"));
-                let mut plain = String::new();
-                for character in run.text.chars() {
-                    if matches!(character, ' ' | '\n' | '\t' | '\r') {
-                        if !plain.is_empty() {
-                            content.push_str(&xml_escape(&plain)?);
-                            plain.clear();
-                        }
-                        match character {
-                            ' ' => content.push_str("<text:s/>"),
-                            '\n' => content.push_str("<text:line-break/>"),
-                            '\t' => content.push_str("<text:tab/>"),
-                            _ => {
-                                return Err(FormatError::new(
-                                    "unsupported_odt_export",
-                                    "Carriage-return characters have no exact supported ODT text representation.",
-                                ));
-                            }
-                        }
-                    } else {
-                        plain.push(character);
-                    }
+        let mut p = 0;
+        for (b, block) in section.blocks().iter().enumerate() {
+            match block {
+                Block::Paragraph(paragraph) => {
+                    write_paragraph(&mut content, paragraph, s, p)?;
+                    p += 1;
                 }
-                content.push_str(&xml_escape(&plain)?);
-                content.push_str("</text:span>");
+                Block::Table(table) => {
+                    content.push_str(&format!(
+                        "<table:table table:name=\"Table{s}_{b}\" table:style-name=\"B{s}_{b}\">"
+                    ));
+                    for c in 0..table.rows()[0].cells().len() {
+                        if table.column_widths().is_some() {
+                            content.push_str(&format!(
+                                "<table:table-column table:style-name=\"C{s}_{b}_{c}\"/>"
+                            ));
+                        } else {
+                            content.push_str("<table:table-column/>");
+                        }
+                    }
+                    for row in table.rows() {
+                        content.push_str("<table:table-row>");
+                        for cell in row.cells() {
+                            content.push_str("<table:table-cell table:style-name=\"GridCell\" office:value-type=\"string\">");
+                            for paragraph in cell.paragraphs() {
+                                write_paragraph(&mut content, paragraph, s, p)?;
+                                p += 1;
+                            }
+                            content.push_str("</table:table-cell>");
+                        }
+                        content.push_str("</table:table-row>");
+                    }
+                    content.push_str("</table:table>");
+                }
             }
-            content.push_str("</text:p>");
         }
         content.push_str("</text:section>");
     }
@@ -219,4 +260,40 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
     let bytes = writer.finish().map_err(error)?.into_inner();
     super::package::read(&bytes)?;
     Ok(bytes)
+}
+
+fn write_paragraph(
+    content: &mut String,
+    paragraph: &Paragraph,
+    s: usize,
+    p: usize,
+) -> Result<(), FormatError> {
+    content.push_str(&format!("<text:p text:style-name=\"P{s}_{p}\">"));
+    for (r, run) in paragraph.runs().iter().enumerate() {
+        content.push_str(&format!("<text:span text:style-name=\"T{s}_{p}_{r}\">"));
+        let mut plain = String::new();
+        for character in run.text.chars() {
+            if matches!(character, ' ' | '\n' | '\t' | '\r') {
+                content.push_str(&xml_escape(&plain)?);
+                plain.clear();
+                match character {
+                    ' ' => content.push_str("<text:s/>"),
+                    '\n' => content.push_str("<text:line-break/>"),
+                    '\t' => content.push_str("<text:tab/>"),
+                    _ => {
+                        return Err(FormatError::new(
+                            "unsupported_odt_export",
+                            "Carriage-return characters have no exact supported ODT text representation.",
+                        ));
+                    }
+                }
+            } else {
+                plain.push(character);
+            }
+        }
+        content.push_str(&xml_escape(&plain)?);
+        content.push_str("</text:span>");
+    }
+    content.push_str("</text:p>");
+    Ok(())
 }

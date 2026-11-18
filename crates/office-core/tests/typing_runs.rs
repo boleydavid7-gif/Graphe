@@ -26,7 +26,9 @@ fn document(runs: Vec<TextRun>) -> Document {
 }
 
 fn runs(document: &Document) -> &[TextRun] {
-    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     paragraph.runs()
 }
 
@@ -188,7 +190,9 @@ fn insertion_inside_a_unicode_run_preserves_core_offsets_and_right_partition() {
     let mut joined = DocumentSession::new(document(vec![TextRun::new("e")]));
     insert(&mut joined, 1, "\u{301}", CharacterFormat::default());
     assert_eq!(runs(joined.document()), &[TextRun::new("e\u{301}")]);
-    let Block::Paragraph(paragraph) = &joined.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &joined.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     assert_eq!(TextCoordinates::new(paragraph).grapheme_len().get(), 1);
 }
 
@@ -238,7 +242,9 @@ fn noncollapsed_replacement_retains_its_existing_partition_policy() {
             .replace_text(&selected, "X", CharacterFormat::default())
             .unwrap()
     );
-    let Block::Paragraph(paragraph) = &transaction.draft().sections[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &transaction.draft().sections[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     assert_eq!(
         paragraph.runs(),
         &[
@@ -264,6 +270,8 @@ fn collapsed_replace_and_insert_share_the_same_targeted_typing_policy() {
             .replace_text(&selected, "X", CharacterFormat::default())
             .unwrap()
     );
-    let Block::Paragraph(paragraph) = &transaction.draft().sections[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &transaction.draft().sections[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     assert_eq!(paragraph.runs(), &[TextRun::new("abX"), TextRun::new("cd")]);
 }

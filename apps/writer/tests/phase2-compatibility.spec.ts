@@ -150,7 +150,7 @@ for (const touch of [false, true]) {
           if (await control.getAttribute('aria-pressed') !== 'true') await activate(control, touch);
           await expect(control).toHaveAttribute('aria-pressed', 'true');
         }
-        if (touch) await activate(page.getByRole('button', { name: 'More formatting', exact: true }), true);
+        if (touch) await activate(page.getByRole('button', { name: 'Show text formatting', exact: true }), true);
         await ribbon.getByRole('combobox', { name: 'Font family', exact: true }).selectOption('Tinos');
         await ribbon.getByRole('combobox', { name: 'Font size', exact: true }).selectOption('14');
         await activate(ribbon.getByRole('button', { name: 'Align right', exact: true }), touch);

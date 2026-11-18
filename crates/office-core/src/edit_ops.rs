@@ -1,7 +1,7 @@
 use crate::{
     Block, CharacterFormat, CharacterFormatPatch, Document, EditError, Id, ListKind, Paragraph,
-    ParagraphFormat, ParagraphFormatPatch, ParagraphMetricsPatch, PositionError, Section, Selection, TextCoordinates,
-    TextRun, ValidationError,
+    ParagraphFormat, ParagraphFormatPatch, ParagraphMetricsPatch, PositionError, Section,
+    Selection, Table, TableCell, TableRow, TextCoordinates, TextRun, ValidationError,
 };
 
 struct Bounds {
@@ -51,9 +51,15 @@ pub(crate) fn replace_text(
     if bounds.collapsed && text.is_empty() {
         return Ok(document.clone());
     }
-    let section = &document.sections()[bounds.start.0];
-    let Block::Paragraph(start) = &section.blocks()[bounds.start.1];
-    let Block::Paragraph(end) = &section.blocks()[bounds.end.1];
+    check_same_flow(document, &bounds)?;
+    let start = document.sections()[bounds.start.0]
+        .paragraphs()
+        .nth(bounds.start.1)
+        .expect("checked start");
+    let end = document.sections()[bounds.end.0]
+        .paragraphs()
+        .nth(bounds.end.1)
+        .expect("checked end");
 
     // Retyping identical supported content with identical direct properties is
     // a true no-op: retain the original formatting-run partition and empty runs.
@@ -84,14 +90,7 @@ pub(crate) fn replace_text(
     }
     runs.extend(suffix_runs(end, bounds.end_byte));
     let replacement = copy_paragraph(start, runs, start.format().clone(), start.style());
-    let mut blocks = section.blocks().to_vec();
-    blocks.splice(
-        bounds.start.1..=bounds.end.1,
-        [Block::Paragraph(replacement)],
-    );
-    let mut sections = document.sections().to_vec();
-    sections[bounds.start.0] = copy_section(section, blocks);
-    rebuild_document(document, sections)
+    replace_flow_range(document, &bounds, vec![replacement])
 }
 
 pub(crate) fn insert_paragraph_break(
@@ -107,25 +106,22 @@ pub(crate) fn insert_paragraph_break(
     // Check the original document, including paragraphs removed by the range.
     // Reusing their IDs would make a newly created paragraph impersonate an old
     // element even though the rebuilt document's IDs would remain unique.
-    if document.id() == new_id
-        || document.styles().iter().any(|style| &style.id == new_id)
-        || document.sections().iter().any(|section| {
-            section.id() == new_id
-                || section.blocks().iter().any(|block| {
-                    let Block::Paragraph(paragraph) = block;
-                    paragraph.id() == new_id
-                })
-        })
-    {
+    if document_contains_id(document, new_id) {
         return Err(ValidationError::DuplicateId {
             id: new_id.as_str().into(),
         }
         .into());
     }
 
-    let section = &document.sections()[bounds.start.0];
-    let Block::Paragraph(start) = &section.blocks()[bounds.start.1];
-    let Block::Paragraph(end) = &section.blocks()[bounds.end.1];
+    check_same_flow(document, &bounds)?;
+    let start = document.sections()[bounds.start.0]
+        .paragraphs()
+        .nth(bounds.start.1)
+        .expect("checked start");
+    let end = document.sections()[bounds.end.0]
+        .paragraphs()
+        .nth(bounds.end.1)
+        .expect("checked end");
     let prefix = copy_paragraph(
         start,
         prefix_runs(start, bounds.start_byte),
@@ -141,14 +137,7 @@ pub(crate) fn insert_paragraph_break(
 
     // Cut the original paragraphs independently. Joining first could merge
     // neighboring graphemes and change the meaning of the requested boundary.
-    let mut blocks = section.blocks().to_vec();
-    blocks.splice(
-        bounds.start.1..=bounds.end.1,
-        [Block::Paragraph(prefix), Block::Paragraph(suffix)],
-    );
-    let mut sections = document.sections().to_vec();
-    sections[bounds.start.0] = copy_section(section, blocks);
-    rebuild_document(document, sections)
+    replace_flow_range(document, &bounds, vec![prefix, suffix])
 }
 
 pub(crate) fn apply_character_format(
@@ -246,7 +235,8 @@ pub(crate) fn set_paragraph_list(
                 paragraph.runs().to_vec(),
                 paragraph.format().clone(),
                 paragraph.style(),
-            ).with_list(list)
+            )
+            .with_list(list)
         } else {
             paragraph.clone()
         }
@@ -278,10 +268,9 @@ fn locate<'a>(
     id: &Id,
 ) -> Result<((usize, usize), &'a Paragraph), PositionError> {
     for (section_index, section) in document.sections().iter().enumerate() {
-        for (block_index, block) in section.blocks().iter().enumerate() {
-            let Block::Paragraph(paragraph) = block;
+        for (paragraph_index, paragraph) in section.paragraphs().enumerate() {
             if paragraph.id() == id {
-                return Ok(((section_index, block_index), paragraph));
+                return Ok(((section_index, paragraph_index), paragraph));
             }
         }
     }
@@ -329,19 +318,179 @@ fn transform_paragraphs(
         .iter()
         .enumerate()
         .map(|(section_index, section)| {
+            let mut paragraph_index = 0;
             let blocks = section
                 .blocks()
                 .iter()
-                .enumerate()
-                .map(|(block_index, block)| {
-                    let Block::Paragraph(paragraph) = block;
-                    Block::Paragraph(transform((section_index, block_index), paragraph))
+                .map(|block| match block {
+                    Block::Paragraph(paragraph) => {
+                        let result = transform((section_index, paragraph_index), paragraph);
+                        paragraph_index += 1;
+                        Block::Paragraph(result)
+                    }
+                    Block::Table(table) => {
+                        let rows = table
+                            .rows()
+                            .iter()
+                            .map(|row| {
+                                TableRow::new(
+                                    row.id().clone(),
+                                    row.cells()
+                                        .iter()
+                                        .map(|cell| {
+                                            TableCell::new(
+                                                cell.id().clone(),
+                                                cell.paragraphs()
+                                                    .iter()
+                                                    .map(|paragraph| {
+                                                        let result = transform(
+                                                            (section_index, paragraph_index),
+                                                            paragraph,
+                                                        );
+                                                        paragraph_index += 1;
+                                                        result
+                                                    })
+                                                    .collect(),
+                                            )
+                                        })
+                                        .collect(),
+                                )
+                            })
+                            .collect();
+                        Block::Table(copy_table(table, rows))
+                    }
                 })
                 .collect();
             copy_section(section, blocks)
         })
         .collect();
     rebuild_document(document, sections)
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct FlowLocation {
+    block: usize,
+    cell: Option<(usize, usize)>,
+    paragraph: usize,
+}
+
+fn flow_location(document: &Document, index: (usize, usize)) -> FlowLocation {
+    let mut current = 0;
+    for (block_index, block) in document.sections()[index.0].blocks().iter().enumerate() {
+        match block {
+            Block::Paragraph(_) => {
+                if current == index.1 {
+                    return FlowLocation {
+                        block: block_index,
+                        cell: None,
+                        paragraph: block_index,
+                    };
+                }
+                current += 1;
+            }
+            Block::Table(table) => {
+                for (row_index, row) in table.rows().iter().enumerate() {
+                    for (column, cell) in row.cells().iter().enumerate() {
+                        for paragraph_index in 0..cell.paragraphs().len() {
+                            if current == index.1 {
+                                return FlowLocation {
+                                    block: block_index,
+                                    cell: Some((row_index, column)),
+                                    paragraph: paragraph_index,
+                                };
+                            }
+                            current += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    unreachable!("position was validated against this document")
+}
+
+fn check_same_flow(document: &Document, bounds: &Bounds) -> Result<(), EditError> {
+    if bounds.start.0 != bounds.end.0 {
+        return Err(EditError::CrossSectionRange);
+    }
+    let start = flow_location(document, bounds.start);
+    let end = flow_location(document, bounds.end);
+    match (start.cell, end.cell) {
+        (None, None) => {
+            if document.sections()[bounds.start.0].blocks()[start.block..=end.block]
+                .iter()
+                .any(|block| matches!(block, Block::Table(_)))
+            {
+                return Err(EditError::CrossCellRange);
+            }
+        }
+        (Some(a), Some(b)) if start.block == end.block && a == b => {}
+        _ => return Err(EditError::CrossCellRange),
+    }
+    Ok(())
+}
+
+fn copy_table(table: &Table, rows: Vec<TableRow>) -> Table {
+    let result = Table::new(table.id().clone(), rows);
+    match table.column_widths() {
+        Some(widths) => result.with_column_widths(widths.to_vec()),
+        None => result,
+    }
+}
+
+fn replace_flow_range(
+    document: &Document,
+    bounds: &Bounds,
+    replacement: Vec<Paragraph>,
+) -> Result<Document, EditError> {
+    check_same_flow(document, bounds)?;
+    let start = flow_location(document, bounds.start);
+    let end = flow_location(document, bounds.end);
+    let section = &document.sections()[bounds.start.0];
+    let mut blocks = section.blocks().to_vec();
+    if let Some((row_index, column)) = start.cell {
+        let Block::Table(table) = &blocks[start.block] else {
+            unreachable!()
+        };
+        let mut rows = table.rows().to_vec();
+        let row = &rows[row_index];
+        let mut cells = row.cells().to_vec();
+        let cell = &cells[column];
+        let mut paragraphs = cell.paragraphs().to_vec();
+        paragraphs.splice(start.paragraph..=end.paragraph, replacement);
+        cells[column] = TableCell::new(cell.id().clone(), paragraphs);
+        rows[row_index] = TableRow::new(row.id().clone(), cells);
+        blocks[start.block] = Block::Table(copy_table(table, rows));
+    } else {
+        blocks.splice(
+            start.block..=end.block,
+            replacement.into_iter().map(Block::Paragraph),
+        );
+    }
+    let mut sections = document.sections().to_vec();
+    sections[bounds.start.0] = copy_section(section, blocks);
+    rebuild_document(document, sections)
+}
+
+pub(crate) fn document_contains_id(document: &Document, id: &Id) -> bool {
+    document.id() == id
+        || document.styles().iter().any(|style| &style.id == id)
+        || document.sections().iter().any(|section| {
+            section.id() == id
+                || section.blocks().iter().any(|block| match block {
+                    Block::Paragraph(p) => p.id() == id,
+                    Block::Table(table) => {
+                        table.id() == id
+                            || table.rows().iter().any(|row| {
+                                row.id() == id
+                                    || row.cells().iter().any(|cell| {
+                                        cell.id() == id
+                                            || cell.paragraphs().iter().any(|p| p.id() == id)
+                                    })
+                            })
+                    }
+                })
+        })
 }
 
 fn replacement_is_identical(

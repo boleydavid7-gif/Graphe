@@ -16,7 +16,7 @@ const decode = new TextDecoder();
 const edited = 'Edited Café e\u0301 👩🏽‍💻 — العربية नमस्ते שלום';
 const unsafeNames = [
   'unsupported-image.docx', 'unsupported-header.docx', 'unsupported-footer.docx',
-  'unsupported-hyperlink.docx', 'unsupported-altchunk.docx', 'unsupported-external-relationship.docx',
+  'unsupported-revision.docx', 'unsupported-altchunk.docx', 'unsupported-external-relationship.docx',
   'misplaced-root-font-table.docx',
   'misplaced-main-app-properties.docx', 'unknown-theme-relationship.docx',
   'unsupported-font-embedding.docx', 'unsupported-auxiliary-external-chain.docx',
@@ -28,7 +28,7 @@ const unsafeNames = [
 const unsafe = await Promise.all(unsafeNames.map(async (name) => [name, await readFile(new URL(name, root))]));
 const relationshipCases = new Set([
   'unsupported-image.docx', 'unsupported-header.docx', 'unsupported-footer.docx',
-  'unsupported-hyperlink.docx', 'unsupported-altchunk.docx', 'unsupported-external-relationship.docx',
+  'unsupported-altchunk.docx', 'unsupported-external-relationship.docx',
   'misplaced-root-font-table.docx', 'misplaced-main-app-properties.docx', 'unknown-theme-relationship.docx',
   'unsupported-auxiliary-external-chain.docx', 'unsupported-main-image-same-thumbnail.docx',
 ]);

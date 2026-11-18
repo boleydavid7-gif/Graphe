@@ -176,11 +176,14 @@ impl CharacterFormat {
             ));
         }
 
-        if let Some(url) = &self.hyperlink {
-            if !valid_hyperlink(url) {
-                return Err(invalid(path, "hyperlink",
-                    "link must be an HTTP or HTTPS URL without credentials, controls, or whitespace"));
-            }
+        if let Some(url) = &self.hyperlink
+            && !valid_hyperlink(url)
+        {
+            return Err(invalid(
+                path,
+                "hyperlink",
+                "link must be an HTTP or HTTPS URL without credentials, controls, or whitespace",
+            ));
         }
 
         if self.font_size.is_some_and(|size| size.0 == 0) {
@@ -200,17 +203,25 @@ impl CharacterFormat {
 /// Credentials, backslashes, whitespace and control characters are forbidden.
 #[must_use]
 pub fn valid_hyperlink(url: &str) -> bool {
-    if url.len() > 2048 || url.is_empty() || url.chars().any(|ch|
-        ch.is_whitespace() || ch.is_control() || matches!(ch, '\\' | '<' | '>' | '"')
-    ) {
+    if url.len() > 2048
+        || url.is_empty()
+        || url
+            .chars()
+            .any(|ch| ch.is_whitespace() || ch.is_control() || matches!(ch, '\\' | '<' | '>' | '"'))
+    {
         return false;
     }
-    let Some(tail) = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://")) else {
+    let Some(tail) = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+    else {
         return false;
     };
     let authority = tail.split(&['/', '?', '#'][..]).next().unwrap_or("");
-    !authority.is_empty() && !authority.contains('@')
-        && !authority.starts_with(':') && !authority.ends_with(':')
+    !authority.is_empty()
+        && !authority.contains('@')
+        && !authority.starts_with(':')
+        && !authority.ends_with(':')
 }
 
 /// Horizontal paragraph alignment.

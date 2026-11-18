@@ -60,7 +60,7 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   const root = new URL('../../../crates/office-layout/fonts/', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   assert.equal(manifest.format_version, 1);
-  assert.equal(manifest.catalog_id, 'writer-fonts-v3');
+  assert.equal(manifest.catalog_id, 'writer-fonts-v6');
   const entries = new Map(manifest.entries.map((entry) => [entry.file, entry]));
   let fontBytes = 0;
   for (const entry of [...manifest.entries, ...manifest.derived_files]) {
@@ -79,7 +79,11 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   const notices = await readFile(new URL('NOTICE.txt', root), 'utf8');
   for (const entry of manifest.entries.filter((entry) => entry.kind === 'license')) {
     assert.equal(entry.spdx, 'OFL-1.1');
-    assert.ok(notices.includes(await readFile(new URL(entry.file, root), 'utf8')), entry.file);
+    // Original license and aggregate notice bytes are independently pinned
+    // above; compare complete legal text allowing their documented CRLF/LF
+    // delivery differences, without rewriting any upstream asset.
+    const license = await readFile(new URL(entry.file, root), 'utf8');
+    assert.ok(notices.replace(/\r\n/g, '\n').includes(license.replace(/\r\n/g, '\n')), entry.file);
   }
 });
 
@@ -408,11 +412,11 @@ test('compiled WASM layout matches the complete native snapshot golden', async (
     cwd: fileURLToPath(new URL('../../../', import.meta.url)), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
   }).trim();
   assert.equal(compact, native, 'Native Rust and release WASM must produce identical complete geometry and outlines');
-  // Catalog v3 adds optional faces. The old reference layout still uses
+  // Catalog v5 adds optional faces. The old reference layout still uses
   // only v1 fonts, so normalize the version marker alone before checking the
   // reviewed full-geometry fingerprint. This must not hide changed glyphs,
   // line breaks, coordinates, pages, or outlines.
-  const oldMarker = '"fontCatalogId":"writer-fonts-v3"';
+  const oldMarker = '"fontCatalogId":"writer-fonts-v6"';
   assert.equal(compact.split(oldMarker).length, 2);
   const legacyGeometry = compact.replace(oldMarker, '"fontCatalogId":"writer-fonts-v1"');
   assert.equal(createHash('sha256').update(legacyGeometry).digest('hex'), expected.sha256);

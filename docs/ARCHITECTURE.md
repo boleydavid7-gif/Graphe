@@ -1100,3 +1100,30 @@ audit is inferred from this implementation.
 Correctness, performance, compatibility, maintainability, and architectural
 stability guide development. Changes should keep responsibilities explicit and
 be validated at the scope they introduce.
+
+## Rectangular tables (2026-11-18)
+
+The format-neutral `Block::Table` contains stable table, row and cell IDs. Each
+cell owns one or more existing paragraphs. Tables are rectangular, unmerged and
+non-nested. Existing paragraph-relative Unicode positions continue to identify
+text; row-major traversal is inspection order, not permission to join cells.
+Destructive text ranges cannot cross cell boundaries or a table in body flow.
+Character/paragraph formatting reuses the existing atomic transactions; explicit
+row/column/table edits are single undoable structural operations.
+
+Native format/model version 5 stores tables. Strict decoders migrate versions
+1–4; a table under an older version label is rejected. Original imported bytes
+stay outside editable content/history. Rust shapes cell paragraphs at their
+available width, supplies cell rectangles/caret geometry, and paginates whole
+rows. The browser paints these rectangles and glyphs without measuring text.
+A controlled semantic HTML table provides input and accessibility structure.
+An oversized row or unusable width returns a structured layout error while
+retaining source content. Row splitting, merged cells, nested tables, header
+repetition, borders/shading controls and mouse resizing are outside this profile.
+
+DOCX and ODT adapters translate supported tables around the shared model; unknown
+content and unsupported table structures retain the original/read-only policy.
+PDF paints the same Rust cell geometry. TXT flattening requires an explicit
+meaningful-loss warning. RTF table export is rejected until its adapter can
+represent tables safely. See [table research](TABLES_RESEARCH.md) and
+[table verification](TABLES.md) for the exact implemented profile and results.

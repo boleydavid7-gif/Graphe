@@ -443,7 +443,9 @@ fn a_structural_change_counts_even_when_the_logical_text_is_identical() {
         .text_coordinates(&id("paragraph"))
         .unwrap();
     assert_eq!(before.text(), after.text());
-    let Block::Paragraph(paragraph) = &session.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &session.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     assert_eq!(paragraph.runs().len(), 1);
 }
 

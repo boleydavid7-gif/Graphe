@@ -270,7 +270,9 @@ fn native_save_copy_keeps_the_original_without_a_loss_warning_or_state_change() 
     assert_eq!(engine.export_format("writer", false, None).unwrap(), native);
     assert_eq!(engine.export_format("writer", true, None).unwrap(), native);
     let file = deserialize_writer_file(&native).unwrap();
-    let Block::Paragraph(current_paragraph) = &file.document().sections()[0].blocks()[0];
+    let Block::Paragraph(current_paragraph) = &file.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(
         current_paragraph
             .runs()

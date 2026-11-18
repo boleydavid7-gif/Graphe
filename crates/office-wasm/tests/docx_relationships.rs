@@ -13,7 +13,7 @@ const UNSUPPORTED: &[&str] = &[
     "unsupported-image.docx",
     "unsupported-header.docx",
     "unsupported-footer.docx",
-    "unsupported-hyperlink.docx",
+    "unsupported-revision.docx",
     "unsupported-altchunk.docx",
     "unsupported-external-relationship.docx",
     "misplaced-root-font-table.docx",
@@ -88,7 +88,6 @@ fn requires_relationship_diagnostic(name: &str) -> bool {
         "unsupported-image.docx"
             | "unsupported-header.docx"
             | "unsupported-footer.docx"
-            | "unsupported-hyperlink.docx"
             | "unsupported-altchunk.docx"
             | "unsupported-external-relationship.docx"
             | "misplaced-root-font-table.docx"
@@ -206,7 +205,10 @@ fn harmless_parts_survive_copy_export_without_replacing_current_text_or_mutating
                 panic!("the current-content DOCX copy must remain editable");
             };
             let office_core::Block::Paragraph(paragraph) =
-                &copy.document().sections()[0].blocks()[0];
+                &copy.document().sections()[0].blocks()[0]
+            else {
+                panic!("expected paragraph")
+            };
             assert_eq!(copy.document().metadata().title, "Current DOCX copy");
             assert_eq!(
                 paragraph

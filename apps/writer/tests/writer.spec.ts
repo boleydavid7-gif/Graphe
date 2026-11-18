@@ -87,7 +87,7 @@ async function fixture(): Promise<NativeFile> {
 test('a failed WebAssembly fetch reports startup failure and retry starts the real engine', async ({ page }) => {
   await page.route('**/*.wasm', (route) => route.abort('failed'));
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Writer could not start' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Graphe could not start' })).toBeVisible();
   await expect(editor(page)).toHaveCount(0);
   await page.unroute('**/*.wasm');
   await page.getByRole('button', { name: 'Try again', exact: true }).click();
@@ -159,7 +159,7 @@ test('mixed formatting, directed selections, font controls and paragraph alignme
   await family.selectOption('Tinos');
   await expect(family).toBeFocused();
   await page.keyboard.press('ArrowDown');
-  await expect(family).toHaveValue('Noto Sans Arabic');
+  await expect(family).toHaveValue('Caladea');
   await expect(family).toBeFocused();
   await page.keyboard.press('ArrowUp');
   await expect(family).toHaveValue('Tinos');
@@ -413,8 +413,8 @@ test('native fixture, styles, sections and opaque identifiers survive import/exp
   await select(page, 0, 0, 0, 8);
   await expect(page.getByRole('button', { name: 'Bold', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const roundTrip = await exported(page);
-  expect(roundTrip).toMatchObject({ ...native, format_version: 4,
-    document: { ...native.document, schema_version: 4 } });
+  expect(roundTrip).toMatchObject({ ...native, format_version: 5,
+    document: { ...native.document, schema_version: 5 } });
   // Serde makes unspecified optional fields explicit null; normalize via a
   // second round trip rather than comparing source JSON spelling.
   await importNative(page, roundTrip);
@@ -707,7 +707,14 @@ test('save-and-continue, discard and dismissed browser reload preserve the inten
   await reload;
   await protocol.detach();
   expect(await exported(page)).toEqual(unsaved);
-  await expect(page.locator('.save-state')).toContainText('Unsaved');
+  // Export and the real beforeunload dialog can outlive the autosave delay.
+  // Verify exact persistence rather than requiring a transient status label.
+  await save(page).click();
+  await expect(page.locator('.save-state')).toHaveText('Saved on this device');
+  await documentAction(page, 'Close');
+  await page.getByRole('button', { name: 'Open', exact: true }).click();
+  await page.getByRole('button', { name: /Guarded version/ }).click();
+  expect(await exported(page)).toEqual(unsaved);
 });
 
 test('typing during an IndexedDB save preserves its byte snapshot and autosave catches up', async ({ page, context }) => {

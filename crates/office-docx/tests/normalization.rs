@@ -44,7 +44,9 @@ fn paragraphs(document: &Document) -> Vec<String> {
         .iter()
         .flat_map(|section| section.blocks())
         .map(|block| {
-            let Block::Paragraph(paragraph) = block;
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
             paragraph
                 .runs()
                 .iter()
@@ -133,17 +135,23 @@ fn synthetic_wordweb_formatting_preserves_unicode_order_and_supported_mixed_runs
         blocks
             .iter()
             .map(|block| {
-                let Block::Paragraph(p) = block;
+                let Block::Paragraph(p) = block else {
+                    panic!("expected paragraph")
+                };
                 p.runs().len()
             })
             .sum::<usize>(),
         17
     );
-    let Block::Paragraph(first) = &blocks[0];
+    let Block::Paragraph(first) = &blocks[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(first.runs()[0].format.bold, Some(true));
     assert_eq!(first.runs()[0].format.font_family.as_deref(), Some("Arimo"));
     assert_eq!(first.runs()[0].format.font_size.unwrap().0, 24);
-    let Block::Paragraph(second) = &blocks[1];
+    let Block::Paragraph(second) = &blocks[1] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(second.runs()[1].format.italic, Some(true));
 }
 
@@ -181,7 +189,9 @@ fn real_word_and_libreoffice_imports_preserve_each_original_paragraph_without_ed
 fn normalized_documents_still_use_atomic_edit_history_and_lossless_native_reopening() {
     let value = imported(PROFILE);
     let original_document = value.document().clone();
-    let Block::Paragraph(first) = &original_document.sections()[0].blocks()[0];
+    let Block::Paragraph(first) = &original_document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     let first_id = first.id().clone();
     let mut session = DocumentSession::new(original_document.clone());
     let mut transaction = session.begin_transaction();
@@ -325,7 +335,9 @@ fn supported_character_styles_are_materialized_with_direct_formatting_precedence
         xml.replace("<w:r>", "<w:r><w:rPr><w:rStyle w:val=\"Emphasis\"/><w:b w:val=\"0\"/><w:bCs w:val=\"0\"/></w:rPr>")
     });
     let value = imported(&bytes);
-    let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs()[0].format.bold, Some(false));
     assert_eq!(paragraph.runs()[0].format.italic, Some(true));
     assert_eq!(
@@ -341,7 +353,9 @@ fn supported_character_styles_are_materialized_with_direct_formatting_precedence
     );
     let output = export_docx(value.document()).unwrap();
     let reopened = imported(&output);
-    let Block::Paragraph(paragraph) = &reopened.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &reopened.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs()[0].format.bold, Some(false));
     assert_eq!(paragraph.runs()[0].format.italic, Some(true));
 }
@@ -371,7 +385,9 @@ fn character_style_toggle_parity_combines_with_the_effective_paragraph_style() {
             )
         });
         let value = imported(&bytes);
-        let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0];
+        let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0] else {
+            panic!("expected paragraph")
+        };
         let base = value
             .document()
             .styles()

@@ -1,7 +1,7 @@
-use crate::wire::{CharacterView, ParagraphFormatView, ParagraphView, RunView};
+use crate::wire::{CharacterView, ParagraphFormatView, ParagraphView, RunView, TableCellView};
 use office_core::{
-    Alignment, Block, CharacterFormat, Document, LineSpacing, Paragraph, ParagraphFormat,
-    TextColor, Underline,
+    Alignment, CharacterFormat, Document, LineSpacing, Paragraph, ParagraphFormat, TextColor,
+    Underline,
 };
 
 // Shared Rust inheritance policy. Browser defaults below remain presentation
@@ -42,8 +42,7 @@ pub(crate) fn character_view(format: &CharacterFormat) -> CharacterView {
 pub(crate) fn paragraphs(document: &Document) -> Vec<ParagraphView> {
     let mut result = Vec::new();
     for section in document.sections() {
-        for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
+        for paragraph in section.paragraphs() {
             let (base, format) = inherited(document, paragraph);
             let indent = format.indentation.unwrap_or_default();
             let runs = paragraph
@@ -61,6 +60,7 @@ pub(crate) fn paragraphs(document: &Document) -> Vec<ParagraphView> {
             result.push(ParagraphView {
                 id: paragraph.id().as_str().into(),
                 section_id: section.id().as_str().into(),
+                table_cell: table_cell(document, paragraph.id().as_str()),
                 style_id: paragraph.style().map(|id| id.as_str().into()),
                 runs,
                 list: paragraph.list(),
@@ -85,4 +85,19 @@ pub(crate) fn paragraphs(document: &Document) -> Vec<ParagraphView> {
         }
     }
     result
+}
+
+pub(crate) fn table_cell(document: &Document, paragraph_id: &str) -> Option<TableCellView> {
+    let id = office_core::Id::new(paragraph_id).ok()?;
+    let (table, row, column) = document.table_for_paragraph(&id)?;
+    let row_record = &table.rows()[row];
+    Some(TableCellView {
+        table_id: table.id().as_str().into(),
+        row_id: row_record.id().as_str().into(),
+        cell_id: row_record.cells()[column].id().as_str().into(),
+        row,
+        column,
+        row_count: table.rows().len(),
+        column_count: row_record.cells().len(),
+    })
 }

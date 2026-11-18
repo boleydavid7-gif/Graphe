@@ -6,8 +6,8 @@ use std::{
 };
 
 use office_core::{
-    Alignment, Block, CharacterFormat, Document, LineSpacing, NamedStyle, PageOrientation,
-    ListKind, Paragraph, ParagraphFormat, SectionProperties, TextColor, Underline,
+    Alignment, Block, CharacterFormat, Document, LineSpacing, ListKind, NamedStyle,
+    PageOrientation, Paragraph, ParagraphFormat, SectionProperties, Table, TextColor, Underline,
 };
 use quick_xml::{
     Writer,
@@ -46,8 +46,14 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, Conversion
     let mut parts = vec![
         ("[Content_Types].xml", content_types(has_numbering)?),
         ("_rels/.rels", package_relationships()?),
-        ("word/document.xml", document_xml(document, &styles, &list_ids, &links)?),
-        ("word/_rels/document.xml.rels", document_relationships(has_numbering, &links)?),
+        (
+            "word/document.xml",
+            document_xml(document, &styles, &list_ids, &links)?,
+        ),
+        (
+            "word/_rels/document.xml.rels",
+            document_relationships(has_numbering, &links)?,
+        ),
         ("word/styles.xml", styles_xml(document.styles(), &styles)?),
         (
             "docProps/core.xml",
@@ -205,8 +211,13 @@ fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
     if has_numbering {
         xml.empty(
             "Override",
-            &[("PartName", "/word/numbering.xml"),
-              ("ContentType", "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml")],
+            &[
+                ("PartName", "/word/numbering.xml"),
+                (
+                    "ContentType",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+                ),
+            ],
         )?;
     }
     xml.end("Types")?;
@@ -216,16 +227,13 @@ fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
 /// Assign stable package-local IDs to distinct external destinations.
 fn document_links(document: &Document) -> BTreeMap<String, String> {
     let mut links = BTreeMap::new();
-    for section in document.sections() {
-        for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
-            for run in paragraph.runs() {
-                if let Some(address) = &run.format.hyperlink {
-                    if !links.contains_key(address) {
-                        let number = links.len() + 1;
-                        links.insert(address.clone(), format!("rIdLink{number}"));
-                    }
-                }
+    for paragraph in document.paragraphs() {
+        for run in paragraph.runs() {
+            if let Some(address) = &run.format.hyperlink
+                && !links.contains_key(address)
+            {
+                let number = links.len() + 1;
+                links.insert(address.clone(), format!("rIdLink{number}"));
             }
         }
     }
@@ -238,20 +246,53 @@ fn list_numbering(document: &Document) -> (BTreeMap<String, u32>, Vec<(u32, List
     let mut paragraphs = BTreeMap::new();
     let mut instances = Vec::new();
     let mut current = 0_u32;
-    for section in document.sections() {
-        // Each section starts a new numbering sequence.
-        let mut previous = None;
-        for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
+    fn assign<'a>(
+        flow: impl IntoIterator<Item = &'a Paragraph>,
+        paragraphs: &mut BTreeMap<String, u32>,
+        instances: &mut Vec<(u32, ListKind)>,
+        current: &mut u32,
+        previous: &mut Option<ListKind>,
+    ) {
+        for paragraph in flow {
             let kind = paragraph.list();
-            if kind != previous && let Some(kind) = kind {
-                current += 1;
-                instances.push((current, kind));
+            if kind != *previous
+                && let Some(kind) = kind
+            {
+                *current += 1;
+                instances.push((*current, kind));
             }
             if kind.is_some() {
-                paragraphs.insert(paragraph.id().as_str().into(), current);
+                paragraphs.insert(paragraph.id().as_str().into(), *current);
             }
-            previous = kind;
+            *previous = kind;
+        }
+    }
+    for section in document.sections() {
+        let mut previous = None;
+        for block in section.blocks() {
+            match block {
+                Block::Paragraph(paragraph) => assign(
+                    std::iter::once(paragraph),
+                    &mut paragraphs,
+                    &mut instances,
+                    &mut current,
+                    &mut previous,
+                ),
+                Block::Table(table) => {
+                    previous = None;
+                    for row in table.rows() {
+                        for cell in row.cells() {
+                            assign(
+                                cell.paragraphs(),
+                                &mut paragraphs,
+                                &mut instances,
+                                &mut current,
+                                &mut None,
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
     (paragraphs, instances)
@@ -275,7 +316,10 @@ fn numbering_xml(instances: &[(u32, ListKind)]) -> Result<Vec<u8>, ConversionErr
     }
     for (id, kind) in instances {
         let number = id.to_string();
-        let abstract_id = match kind { ListKind::Bullet => "1", ListKind::Numbered => "2" };
+        let abstract_id = match kind {
+            ListKind::Bullet => "1",
+            ListKind::Numbered => "2",
+        };
         xml.start("w:num", &[("w:numId", &number)])?;
         xml.empty("w:abstractNumId", &[("w:val", abstract_id)])?;
         xml.end("w:num")?;
@@ -327,17 +371,25 @@ fn document_relationships(
         ],
     )?;
     if has_numbering {
-        xml.empty("Relationship", &[
-            ("Id", "rIdNumbering"),
-            ("Type", &format!("{OFFICE_REL}/numbering")),
-            ("Target", "numbering.xml"),
-        ])?;
+        xml.empty(
+            "Relationship",
+            &[
+                ("Id", "rIdNumbering"),
+                ("Type", &format!("{OFFICE_REL}/numbering")),
+                ("Target", "numbering.xml"),
+            ],
+        )?;
     }
     for (address, id) in links {
-        xml.empty("Relationship", &[
-            ("Id", id.as_str()), ("Type", &format!("{OFFICE_REL}/hyperlink")),
-            ("Target", address.as_str()), ("TargetMode", "External"),
-        ])?;
+        xml.empty(
+            "Relationship",
+            &[
+                ("Id", id.as_str()),
+                ("Type", &format!("{OFFICE_REL}/hyperlink")),
+                ("Target", address.as_str()),
+                ("TargetMode", "External"),
+            ],
+        )?;
     }
     xml.end("Relationships")?;
     Ok(xml.finish())
@@ -365,17 +417,33 @@ fn document_xml(
     let last_section = document.sections().len().checked_sub(1);
     for (section_index, section) in document.sections().iter().enumerate() {
         let final_section = Some(section_index) == last_section;
-        for (paragraph_index, block) in section.blocks().iter().enumerate() {
-            let Block::Paragraph(paragraph) = block;
-            let section_boundary = !final_section && paragraph_index + 1 == section.blocks().len();
-            write_paragraph(
-                &mut xml,
-                paragraph,
-                styles,
-                list_ids.get(paragraph.id().as_str()).copied(),
-                links,
-                section_boundary.then_some(section.properties()),
-            )?;
+        for (block_index, block) in section.blocks().iter().enumerate() {
+            let section_boundary = !final_section && block_index + 1 == section.blocks().len();
+            match block {
+                Block::Paragraph(paragraph) => write_paragraph(
+                    &mut xml,
+                    paragraph,
+                    styles,
+                    list_ids.get(paragraph.id().as_str()).copied(),
+                    links,
+                    section_boundary.then_some(section.properties()),
+                )?,
+                Block::Table(table) => {
+                    if section_boundary {
+                        return Err(unsupported(
+                            "a nonfinal section ending in a table needs a paragraph section-boundary carrier",
+                        ));
+                    }
+                    write_table(
+                        &mut xml,
+                        table,
+                        section.properties(),
+                        styles,
+                        list_ids,
+                        links,
+                    )?;
+                }
+            }
         }
         if final_section {
             write_section(&mut xml, section.properties())?;
@@ -384,6 +452,104 @@ fn document_xml(
     xml.end("w:body")?;
     xml.end("w:document")?;
     Ok(xml.finish())
+}
+
+fn write_table(
+    xml: &mut Xml,
+    table: &Table,
+    section: Option<&SectionProperties>,
+    styles: &StyleMap<'_>,
+    list_ids: &BTreeMap<String, u32>,
+    links: &BTreeMap<String, String>,
+) -> Result<(), ConversionError> {
+    let columns = table.rows()[0].cells().len();
+    let widths: Vec<i32> = if let Some(widths) = table.column_widths() {
+        widths.iter().map(|value| value.0).collect()
+    } else {
+        let page_width = section
+            .and_then(|value| value.page_size)
+            .map_or(12240_i64, |size| i64::from(size.width.0));
+        let body_width =
+            section
+                .and_then(|value| value.page_margins)
+                .map_or(page_width - 2880, |margins| {
+                    page_width
+                        - i64::from(margins.left.0)
+                        - i64::from(margins.right.0)
+                        - i64::from(margins.gutter.0)
+                });
+        if body_width <= 0 {
+            return Err(unsupported("table requires a positive section body width"));
+        }
+        let body_width = i32::try_from(body_width)
+            .map_err(|_| unsupported("table body width exceeds the supported range"))?;
+        let count = i32::try_from(columns).map_err(|_| unsupported("too many table columns"))?;
+        if body_width < count {
+            return Err(unsupported("table columns cannot have zero width"));
+        }
+        let mut values = vec![body_width / count; columns];
+        values[columns - 1] += body_width % count;
+        values
+    };
+    xml.start("w:tbl", &[])?;
+    xml.start("w:tblPr", &[])?;
+    let total: i64 = widths.iter().map(|value| i64::from(*value)).sum();
+    xml.empty("w:tblW", &[("w:w", &total.to_string()), ("w:type", "dxa")])?;
+    xml.empty("w:tblLayout", &[("w:type", "fixed")])?;
+    xml.start("w:tblBorders", &[])?;
+    for edge in [
+        "w:top",
+        "w:left",
+        "w:bottom",
+        "w:right",
+        "w:insideH",
+        "w:insideV",
+    ] {
+        xml.empty(
+            edge,
+            &[("w:val", "single"), ("w:sz", "4"), ("w:color", "808080")],
+        )?;
+    }
+    xml.end("w:tblBorders")?;
+    xml.start("w:tblCellMar", &[])?;
+    for edge in ["w:top", "w:left", "w:bottom", "w:right"] {
+        xml.empty(edge, &[("w:w", "80"), ("w:type", "dxa")])?;
+    }
+    xml.end("w:tblCellMar")?;
+    xml.end("w:tblPr")?;
+    xml.start("w:tblGrid", &[])?;
+    for width in &widths {
+        xml.empty("w:gridCol", &[("w:w", &width.to_string())])?;
+    }
+    xml.end("w:tblGrid")?;
+    for row in table.rows() {
+        xml.start("w:tr", &[])?;
+        xml.start("w:trPr", &[])?;
+        xml.empty("w:cantSplit", &[])?;
+        xml.end("w:trPr")?;
+        for (column, cell) in row.cells().iter().enumerate() {
+            xml.start("w:tc", &[])?;
+            xml.start("w:tcPr", &[])?;
+            xml.empty(
+                "w:tcW",
+                &[("w:w", &widths[column].to_string()), ("w:type", "dxa")],
+            )?;
+            xml.end("w:tcPr")?;
+            for paragraph in cell.paragraphs() {
+                write_paragraph(
+                    xml,
+                    paragraph,
+                    styles,
+                    list_ids.get(paragraph.id().as_str()).copied(),
+                    links,
+                    None,
+                )?;
+            }
+            xml.end("w:tc")?;
+        }
+        xml.end("w:tr")?;
+    }
+    xml.end("w:tbl")
 }
 
 fn write_paragraph(
@@ -404,7 +570,9 @@ fn write_paragraph(
     )?;
     for run in paragraph.runs() {
         if let Some(address) = run.format.hyperlink.as_deref() {
-            let id = links.get(address).ok_or_else(|| unsupported("missing hyperlink relationship"))?;
+            let id = links
+                .get(address)
+                .ok_or_else(|| unsupported("missing hyperlink relationship"))?;
             xml.start("w:hyperlink", &[("r:id", id.as_str())])?;
         }
         xml.start("w:r", &[])?;
@@ -545,7 +713,11 @@ fn write_paragraph_properties(
     list_id: Option<u32>,
     section_boundary: Option<Option<&SectionProperties>>,
 ) -> Result<(), ConversionError> {
-    if format == &ParagraphFormat::default() && style.is_none() && list_id.is_none() && section_boundary.is_none() {
+    if format == &ParagraphFormat::default()
+        && style.is_none()
+        && list_id.is_none()
+        && section_boundary.is_none()
+    {
         return Ok(());
     }
     xml.start("w:pPr", &[])?;
@@ -933,10 +1105,12 @@ mod tests {
         for name in ["Times New Roman", "Arial", "Calibri", "Cambria"] {
             let mut run = TextRun::new("Word compatibility");
             run.format.font_family = Some(name.into());
-            let bytes = export_document(&document(vec![Paragraph::new(id("p"), vec![run])])).unwrap();
+            let bytes =
+                export_document(&document(vec![Paragraph::new(id("p"), vec![run])])).unwrap();
             let xml = part(&bytes, "word/document.xml");
             let parsed = roxmltree::Document::parse(&xml).unwrap();
-            let fonts = parsed.descendants()
+            let fonts = parsed
+                .descendants()
                 .find(|node| node.has_tag_name((W, "rFonts")))
                 .unwrap();
             for attribute in ["ascii", "hAnsi", "eastAsia", "cs"] {
@@ -959,6 +1133,7 @@ mod tests {
                 green: 0xAB,
                 blue: 0xCD,
             }),
+            hyperlink: None,
         };
         let paragraph = Paragraph::new(id("p"), vec![first, TextRun::new(" plain")]).with_format(
             ParagraphFormat {
@@ -1200,7 +1375,9 @@ mod tests {
                 Err(ConversionError::UnsupportedExport { feature })
                     if feature.contains("carriage-return")
             ));
-            let Block::Paragraph(paragraph) = &source.sections()[0].blocks()[0];
+            let Block::Paragraph(paragraph) = &source.sections()[0].blocks()[0] else {
+                panic!("expected paragraph")
+            };
             assert_eq!(paragraph.runs()[0].text, text);
         }
         let source = Document::from_parts(
@@ -1326,7 +1503,9 @@ mod tests {
         let restored = imported.document();
         assert_eq!(restored.metadata(), document.metadata());
         assert_eq!(restored.sections()[0].properties(), Some(&properties));
-        let Block::Paragraph(restored_paragraph) = &restored.sections()[0].blocks()[0];
+        let Block::Paragraph(restored_paragraph) = &restored.sections()[0].blocks()[0] else {
+            panic!("expected paragraph")
+        };
         assert_eq!(restored_paragraph.runs(), &[run]);
         assert_eq!(restored_paragraph.format(), paragraph.format());
         assert_eq!(restored.styles().len(), 2);
@@ -1374,9 +1553,12 @@ mod tests {
         {
             assert_eq!(first.properties(), second.properties());
             assert_eq!(first.blocks().len(), second.blocks().len());
-            for (Block::Paragraph(first), Block::Paragraph(second)) in
-                first.blocks().iter().zip(second.blocks())
-            {
+            for (first_block, second_block) in first.blocks().iter().zip(second.blocks()) {
+                let (Block::Paragraph(first), Block::Paragraph(second)) =
+                    (first_block, second_block)
+                else {
+                    panic!("expected paragraphs")
+                };
                 assert_eq!(first.runs(), second.runs());
                 assert_eq!(first.format(), second.format());
             }

@@ -7,13 +7,11 @@
 
 use serde::Deserialize;
 
+use super::v3::{V3CharacterFormat, V3TextRun};
 use super::{
     Block, Document, DocumentMetadata, Id, NamedStyle, Paragraph, Section, SectionProperties,
 };
-use super::v3::{V3CharacterFormat, V3TextRun};
-use crate::{
-    Alignment, DocumentError, Indentation, LineSpacing, ParagraphFormat, Twips,
-};
+use crate::{Alignment, DocumentError, Indentation, LineSpacing, ParagraphFormat, Twips};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -103,8 +101,11 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
                 .into_iter()
                 .map(|block| match block {
                     LegacyBlock::Paragraph(paragraph) => {
-                        let mut converted = Paragraph::new(paragraph.id, paragraph.runs.into_iter().map(Into::into).collect())
-                            .with_format(paragraph.format.into());
+                        let mut converted = Paragraph::new(
+                            paragraph.id,
+                            paragraph.runs.into_iter().map(Into::into).collect(),
+                        )
+                        .with_format(paragraph.format.into());
                         if let Some(style) = paragraph.style {
                             converted = converted.with_style(style);
                         }

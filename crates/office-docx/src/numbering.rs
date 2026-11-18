@@ -7,23 +7,23 @@ use office_core::ListKind;
 use roxmltree::Node;
 
 use crate::{
-    CompatibilityIssueKind as Issue, CompatibilityReport, ConversionError,
-    conversion::invalid, xml::parse_xml,
+    CompatibilityIssueKind as Issue, CompatibilityReport, ConversionError, conversion::invalid,
+    xml::parse_xml,
 };
 
-fn field(
-    node: Node<'_, '_>,
-    ns: &str,
-    attr: &str,
-    part: &str,
-) -> Result<String, ConversionError> {
-    node.attribute((ns, attr)).map(str::to_owned)
+fn field(node: Node<'_, '_>, ns: &str, attr: &str, part: &str) -> Result<String, ConversionError> {
+    node.attribute((ns, attr))
+        .map(str::to_owned)
         .ok_or_else(|| invalid(part, "missing required numbering attribute"))
 }
 
 fn unsupported(report: &mut CompatibilityReport, part: &str, path: &str) {
-    report.push(Issue::UnsupportedElement, part, path,
-        "This Word numbering feature is outside Graphe's first-level list profile.");
+    report.push(
+        Issue::UnsupportedElement,
+        part,
+        path,
+        "This Word numbering feature is outside Graphe's first-level list profile.",
+    );
 }
 
 /// Maps Word numbering instance IDs to supported one-level semantic list kinds.
@@ -48,7 +48,8 @@ pub(crate) fn parse_numbering(
         match node.tag_name().name() {
             "abstractNum" => {
                 let id: u32 = field(node, namespace, "abstractNumId", part)?
-                    .parse().map_err(|_| invalid(part, "invalid abstract numbering id"))?;
+                    .parse()
+                    .map_err(|_| invalid(part, "invalid abstract numbering id"))?;
                 if abstracts.contains_key(&id) {
                     return Err(invalid(part, "duplicate abstract numbering id"));
                 }
@@ -85,10 +86,17 @@ pub(crate) fn parse_numbering(
                                     continue;
                                 }
                                 match property.tag_name().name() {
-                                    "numFmt" => fmt = Some(field(property, namespace, "val", part)?),
-                                    "lvlText" => label = Some(field(property, namespace, "val", part)?),
-                                    "start" => start = Some(field(property, namespace, "val", part)?),
-                                    "lvlJc" if field(property, namespace, "val", part)? == "left" => {}
+                                    "numFmt" => {
+                                        fmt = Some(field(property, namespace, "val", part)?)
+                                    }
+                                    "lvlText" => {
+                                        label = Some(field(property, namespace, "val", part)?)
+                                    }
+                                    "start" => {
+                                        start = Some(field(property, namespace, "val", part)?)
+                                    }
+                                    "lvlJc"
+                                        if field(property, namespace, "val", part)? == "left" => {}
                                     _ => unsupported(report, part, "lvl/unsupportedProperty"),
                                 }
                             }
@@ -115,17 +123,22 @@ pub(crate) fn parse_numbering(
             }
             "num" => {
                 let id: u32 = field(node, namespace, "numId", part)?
-                    .parse().map_err(|_| invalid(part, "invalid numbering instance id"))?;
+                    .parse()
+                    .map_err(|_| invalid(part, "invalid numbering instance id"))?;
                 if id == 0 || instances.contains_key(&id) {
                     return Err(invalid(part, "invalid or repeated numbering instance id"));
                 }
-                let children = node.children().filter(|node| node.is_element()).collect::<Vec<_>>();
+                let children = node
+                    .children()
+                    .filter(|node| node.is_element())
+                    .collect::<Vec<_>>();
                 if children.len() != 1 || !children[0].has_tag_name((namespace, "abstractNumId")) {
                     unsupported(report, part, "num/overrides");
                     continue;
                 }
                 let abstract_id: u32 = field(children[0], namespace, "val", part)?
-                    .parse().map_err(|_| invalid(part, "invalid numbering definition reference"))?;
+                    .parse()
+                    .map_err(|_| invalid(part, "invalid numbering definition reference"))?;
                 instances.insert(id, abstract_id);
             }
             _ => unsupported(report, part, "numbering/unsupportedDefinition"),
@@ -134,7 +147,9 @@ pub(crate) fn parse_numbering(
     let mut result = BTreeMap::new();
     for (instance, definition) in instances {
         match abstracts.get(&definition).copied().flatten() {
-            Some(kind) => { result.insert(instance, kind); }
+            Some(kind) => {
+                result.insert(instance, kind);
+            }
             None => unsupported(report, part, "num/missingDefinition"),
         }
     }

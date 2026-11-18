@@ -52,7 +52,9 @@ fn editable(bytes: &[u8]) -> ImportedDocx {
         DocxImportOutcome::Editable(imported) => {
             assert_eq!(imported.original().original_bytes(), bytes);
             imported.document().validate().unwrap();
-            let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+            let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+                panic!("expected paragraph")
+            };
             assert_eq!(
                 paragraph
                     .runs()
@@ -88,7 +90,9 @@ fn partial_and_different_script_fonts_have_a_deterministic_documented_choice() {
     ] {
         let bytes = source(property, "", "");
         let imported = editable(&bytes);
-        let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+        let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+            panic!("expected paragraph")
+        };
         assert_eq!(paragraph.runs()[0].format.font_family.as_deref(), expected);
         assert!(
             imported
@@ -108,7 +112,9 @@ fn complex_script_values_fall_back_only_when_the_ordinary_value_is_absent() {
         "",
     );
     let imported = editable(&bytes);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     let format = &paragraph.runs()[0].format;
     assert_eq!(format.bold, Some(false));
     assert_eq!(format.italic, Some(true));
@@ -116,7 +122,9 @@ fn complex_script_values_fall_back_only_when_the_ordinary_value_is_absent() {
     assert_eq!(imported.report().normalizations.len(), 3);
     let current_copy = export_docx(imported.document()).unwrap();
     let reopened = editable(&current_copy);
-    let Block::Paragraph(paragraph) = &reopened.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &reopened.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(&paragraph.runs()[0].format, format);
 }
 
@@ -128,7 +136,9 @@ fn cached_theme_colors_are_kept_and_theme_only_colors_use_inheritance_with_notic
         "",
     );
     let imported = editable(&bytes);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(
         paragraph.runs()[0].format.color,
         Some(TextColor::Rgb {
@@ -146,7 +156,9 @@ fn cached_theme_colors_are_kept_and_theme_only_colors_use_inheritance_with_notic
     );
     let bytes = source(r#"<w:color w:themeColor="text1"/>"#, "", "");
     let imported = editable(&bytes);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs()[0].format.color, None);
     assert!(!imported.report().normalizations.is_empty());
 }
@@ -164,7 +176,9 @@ fn ordinary_word_and_libreoffice_paragraph_preferences_keep_explicit_geometry() 
         section.properties().unwrap().page_size.unwrap().width,
         Twips(12240)
     );
-    let Block::Paragraph(paragraph) = &section.blocks()[0];
+    let Block::Paragraph(paragraph) = &section.blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.format().spacing_before, Some(Twips(240)));
     assert_eq!(paragraph.format().spacing_after, Some(Twips(120)));
     assert!(imported.report().normalizations.len() >= 5);
@@ -247,7 +261,9 @@ fn known_underline_and_logical_alignment_variants_have_named_approximations() {
     ] {
         let bytes = source(&format!(r#"<w:u w:val="{value}"/>"#), "", "");
         let imported = editable(&bytes);
-        let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+        let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+            panic!("expected paragraph")
+        };
         assert_eq!(paragraph.runs()[0].format.underline, Some(expected));
         assert!(!imported.report().normalizations.is_empty());
     }
@@ -261,7 +277,9 @@ fn known_underline_and_logical_alignment_variants_have_named_approximations() {
             "",
         );
         let imported = editable(&bytes);
-        let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+        let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+            panic!("expected paragraph")
+        };
         assert_eq!(paragraph.format().alignment, Some(expected));
         assert_eq!(
             paragraph.format().line_spacing,
@@ -383,7 +401,9 @@ fn oversized_inherited_font_names_cannot_amplify_through_style_caches_or_runs() 
     let mut text = String::new();
     for section in imported.document().sections() {
         for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
             for run in paragraph.runs() {
                 assert!(
                     run.format

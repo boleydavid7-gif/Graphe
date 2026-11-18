@@ -86,8 +86,7 @@ impl Tables {
             result.collect(&style.character_format)?;
         }
         for section in document.sections() {
-            for block in section.blocks() {
-                let Block::Paragraph(paragraph) = block;
+            for paragraph in section.paragraphs() {
                 for run in paragraph.runs() {
                     result.collect(&run.format)?;
                 }
@@ -291,6 +290,16 @@ fn inherited_character(
 
 pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, FormatError> {
     document.validate()?;
+    if document
+        .sections()
+        .iter()
+        .flat_map(|section| section.blocks())
+        .any(|block| matches!(block, Block::Table(_)))
+    {
+        return Err(unsupported(
+            "RTF table export is not supported yet. Keep a native Graphe, DOCX, ODT or PDF copy.",
+        ));
+    }
     let tables = Tables::new(document)?;
     let mut output = String::from("{\\rtf1\\ansi\\ansicpg1252\\uc1\\deff0\n{\\fonttbl");
     for (index, font) in tables.fonts.iter().enumerate() {
@@ -367,7 +376,9 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
             output.push_str("{\\pard\\sa160\\sl360\\slmult1 \\par}\n");
         }
         for block in section.blocks() {
-            let Block::Paragraph(source) = block;
+            let Block::Paragraph(source) = block else {
+                return Err(unsupported("RTF table export is not supported yet."));
+            };
             output.push_str("{\\pard");
             if let Some(style) = source.style() {
                 write!(output, "\\s{}", tables.styles[style.as_str()]).expect("String write");

@@ -48,6 +48,22 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    InsertTable {
+        rows: usize,
+        columns: usize,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
+    TableAction {
+        action: TableAction,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
+    MoveTableCell {
+        direction: Direction,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     InsertLineBreak {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
@@ -106,6 +122,18 @@ pub(crate) enum Command {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum TableAction {
+    InsertRowAbove,
+    InsertRowBelow,
+    DeleteRow,
+    InsertColumnBefore,
+    InsertColumnAfter,
+    DeleteColumn,
+    DeleteTable,
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum Direction {
     Backward,
@@ -136,6 +164,15 @@ impl Command {
                 expected_revision, ..
             }
             | Self::InsertParagraph {
+                expected_revision, ..
+            }
+            | Self::InsertTable {
+                expected_revision, ..
+            }
+            | Self::TableAction {
+                expected_revision, ..
+            }
+            | Self::MoveTableCell {
                 expected_revision, ..
             }
             | Self::InsertLineBreak {
@@ -178,6 +215,7 @@ pub(crate) struct View {
     pub paragraphs: Vec<ParagraphView>,
     pub styles: Vec<StyleSummary>,
     pub selection: Option<BrowserSelection>,
+    pub table: Option<TableCellView>,
     pub format: FormatSummary,
     pub can_undo: bool,
     pub can_redo: bool,
@@ -223,10 +261,23 @@ pub struct CompatibilityDiagnosticView {
 pub(crate) struct ParagraphView {
     pub id: String,
     pub section_id: String,
+    pub table_cell: Option<TableCellView>,
     pub style_id: Option<String>,
     pub runs: Vec<RunView>,
     pub list: Option<ListKind>,
     pub format: ParagraphFormatView,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TableCellView {
+    pub table_id: String,
+    pub row_id: String,
+    pub cell_id: String,
+    pub row: usize,
+    pub column: usize,
+    pub row_count: usize,
+    pub column_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]

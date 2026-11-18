@@ -3,11 +3,20 @@ use crate::{
     wire::{BrowserSelection, Direction, FormatSummary, ParagraphView, Point},
 };
 use office_core::{
-    Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, ListKind, Paragraph,
-    LineSpacing, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange, Section,
-    TextCoordinates, Transaction, Twips, Utf16Offset,
-    valid_hyperlink,
+    Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, LineSpacing,
+    ListKind, Paragraph, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange, Section,
+    TextCoordinates, Transaction, Twips, Utf16Offset, valid_hyperlink,
 };
+
+/// Browser units grouped at the private command adapter boundary.
+pub(super) struct ParagraphMetricsInput {
+    pub spacing_before_pt: Option<f64>,
+    pub spacing_after_pt: Option<f64>,
+    pub line_spacing_multiple: Option<f64>,
+    pub indent_left_in: Option<f64>,
+    pub indent_right_in: Option<f64>,
+    pub first_line_in: Option<f64>,
+}
 
 fn paragraph<'a>(
     document: &'a office_core::Document,
@@ -15,8 +24,7 @@ fn paragraph<'a>(
 ) -> Result<(&'a Paragraph, usize, usize), EngineError> {
     let mut index = 0;
     for (section_index, section) in document.sections().iter().enumerate() {
-        for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
+        for paragraph in section.paragraphs() {
             if paragraph.id().as_str() == id {
                 return Ok((paragraph, section_index, index));
             }
@@ -102,15 +110,17 @@ fn optional_twips(
     high: f64,
     field: &str,
 ) -> Result<Option<Twips>, EngineError> {
-    value.map(|number| {
-        if !number.is_finite() || number < low || number > high {
-            return Err(EngineError::new(
-                "invalid_paragraph_metrics",
-                format!("{field} must be between {low} and {high}."),
-            ));
-        }
-        Ok(Twips((number * scale).round() as i32))
-    }).transpose()
+    value
+        .map(|number| {
+            if !number.is_finite() || number < low || number > high {
+                return Err(EngineError::new(
+                    "invalid_paragraph_metrics",
+                    format!("{field} must be between {low} and {high}."),
+                ));
+            }
+            Ok(Twips((number * scale).round() as i32))
+        })
+        .transpose()
 }
 
 fn caret(point: Point) -> BrowserSelection {
@@ -138,15 +148,7 @@ impl BrowserEngine {
         let (_, _, first) = paragraph(document, &start.paragraph_id)?;
         let (_, _, last) = paragraph(document, &end.paragraph_id)?;
         let mut result = String::new();
-        for (index, block) in document
-            .sections()
-            .iter()
-            .flat_map(|section| section.blocks())
-            .enumerate()
-            .take(last + 1)
-            .skip(first)
-        {
-            let Block::Paragraph(paragraph) = block;
+        for (index, paragraph) in document.paragraphs().enumerate().take(last + 1).skip(first) {
             let coordinates = TextCoordinates::new(paragraph);
             let from = if index == first {
                 coordinates
@@ -200,7 +202,7 @@ impl BrowserEngine {
         })
     }
 
-    fn current_selection(
+    pub(super) fn current_selection(
         &self,
         supplied: Option<BrowserSelection>,
     ) -> Result<Option<BrowserSelection>, EngineError> {
@@ -292,7 +294,10 @@ impl BrowserEngine {
         replacement: &str,
     ) -> Result<(), EngineError> {
         if query.is_empty() {
-            return Err(EngineError::new("invalid_replace", "Enter text to find first."));
+            return Err(EngineError::new(
+                "invalid_replace",
+                "Enter text to find first.",
+            ));
         }
         // The first release replaces within paragraphs only, so this command
         // never inserts paragraph breaks or changes document structure.
@@ -315,10 +320,10 @@ impl BrowserEngine {
         let mut targets: Vec<BrowserSelection> = Vec::new();
         for item in snapshot.matches {
             let selection = item.selection;
-            if targets.last().is_some_and(|previous|
+            if targets.last().is_some_and(|previous| {
                 previous.focus.paragraph_id == selection.anchor.paragraph_id
-                && selection.anchor.utf16 < previous.focus.utf16
-            ) {
+                    && selection.anchor.utf16 < previous.focus.utf16
+            }) {
                 continue;
             }
             targets.push(selection);
@@ -330,7 +335,9 @@ impl BrowserEngine {
         for selection in &targets {
             prepared.push((selection.clone(), self.typing_format(selection)?));
         }
-        let after = targets.first().map(|selection| caret(selection.anchor.clone()));
+        let after = targets
+            .first()
+            .map(|selection| caret(selection.anchor.clone()));
         let mut transaction = self.session.begin_transaction();
         // Right-to-left keeps all earlier Rust UTF-16/grapheme offsets stable.
         for (selection, format) in prepared.into_iter().rev() {
@@ -447,15 +454,7 @@ impl BrowserEngine {
         segments: &[&str],
     ) -> Result<(), EngineError> {
         let document = self.session.document();
-        let all: Vec<&Paragraph> = document
-            .sections()
-            .iter()
-            .flat_map(|section| section.blocks())
-            .map(|block| {
-                let Block::Paragraph(paragraph) = block;
-                paragraph
-            })
-            .collect();
+        let all: Vec<&Paragraph> = document.paragraphs().collect();
         if selection.is_none() && !all.is_empty() {
             return Err(EngineError::new(
                 "missing_selection",
@@ -533,7 +532,9 @@ impl BrowserEngine {
                         .iter()
                         .enumerate()
                         .flat_map(|(index, section)| {
-                            section.blocks().iter().map(move |block| (index, block))
+                            section
+                                .paragraphs()
+                                .map(move |paragraph| (index, paragraph))
                         })
                         .collect();
                     let neighbor = match direction {
@@ -542,7 +543,7 @@ impl BrowserEngine {
                         }
                         Direction::Forward => all.get(current_index + 1),
                     };
-                    let Some((neighbor_section, Block::Paragraph(neighbor))) = neighbor else {
+                    let Some((neighbor_section, neighbor)) = neighbor else {
                         return Ok(());
                     };
                     if *neighbor_section != section_index {
@@ -550,6 +551,15 @@ impl BrowserEngine {
                             "cross_section_edit",
                             "Joining section boundaries is not supported.",
                         ));
+                    }
+                    let current_cell = document
+                        .table_for_paragraph(current.id())
+                        .map(|(table, row, column)| table.rows()[row].cells()[column].id());
+                    let neighbor_cell = document
+                        .table_for_paragraph(neighbor.id())
+                        .map(|(table, row, column)| table.rows()[row].cells()[column].id());
+                    if current_cell != neighbor_cell {
+                        return Ok(());
                     }
                     Point {
                         paragraph_id: neighbor.id().as_str().into(),
@@ -619,21 +629,30 @@ impl BrowserEngine {
         supplied: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
         if url.as_ref().is_some_and(|value| !valid_hyperlink(value)) {
-            return Err(EngineError::new("invalid_link",
-                "Use an HTTP or HTTPS address without spaces or credentials."));
+            return Err(EngineError::new(
+                "invalid_link",
+                "Use an HTTP or HTTPS address without spaces or credentials.",
+            ));
         }
         let selected = self.current_selection(supplied)?;
         if let Some(label) = text {
-            if url.is_none() || label.is_empty() || label.len() > 2048
-                || label.contains('\n') || label.contains('\r')
+            if url.is_none()
+                || label.is_empty()
+                || label.len() > 2048
+                || label.contains('\n')
+                || label.contains('\r')
             {
-                return Err(EngineError::new("invalid_link",
-                    "A new link needs a single-line label and a safe web address."));
+                return Err(EngineError::new(
+                    "invalid_link",
+                    "A new link needs a single-line label and a safe web address.",
+                ));
             }
             self.preflight_text(selected.as_ref(), &[label.as_str()])?;
-            let mut format = selected.as_ref()
+            let mut format = selected
+                .as_ref()
                 .map(|selection| self.typing_format(selection))
-                .transpose()?.unwrap_or_default();
+                .transpose()?
+                .unwrap_or_default();
             format.hyperlink = url;
             let mut transaction = self.session.begin_transaction();
             let selection = match selected {
@@ -643,8 +662,10 @@ impl BrowserEngine {
             let original = transaction_document(&transaction)?;
             let (start, _) = ordered(&original, &selection)?;
             let id = start.paragraph_id.clone();
-            let at = original.text_coordinates(&Id::new(&id)?)?
-                .utf16_to_utf8(Utf16Offset::new(start.utf16))?.get();
+            let at = original
+                .text_coordinates(&Id::new(&id)?)?
+                .utf16_to_utf8(Utf16Offset::new(start.utf16))?
+                .get();
             let range = edit_selection(&transaction, &selection)?;
             transaction.replace_text(&range, &label, format)?;
             let candidate = transaction_document(&transaction)?;
@@ -656,27 +677,38 @@ impl BrowserEngine {
         }
 
         let Some(mut selection) = selected else {
-            return Err(EngineError::new("missing_selection", "Select text to link."));
+            return Err(EngineError::new(
+                "missing_selection",
+                "Select text to link.",
+            ));
         };
         if selection.anchor == selection.focus {
             // Allow editing/removing a link with the caret inside an existing
             // linked run, even when no editable text is highlighted.
-            let (paragraph, _, _) = paragraph(self.session.document(),
-                &selection.anchor.paragraph_id)?;
+            let (paragraph, _, _) =
+                paragraph(self.session.document(), &selection.anchor.paragraph_id)?;
             let coordinates = TextCoordinates::new(paragraph);
-            let at = coordinates.utf16_to_utf8(
-                Utf16Offset::new(selection.anchor.utf16))?.get();
+            let at = coordinates
+                .utf16_to_utf8(Utf16Offset::new(selection.anchor.utf16))?
+                .get();
             let mut offset = 0_usize;
             let mut runs = Vec::with_capacity(paragraph.runs().len());
             for run in paragraph.runs() {
-                runs.push((offset, offset + run.text.len(), run.format.hyperlink.as_ref()));
+                runs.push((
+                    offset,
+                    offset + run.text.len(),
+                    run.format.hyperlink.as_ref(),
+                ));
                 offset += run.text.len();
             }
-            let found = runs.iter().position(|(start, end, existing)|
-                *start <= at && at <= *end && start != end && existing.is_some());
+            let found = runs.iter().position(|(start, end, existing)| {
+                *start <= at && at <= *end && start != end && existing.is_some()
+            });
             let Some(index) = found else {
-                return Err(EngineError::new("missing_selection",
-                    "Select text to add a hyperlink."));
+                return Err(EngineError::new(
+                    "missing_selection",
+                    "Select text to add a hyperlink.",
+                ));
             };
             let target = runs[index].2;
             let mut first = index;
@@ -731,7 +763,8 @@ impl BrowserEngine {
         if let Some(selection) = self.current_selection(supplied.clone())?
             && selection.anchor == selection.focus
         {
-            let (current, _, _) = paragraph(self.session.document(), &selection.anchor.paragraph_id)?;
+            let (current, _, _) =
+                paragraph(self.session.document(), &selection.anchor.paragraph_id)?;
             if current.list().is_some() && TextCoordinates::new(current).text().is_empty() {
                 return self.set_list(None, Some(selection));
             }
@@ -765,22 +798,30 @@ impl BrowserEngine {
     /// indentation/style/line-height state across multi-paragraph selections.
     pub(super) fn set_paragraph_metrics(
         &mut self,
-        spacing_before_pt: Option<f64>,
-        spacing_after_pt: Option<f64>,
-        line_spacing_multiple: Option<f64>,
-        indent_left_in: Option<f64>,
-        indent_right_in: Option<f64>,
-        first_line_in: Option<f64>,
+        input: ParagraphMetricsInput,
         supplied: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
-        let spacing = line_spacing_multiple.map(|multiple| {
-            if !multiple.is_finite() || !(1.0..=3.0).contains(&multiple) {
-                return Err(EngineError::new(
-                    "invalid_paragraph_metrics", "Line spacing must be between 1 and 3.",
-                ));
-            }
-            Ok(LineSpacing::Multiple { value: (multiple * 240.).round() as u32 })
-        }).transpose()?;
+        let ParagraphMetricsInput {
+            spacing_before_pt,
+            spacing_after_pt,
+            line_spacing_multiple,
+            indent_left_in,
+            indent_right_in,
+            first_line_in,
+        } = input;
+        let spacing = line_spacing_multiple
+            .map(|multiple| {
+                if !multiple.is_finite() || !(1.0..=3.0).contains(&multiple) {
+                    return Err(EngineError::new(
+                        "invalid_paragraph_metrics",
+                        "Line spacing must be between 1 and 3.",
+                    ));
+                }
+                Ok(LineSpacing::Multiple {
+                    value: (multiple * 240.).round() as u32,
+                })
+            })
+            .transpose()?;
         let patch = ParagraphMetricsPatch {
             spacing_before: optional_twips(spacing_before_pt, 20., 0., 144., "Space before (pt)")?,
             spacing_after: optional_twips(spacing_after_pt, 20., 0., 144., "Space after (pt)")?,

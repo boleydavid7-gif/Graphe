@@ -89,8 +89,8 @@ for (const touch of [false, true]) {
           const other = await context.newPage();
           try {
             await other.goto('/');
-            await expect(other.getByRole('button', { name: 'Open', exact: true })).toBeEnabled();
-            await other.getByRole('button', { name: 'Open', exact: true }).click();
+            await expect(other.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+            await documentAction(other, 'Open document');
             const chooser = other.waitForEvent('filechooser');
             await other.getByRole('button', { name: 'Open file…', exact: true }).click();
             await (await chooser).setFiles({ name: file.suggestedFilename(), mimeType: media[format], buffer: original });

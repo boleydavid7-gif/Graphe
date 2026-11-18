@@ -131,7 +131,10 @@ fn partial_line_spacing_uses_the_standard_auto_rule_with_a_notice_and_exact_orig
     );
     let native = engine.export_document().unwrap();
     let file = deserialize_writer_file(&native).unwrap();
-    let office_core::Block::Paragraph(paragraph) = &file.document().sections()[0].blocks()[0];
+    let office_core::Block::Paragraph(paragraph) = &file.document().sections()[0].blocks()[0]
+    else {
+        panic!("expected paragraph")
+    };
     assert_eq!(
         paragraph.format().line_spacing,
         Some(office_core::LineSpacing::Multiple { value: 300 })
@@ -178,7 +181,9 @@ fn deleted_text_is_absent_from_regenerated_docx_and_retained_only_in_original_ba
         .iter()
         .flat_map(|section| section.blocks())
         .flat_map(|block| {
-            let office_core::Block::Paragraph(paragraph) = block;
+            let office_core::Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
             paragraph.runs()
         })
         .map(|run| run.text.as_str())

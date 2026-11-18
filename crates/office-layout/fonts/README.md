@@ -1,9 +1,9 @@
-# Writer font catalog `writer-fonts-v5`
+# Writer font catalog `writer-fonts-v6`
 
 These are unmodified, pinned upstream TrueType font files. The layout engine
 registers their bytes explicitly; it must not discover host fonts or download
 fonts during document layout. This makes font availability independent of the
-operating system and browser. The 48 pinned fonts total **21,454,472 bytes** (20.46 MiB). The new families
+operating system and browser. The 42 pinned fonts total **19,533,340 bytes** (18.63 MiB). The new families
 increase the compiled WASM payload, but the UI preview fonts load on demand.
 
 `manifest.json` records each original repository/path/commit, upstream Git blob
@@ -39,10 +39,7 @@ face.
 | Lora-Regular.ttf / Lora-Italic.ttf | Google Fonts pinned | Serif, `wght` 400–700; upright and genuine italic |
 | Montserrat-Regular.ttf / Montserrat-Italic.ttf | Google Fonts pinned | Sans, `wght` 100–900; upright and genuine italic |
 | DMSans-Regular.ttf / DMSans-Italic.ttf | Google Fonts pinned | Sans, `opsz` 9–40 and `wght` 100–1000; upright and genuine italic |
-| Bitter-Regular.ttf / Bitter-Italic.ttf | Google Fonts pinned | Slab serif, `wght` 100–900; upright and genuine italic |
 | WorkSans-Regular.ttf / WorkSans-Italic.ttf | Google Fonts pinned | Sans serif, `wght` 100–900; upright and genuine italic |
-| CrimsonPro-Regular.ttf / CrimsonPro-Italic.ttf | Google Fonts pinned | Classical serif, `wght` 200–900; upright and genuine italic |
-| Fraunces-Regular.ttf / Fraunces-Italic.ttf | Google Fonts pinned | Display serif, `wght` 100–900, `opsz` 9–144, `SOFT` 0–100, `WONK` 0–1; upright/italic |
 | RobotoMono-Regular.ttf / RobotoMono-Italic.ttf | Google Fonts pinned | Monospace, `wght` 100–700; upright and genuine italic |
 | Oswald-Regular.ttf | Google Fonts pinned | Condensed display sans, `wght` 200–700; upright only (no bundled italic) |
 
@@ -73,7 +70,7 @@ genuine italic face was used. No synthetic slant or synthetic bold is required.
   pinned from the same [google/fonts `cc39c4c`](https://github.com/google/fonts/tree/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl) revision.
   Their complete, unmodified OFL licenses are appended to the existing `NOTICE.txt`.
 
-All twenty-four families use **SIL Open Font License 1.1**. Each complete upstream
+All twenty-one families use **SIL Open Font License 1.1**. Each complete upstream
 notice is retained as `*.OFL.txt`; `NOTICE.txt` combines those notices for
 distribution with the application. Some upstream fonts, including Source Sans 3, declare Reserved Font Names.
 No font binaries or internal font names have been modified, and the original
@@ -87,7 +84,7 @@ No font has been subsetted, internally renamed or otherwise modified.
 
 Arimo, Tinos, Carlito, Caladea, Source Sans 3, JetBrains Mono,
 EB Garamond, Inter, Libre Baskerville, Playfair Display, Space Grotesk,
-Lora, Montserrat, DM Sans and Bitter provide
+Lora, Montserrat and DM Sans provide
 additional sans, serif and monospace choices. The original Arimo and Tinos
 faces provide distinct sans-serif and serif measurements, including
 Latin, Greek, Cyrillic and Hebrew coverage. Dedicated Noto faces provide Arabic,
@@ -172,3 +169,12 @@ a genuine Oswald italic. Fraunces has additional optical-size, softness and
 WONK variation axes; Graphe currently exposes only normal/italic and bold
 controls (other axes remain at their file defaults). This is an opt-in
 catalog expansion with no change to the fallback chain or document format.
+
+## Catalog v6 — Cloudflare asset size
+
+Three optional font families (Bitter, Crimson Pro and Fraunces) have been retired,
+removing six bundled faces totalling 1,921,132 bytes. All compatibility,
+script, emoji and default families remain. Existing documents retain retired
+family names, while the Rust layout uses pinned Tinos with an explicit font
+substitution diagnostic. The catalog version changes because this affects layout.
+Verify the compiled WASM is under Cloudflare's 25 MiB asset limit before deploying.

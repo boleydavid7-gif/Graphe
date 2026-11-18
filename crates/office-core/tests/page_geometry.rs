@@ -238,11 +238,15 @@ fn page_break_before_has_explicit_keep_set_false_clear_and_history_semantics() {
             )
             .unwrap();
         session.commit(transaction).unwrap();
-        let Block::Paragraph(paragraph) = &session.document().sections()[0].blocks()[0];
+        let Block::Paragraph(paragraph) = &session.document().sections()[0].blocks()[0] else {
+            panic!("expected paragraph");
+        };
         assert_eq!(paragraph.format().page_break_before, expected);
     }
     session.undo().unwrap();
-    let Block::Paragraph(paragraph) = &session.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &session.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     assert_eq!(paragraph.format().page_break_before, Some(false));
     session.redo().unwrap();
     assert_eq!(session.document(), &original);

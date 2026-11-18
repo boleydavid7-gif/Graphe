@@ -1,9 +1,9 @@
 //! Single-level lists must survive WordprocessingML export and import.
 
-use office_core::{
-    Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section, TextRun,
+use office_core::{Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section, TextRun};
+use office_docx::{
+    DocxImportOutcome, DocxSource, export_docx, export_docx_with_source, import_docx,
 };
-use office_docx::{DocxImportOutcome, DocxSource, export_docx, export_docx_with_source, import_docx};
 
 fn document() -> Document {
     let paragraphs = [
@@ -12,15 +12,26 @@ fn document() -> Document {
         ("Paragraph", None),
         ("Three", Some(ListKind::Numbered)),
         ("Bullet", Some(ListKind::Bullet)),
-    ].into_iter().enumerate().map(|(index, (text, list))| {
-        Block::Paragraph(Paragraph::new(
-            Id::new(format!("para-{index}")).unwrap(),
-            vec![TextRun::new(text)],
-        ).with_list(list))
-    }).collect();
-    Document::from_parts(Id::new("source").unwrap(),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(index, (text, list))| {
+        Block::Paragraph(
+            Paragraph::new(
+                Id::new(format!("para-{index}")).unwrap(),
+                vec![TextRun::new(text)],
+            )
+            .with_list(list),
+        )
+    })
+    .collect();
+    Document::from_parts(
+        Id::new("source").unwrap(),
         DocumentMetadata::default(),
-        vec![Section::new(Id::new("section").unwrap(), paragraphs)], vec![]).unwrap()
+        vec![Section::new(Id::new("section").unwrap(), paragraphs)],
+        vec![],
+    )
+    .unwrap()
 }
 
 #[test]
@@ -30,20 +41,28 @@ fn word_numbering_is_structural_and_round_trips() {
     let DocxImportOutcome::Editable(imported) = imported else {
         panic!("Graphe's own exported first-level lists must import as editable");
     };
-    let lists = imported.document().sections()[0].blocks().iter().map(|block| {
-        let Block::Paragraph(paragraph) = block;
-        paragraph.list()
-    }).collect::<Vec<_>>();
-    assert_eq!(lists, vec![
-        Some(ListKind::Numbered),
-        Some(ListKind::Numbered),
-        None,
-        Some(ListKind::Numbered),
-        Some(ListKind::Bullet),
-    ]);
+    let lists = imported.document().sections()[0]
+        .blocks()
+        .iter()
+        .map(|block| {
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
+            paragraph.list()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        lists,
+        vec![
+            Some(ListKind::Numbered),
+            Some(ListKind::Numbered),
+            None,
+            Some(ListKind::Numbered),
+            Some(ListKind::Bullet),
+        ]
+    );
     assert!(imported.report().is_supported());
 }
-
 
 #[test]
 fn source_aware_word_copy_retains_structural_numbering() {
@@ -55,12 +74,24 @@ fn source_aware_word_copy_retains_structural_numbering() {
     let DocxImportOutcome::Editable(imported) = imported else {
         panic!("The regenerated, source-aware Word copy lost list editability");
     };
-    let lists = imported.document().sections()[0].blocks().iter().map(|block| {
-        let Block::Paragraph(paragraph) = block;
-        paragraph.list()
-    }).collect::<Vec<_>>();
-    assert_eq!(lists, vec![
-        Some(ListKind::Numbered), Some(ListKind::Numbered), None,
-        Some(ListKind::Numbered), Some(ListKind::Bullet),
-    ]);
+    let lists = imported.document().sections()[0]
+        .blocks()
+        .iter()
+        .map(|block| {
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
+            paragraph.list()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        lists,
+        vec![
+            Some(ListKind::Numbered),
+            Some(ListKind::Numbered),
+            None,
+            Some(ListKind::Numbered),
+            Some(ListKind::Bullet),
+        ]
+    );
 }

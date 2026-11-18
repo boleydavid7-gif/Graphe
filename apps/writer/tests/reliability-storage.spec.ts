@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { focusEditor, readyPages } from './step7-test-helpers';
+import { documentAction, focusEditor, readyPages } from './step7-test-helpers';
 
 const input = (page: Page) => page.getByRole('textbox', { name: 'Document content', exact: true });
 const status = (page: Page) => page.locator('.save-state');
@@ -19,7 +19,7 @@ async function activate(control: Locator, touch: boolean) {
 async function reopen(page: Page, title: string, text: string, touch: boolean) {
   await page.reload();
   await expect(save(page)).toBeEnabled();
-  await activate(page.getByRole('button', { name: 'Open', exact: true }), touch);
+  if (touch) await documentAction(page, 'Open document'); else await activate(page.getByRole('button', { name: 'Open', exact: true }), touch);
   const dialog = page.getByRole('dialog', { name: 'Open document', exact: true });
   await activate(dialog.getByRole('button', { name: new RegExp(title) }), touch);
   await expect(dialog).toHaveCount(0);
@@ -43,7 +43,7 @@ for (const touch of [false, true]) {
         };
       });
       await ready(page);
-      await activate(page.getByRole('button', { name: 'Open', exact: true }), touch);
+      if (touch) await documentAction(page, 'Open document'); else await activate(page.getByRole('button', { name: 'Open', exact: true }), touch);
       await expect(page.getByRole('alert')).toContainText('could not complete the storage operation');
       await page.getByRole('textbox', { name: 'Document title', exact: true }).fill('Recovered startup');
       await focusEditor(page);

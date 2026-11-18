@@ -177,7 +177,8 @@ test('native Save As retains identifiers, existing styles and metadata when open
   const file = await saveAs(page, 'writer', 'native-copy.writer');
   const expected = JSON.parse(original.toString('utf8')) as NativeFile;
   const actual = JSON.parse(file.bytes.toString('utf8')) as NativeFile;
-  expect(withoutUnspecified(actual)).toEqual(withoutUnspecified(expected));
+  expect(withoutUnspecified(actual)).toEqual(withoutUnspecified({ ...expected, format_version: 5,
+    document: { ...expected.document, schema_version: 5 } }));
   expect(actual.document.styles.length).toBeGreaterThan(0);
   await expect(page.locator('.save-state')).toHaveText('Not saved yet');
 });
@@ -312,9 +313,10 @@ test('Save As keeps supplementary Unicode filename characters intact at its file
 
 test('production assets retain the additional format-library license and attribution texts', async ({ page }) => {
   await start(page);
-  const menu = page.locator('details.document-menu');
-  await menu.locator('summary').click();
-  const href = await menu.getByRole('link', { name: 'Format library notices', exact: true }).getAttribute('href');
+  await documentAction(page, 'About Graphe');
+  const about = page.getByRole('dialog', { name: 'About Graphe', exact: true });
+  await expect(about).toBeVisible();
+  const href = await about.getByRole('link', { name: 'Third-party format library notices', exact: true }).getAttribute('href');
   expect(href).toMatch(/\/assets\/.+\.txt$/);
   if (!href) throw new Error('Missing bundled third-party format notices');
   const response = await page.request.get(href);

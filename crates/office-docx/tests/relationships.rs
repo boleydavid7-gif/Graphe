@@ -1,6 +1,6 @@
 //! Relationship-role regressions, including unmodified producer packages.
 
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 
 use office_core::{
     Block, Document, Id, OriginalSource, WriterFile, deserialize_writer_file, serialize_writer_file,
@@ -9,7 +9,7 @@ use office_docx::{
     CompatibilityIssueKind as Issue, CompatibilityReport, DOCX_MEDIA_TYPE, DocxConformance,
     DocxImportOutcome, ImportedDocx, export_docx, import_docx, inspect_docx,
 };
-use zip::ZipArchive;
+use zip::{ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 const AUXILIARY: &[u8] =
     include_bytes!("../../../tests/fixtures/docx/relationships/supported-auxiliary-parts.docx");
@@ -49,7 +49,9 @@ fn text(document: &Document) -> String {
         .iter()
         .flat_map(|section| section.blocks())
         .map(|block| {
-            let Block::Paragraph(paragraph) = block;
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
             paragraph
                 .runs()
                 .iter()
@@ -108,7 +110,9 @@ fn imports_inert_ancillary_parts_without_discarding_original_or_supported_body()
                 .font_size
                 .is_some_and(|size| size.0 == 24)
     }));
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert!(paragraph.style().is_some());
     assert_eq!(imported.original().original_bytes(), AUXILIARY);
 
@@ -335,11 +339,6 @@ fn each_unsupported_content_relationship_remains_read_only_independently() {
         ("unsupported-footer.docx", "/footer", "footer.xml"),
         ("unsupported-altchunk.docx", "/aFChunk", "altchunk.html"),
         (
-            "unsupported-hyperlink.docx",
-            "/hyperlink",
-            "https://example.invalid/hyperlink",
-        ),
-        (
             "unsupported-external-relationship.docx",
             "/extended-properties",
             "https://example.invalid/app.xml",
@@ -366,6 +365,43 @@ fn each_unsupported_content_relationship_remains_read_only_independently() {
             "{name}: {report:?}"
         );
     }
+}
+
+#[test]
+fn safe_external_hyperlink_relationships_are_supported_but_unsafe_schemes_are_not() {
+    // This pre-hyperlink fixture contains a safe unused relationship. Its former
+    // name does not make a now-supported relationship unsafe.
+    let bytes = fixture("unsupported-hyperlink.docx");
+    let imported = editable(&bytes);
+    assert_eq!(imported.original().original_bytes(), bytes);
+    assert_eq!(text(imported.document()), "DOCX hello — café 👩🏽‍💻");
+    let mut source = ZipArchive::new(Cursor::new(&bytes)).unwrap();
+    let mut output = ZipWriter::new(Cursor::new(Vec::new()));
+    for index in 0..source.len() {
+        let mut file = source.by_index(index).unwrap();
+        let name = file.name().unwrap().to_string();
+        let mut data = Vec::new();
+        file.read_to_end(&mut data).unwrap();
+        if name == "word/_rels/document.xml.rels" {
+            data = String::from_utf8(data)
+                .unwrap()
+                .replace("https://example.invalid/hyperlink", "javascript:alert(1)")
+                .into_bytes();
+        }
+        output
+            .start_file(name, SimpleFileOptions::default())
+            .unwrap();
+        output.write_all(&data).unwrap();
+    }
+    let unsafe_bytes = output.finish().unwrap().into_inner();
+    let report = preserved(&unsafe_bytes);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|issue| issue.kind == Issue::UnsupportedRelationship
+                && issue.message.contains("hyperlink"))
+    );
 }
 
 #[test]

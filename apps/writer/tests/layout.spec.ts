@@ -98,7 +98,9 @@ test('page preview renders Rust glyph outlines and geometry, with a vector visua
   expect(vector.lines.some((line) => line.startUtf16 !== null && line.endUtf16 !== null)).toBe(true);
   expect(JSON.stringify(vector, null, 2)).toMatchSnapshot('layout-vector-v1.json');
   await page.locator('details.document-menu summary').click();
-  const notices = page.getByRole('link', { name: 'Font licenses', exact: true });
+  await page.getByRole('button', { name: 'About Graphe', exact: true }).click();
+  const notices = page.getByRole('dialog', { name: 'About Graphe', exact: true })
+    .getByRole('link', { name: 'Bundled font licenses', exact: true });
   await expect(notices).toBeVisible();
   const href = await notices.getAttribute('href');
   if (!href) throw new Error('Missing production font notice URL');

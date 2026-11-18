@@ -60,7 +60,9 @@ fn imports_basic_unicode_content_with_stable_native_identifiers_and_exact_origin
     assert_eq!(document.id().as_str(), "import-test");
     document.validate().unwrap();
     assert_eq!(document.sections().len(), 1);
-    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs()[0].text, "DOCX hello — café 👩🏽‍💻");
     assert_eq!(imported.original().original_bytes(), BASIC);
     assert_eq!(document, editable(BASIC).document());
@@ -94,7 +96,9 @@ fn discovers_relocated_parts_and_preserves_sections_geometry_and_paragraph_prope
     let second = document.sections()[1].properties().unwrap();
     assert_eq!(second.page_size.as_ref().unwrap().width, Twips(11906));
     assert_eq!(second.page_margins.as_ref().unwrap().top, Twips(1134));
-    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.format().alignment, Some(Alignment::Center));
     assert_eq!(paragraph.format().spacing_before, Some(Twips(240)));
     assert_eq!(paragraph.format().spacing_after, Some(Twips(120)));
@@ -107,7 +111,9 @@ fn discovers_relocated_parts_and_preserves_sections_geometry_and_paragraph_prope
         Some(Twips(360))
     );
     assert_eq!(paragraph.format().page_break_before, Some(false));
-    let Block::Paragraph(paragraph) = &document.sections()[1].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[1].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(
         paragraph.format().line_spacing,
         Some(LineSpacing::Multiple { value: 360 })
@@ -148,9 +154,13 @@ fn maps_style_toggles_separately_from_absolute_direct_formatting_and_defaults() 
     assert_eq!(title.based_on.as_ref(), Some(&normal.id));
     assert_eq!(title.character_format.bold, Some(false));
     assert_eq!(title.character_format.italic, Some(true));
-    let Block::Paragraph(first) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(first) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(first.style(), Some(&title.id));
-    let Block::Paragraph(second) = &document.sections()[0].blocks()[1];
+    let Block::Paragraph(second) = &document.sections()[0].blocks()[1] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(second.style(), Some(&normal.id));
     assert_eq!(first.runs()[0].format.bold, Some(true));
     assert_eq!(first.runs()[0].format.underline, Some(Underline::Double));
@@ -170,7 +180,9 @@ fn maps_style_toggles_separately_from_absolute_direct_formatting_and_defaults() 
 #[test]
 fn preserves_mixed_runs_combining_marks_emoji_whitespace_tabs_and_soft_breaks() {
     let imported = editable(FORMATTING);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs().len(), 2);
     assert_eq!(paragraph.runs()[0].text, "  Cafe\u{301} 👩🏽‍💻 ");
     assert_eq!(
@@ -182,7 +194,9 @@ fn preserves_mixed_runs_combining_marks_emoji_whitespace_tabs_and_soft_breaks() 
 #[test]
 fn accepts_strict_namespaces_with_relocated_main_part() {
     let imported = editable(STRICT);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(
         paragraph.runs()[0].text,
         "Strict namespace, relocated main part."
@@ -355,7 +369,9 @@ fn false_style_toggle_is_a_no_op_while_direct_false_remains_absolute() {
     assert_eq!(normal.character_format.bold, Some(true));
     assert_eq!(title.character_format.bold, None);
     assert_eq!(title.based_on.as_ref(), Some(&normal.id));
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs()[1].format.bold, Some(false));
 }
 
@@ -416,7 +432,9 @@ fn boundary_whitespace_requires_effective_preserve_without_trimming() {
             let DocxImportOutcome::Editable(imported) = result else {
                 panic!("{result:?}");
             };
-            let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+            let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+                panic!("expected paragraph")
+            };
             assert_eq!(paragraph.runs()[0].text, "  DOCX hello — café 👩🏽‍💻  ");
         } else {
             let DocxImportOutcome::Preserved { original, report } = result else {
@@ -441,7 +459,9 @@ fn xml_space_inheritance_and_local_default_override_are_deliberate() {
             .replace("</w:t>", "  </w:t>")
     });
     let imported = editable(&inherited);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs()[0].text, "  DOCX hello — café 👩🏽‍💻  ");
     let overridden = modified(&inherited, "document.xml", |text| {
         text.replace("<w:t>", "<w:t xml:space=\"default\">")
@@ -526,7 +546,9 @@ fn explicit_carriage_return_and_hyphen_elements_have_defined_text_mappings() {
         )
     });
     let imported = editable(&source);
-    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &imported.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(
         paragraph.runs()[0].text,
         "DOCX hello — café 👩🏽‍💻\nafter\u{2011}\u{00ad}"

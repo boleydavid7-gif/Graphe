@@ -25,7 +25,9 @@ fn paragraphs(file: &office_core::WriterFile) -> Vec<String> {
         .iter()
         .flat_map(|s| s.blocks())
         .map(|block| {
-            let Block::Paragraph(p) = block;
+            let Block::Paragraph(p) = block else {
+                panic!("expected paragraph fixture")
+            };
             p.runs().iter().map(|r| r.text.as_str()).collect()
         })
         .collect()
@@ -171,7 +173,9 @@ fn imported_text_edits_export_and_reopen_without_changing_original() {
         .blocks()
         .first()
         .map(|block| {
-            let Block::Paragraph(p) = block;
+            let Block::Paragraph(p) = block else {
+                panic!("expected paragraph fixture")
+            };
             p.id().clone()
         })
         .unwrap();

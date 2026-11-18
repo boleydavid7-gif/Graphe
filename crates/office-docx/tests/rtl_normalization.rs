@@ -68,7 +68,9 @@ fn paragraphs(document: &Document) -> Vec<String> {
         .iter()
         .flat_map(|section| section.blocks())
         .map(|block| {
-            let Block::Paragraph(paragraph) = block;
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph")
+            };
             paragraph
                 .runs()
                 .iter()
@@ -122,7 +124,9 @@ fn direct_rtl_complex_script_appearance_is_order_independent_and_false_uses_ordi
                 &format!("<w:p><w:r><w:rPr>{properties}</w:rPr><w:t>{MIXED}</w:t></w:r></w:p>"),
             );
             let value = editable(&source);
-            let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0];
+            let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0] else {
+                panic!("expected paragraph")
+            };
             let format = &paragraph.runs()[0].format;
             assert_eq!(format.bold, Some(complex));
             assert_eq!(format.italic, Some(!complex));
@@ -144,7 +148,9 @@ fn direct_rtl_complex_script_appearance_is_order_independent_and_false_uses_ordi
             );
             let output = export_docx_with_source(value.document(), value.original()).unwrap();
             let reopened = editable(&output);
-            let Block::Paragraph(paragraph) = &reopened.document().sections()[0].blocks()[0];
+            let Block::Paragraph(paragraph) = &reopened.document().sections()[0].blocks()[0] else {
+                panic!("expected paragraph")
+            };
             assert_eq!(&paragraph.runs()[0].format, format);
             assert_eq!(paragraphs(reopened.document()), [MIXED]);
         }
@@ -163,7 +169,9 @@ fn inherited_rtl_is_disclosed_and_explicit_false_retains_existing_ordinary_style
         ),
     );
     let value = editable(&source);
-    let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &value.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     for run in paragraph.runs() {
         assert_eq!(run.format.font_size, Some(HalfPoints(22)));
         assert_eq!(run.format.font_family.as_deref(), Some("Arimo"));
@@ -290,7 +298,9 @@ fn actual_libreoffice_resave_edits_and_reopens_without_changing_original_or_supp
         2
     );
     let mut session = DocumentSession::new(value.document().clone());
-    let Block::Paragraph(first) = &session.document().sections()[0].blocks()[0];
+    let Block::Paragraph(first) = &session.document().sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     let id = first.id().clone();
     let mut transaction = session.begin_transaction();
     let at = transaction.position(&id, GraphemeOffset::new(0)).unwrap();
@@ -318,7 +328,9 @@ fn actual_libreoffice_resave_edits_and_reopens_without_changing_original_or_supp
     for (before, after) in edited.sections().iter().zip(copy.document().sections()) {
         assert_eq!(before.properties(), after.properties());
         for (before, after) in before.blocks().iter().zip(after.blocks()) {
-            let (Block::Paragraph(before), Block::Paragraph(after)) = (before, after);
+            let (Block::Paragraph(before), Block::Paragraph(after)) = (before, after) else {
+                panic!("expected paragraphs")
+            };
             assert_eq!(before.runs(), after.runs());
             assert_eq!(before.format(), after.format());
         }

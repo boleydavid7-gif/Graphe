@@ -83,7 +83,9 @@ fn paragraphs(document: &Document) -> Vec<&Paragraph> {
         .iter()
         .flat_map(Section::blocks)
         .map(|block| {
-            let Block::Paragraph(paragraph) = block;
+            let Block::Paragraph(paragraph) = block else {
+                panic!("expected paragraph fixture")
+            };
             paragraph
         })
         .collect()

@@ -167,9 +167,26 @@ impl DocumentLayout {
             .iter()
             .find(|page| page.number == page_number)
             .ok_or_else(|| invalid("page number does not identify this layout"))?;
-        let Some(line) = page.lines.iter().min_by_key(|line| {
-            distance_to_interval(y, line.y, i128::from(line.y) + i128::from(line.height))
-        }) else {
+        // Multiple table cells share a physical y range. Restrict a point in a
+        // cell to that cell's source paragraphs, including its blank padding.
+        let cell = page.table_cells.iter().find(|cell| {
+            let rect = cell.rect;
+            x >= rect.x
+                && i128::from(x) < i128::from(rect.x) + i128::from(rect.width)
+                && y >= rect.y
+                && i128::from(y) < i128::from(rect.y) + i128::from(rect.height)
+        });
+        let Some(line) = page
+            .lines
+            .iter()
+            .filter(|line| cell.is_none_or(|cell| cell.paragraph_ids.contains(&line.paragraph_id)))
+            .min_by_key(|line| {
+                (
+                    distance_to_interval(y, line.y, i128::from(line.y) + i128::from(line.height)),
+                    horizontal_distance(line, x),
+                )
+            })
+        else {
             return Ok(None);
         };
         let physical = PhysicalLine {
@@ -313,16 +330,14 @@ impl DocumentLayout {
             NavigationDirection::Up | NavigationDirection::Down => {
                 let x = preferred_x.unwrap_or(caret.x);
                 preferred = Some(x);
-                let target = if direction == NavigationDirection::Up {
-                    index.checked_sub(1)
-                } else {
-                    index.checked_add(1).filter(|next| *next < lines.len())
-                };
-                target
-                    .and_then(|target| {
-                        nearest(lines[target], x).map(|caret| geometry(lines[target], caret))
-                    })
-                    .unwrap_or(current)
+                vertical(
+                    self,
+                    &lines,
+                    index,
+                    x,
+                    direction == NavigationDirection::Down,
+                )
+                .unwrap_or(current)
             }
             NavigationDirection::Home | NavigationDirection::End => {
                 let right = direction == NavigationDirection::End;
@@ -349,6 +364,102 @@ impl DocumentLayout {
             preferred_x: preferred,
         })
     }
+}
+
+fn horizontal_distance(line: &LineLayout, x: i64) -> i128 {
+    let left = line
+        .carets
+        .iter()
+        .map(|caret| caret.x)
+        .min()
+        .unwrap_or(line.x);
+    let right = line
+        .carets
+        .iter()
+        .map(|caret| caret.x)
+        .max()
+        .unwrap_or(line.x);
+    distance_to_interval(x, left, i128::from(right))
+}
+
+fn vertical(
+    layout: &DocumentLayout,
+    lines: &[PhysicalLine<'_>],
+    index: usize,
+    x: i64,
+    down: bool,
+) -> Option<CaretGeometry> {
+    let current = lines[index];
+    let cell = layout
+        .pages
+        .iter()
+        .find(|page| page.number == current.page)
+        .and_then(|page| {
+            page.table_cells
+                .iter()
+                .find(|cell| cell.paragraph_ids.contains(&current.line.paragraph_id))
+        });
+    // Within a cell, stay in its text flow before moving to the adjacent row.
+    // Traversing the row-major vector alone would send Down into the next cell.
+    let same_cell = cell.and_then(|cell| {
+        lines
+            .iter()
+            .copied()
+            .filter(|line| {
+                line.page == current.page
+                    && cell.paragraph_ids.contains(&line.line.paragraph_id)
+                    && if down {
+                        line.line.y > current.line.y
+                    } else {
+                        line.line.y < current.line.y
+                    }
+            })
+            .min_by_key(|line| {
+                (
+                    distance(line.line.y, current.line.y),
+                    horizontal_distance(line.line, x),
+                )
+            })
+    });
+    let target = same_cell.or_else(|| {
+        let boundary = cell.map_or(i128::from(current.line.y), |cell| {
+            if down {
+                i128::from(cell.rect.y) + i128::from(cell.rect.height) - 1
+            } else {
+                i128::from(cell.rect.y)
+            }
+        });
+        lines
+            .iter()
+            .copied()
+            .filter(|line| {
+                if line.page != current.page {
+                    if down {
+                        line.page > current.page
+                    } else {
+                        line.page < current.page
+                    }
+                } else if down {
+                    i128::from(line.line.y) > boundary
+                } else {
+                    i128::from(line.line.y) < boundary
+                }
+            })
+            .min_by_key(|line| {
+                let page_distance = line.page.abs_diff(current.page);
+                let y = if line.page != current.page {
+                    if down {
+                        i128::from(line.line.y)
+                    } else {
+                        -i128::from(line.line.y)
+                    }
+                } else {
+                    (i128::from(line.line.y) - boundary).abs()
+                };
+                (page_distance, y, horizontal_distance(line.line, x))
+            })
+    })?;
+    nearest(target, x).map(|caret| geometry(target, caret))
 }
 
 fn physical_lines(layout: &DocumentLayout) -> Vec<PhysicalLine<'_>> {

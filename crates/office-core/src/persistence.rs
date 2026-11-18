@@ -17,7 +17,7 @@ use crate::{
 /// Identifier of the provisional native Writer envelope.
 pub const WRITER_FORMAT_NAME: &str = "office-writer";
 /// Current native envelope version, independent of engine and model versions.
-pub const WRITER_FORMAT_VERSION: u32 = 4;
+pub const WRITER_FORMAT_VERSION: u32 = 5;
 /// Maximum serialized native file accepted or emitted, including retained source.
 pub const MAX_WRITER_FILE_BYTES: usize = 32 * 1024 * 1024;
 /// Provisional filename extension; serialization never changes supplied paths.
@@ -218,7 +218,7 @@ fn check_format(format: &str, version: u64) -> Result<(), PersistenceError> {
             found: format.into(),
         });
     }
-    if !matches!(version, 1 | 2 | 3 | 4) {
+    if !matches!(version, 1..=5) {
         return Err(PersistenceError::UnsupportedFormatVersion {
             found: version,
             supported: WRITER_FORMAT_VERSION,
@@ -231,7 +231,7 @@ fn load_model(raw: &RawValue, format_version: u32) -> Result<Document, Persisten
     let header: ModelHeader = serde_json::from_str(raw.get()).map_err(DocumentError::Json)?;
     let expected = format_version;
     if header.schema_version != u64::from(expected) {
-        if !matches!(header.schema_version, 1 | 2 | 3 | 4) {
+        if !matches!(header.schema_version, 1..=5) {
             return Err(DocumentError::UnsupportedSchemaVersion {
                 found: header.schema_version,
                 supported: SCHEMA_VERSION,
@@ -250,7 +250,7 @@ fn load_model(raw: &RawValue, format_version: u32) -> Result<Document, Persisten
 
 /// Validates and serializes a complete Writer file, including its exact original.
 ///
-/// Current output is UTF-8 JSON format 4, fixed field order, two-space indentation
+/// Current output is UTF-8 JSON format 5, fixed field order, two-space indentation
 /// and one trailing LF. The retained source uses strict standard padded base64.
 /// Output is capped during serialization, not after an unbounded allocation.
 /// No history, session revisions, engine version or timestamps are added.

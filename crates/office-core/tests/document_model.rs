@@ -42,7 +42,9 @@ fn load_json(value: Value) -> Result<Document, DocumentError> {
 }
 
 fn first_paragraph(document: &Document) -> &Paragraph {
-    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     paragraph
 }
 
@@ -416,7 +418,7 @@ fn unicode_is_preserved_without_normalization_or_byte_position_assumptions() {
 
 #[test]
 fn future_and_unsupported_old_schema_versions_are_rejected_before_reading_model_shape() {
-    for version in [0, 3, u64::MAX] {
+    for version in [0, 6, u64::MAX] {
         let error =
             load_json(json!({ "schema_version": version, "future_payload": true })).unwrap_err();
         assert!(

@@ -1,8 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use office_core::{
-    Alignment, Block, CharacterFormat, Document, GraphemeOffset, LineSpacing, ListKind, PageMargins,
-    PageSize, Paragraph, TextColor, TextCoordinates, Twips, Underline,
+    Alignment, Block, CharacterFormat, Document, GraphemeOffset, LineSpacing, ListKind,
+    PageMargins, PageSize, Paragraph, Table, TextColor, TextCoordinates, Twips, Underline,
 };
 use parley::{
     AlignmentOptions, FontContext, FontFamily, FontStyle, FontWeight, LayoutContext,
@@ -17,8 +17,8 @@ use skrifa::{
 
 use crate::{
     Caret, CaretAffinity, Decoration, DocumentLayout, GlyphOutline, LayoutDiagnostic, LayoutError,
-    LayoutOptions, LineLayout, PageLayout, PositionedGlyph, Rect, TextRange, UNITS_PER_POINT,
-    overlay_character, resolve_paragraph_style,
+    LayoutOptions, LineLayout, PageLayout, PositionedGlyph, Rect, TableCellLayout, TextRange,
+    UNITS_PER_POINT, overlay_character, resolve_paragraph_style,
 };
 
 const MAX_TEXT_BYTES: usize = 200_000;
@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v5";
+const CATALOG_ID: &str = "writer-fonts-v6";
 
 struct PinnedFont {
     id: &'static str,
@@ -42,6 +42,16 @@ struct ShapeSink<'a> {
     output: &'a mut DocumentLayout,
     cache: &'a mut OutlineCache,
     glyph_count: &'a mut usize,
+}
+
+struct TablePlacement<'a> {
+    section_id: &'a str,
+    page_width: i64,
+    page_height: i64,
+    area: Rect,
+    cursor: &'a mut i64,
+    previous_after: &'a mut i64,
+    line_count: &'a mut usize,
 }
 
 const FONT_FILES: &[(&str, &[u8])] = &[
@@ -81,47 +91,137 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     ("NotoEmoji.ttf", include_bytes!("../fonts/NotoEmoji.ttf")),
     // Full original OFL faces. Static Caladea/Carlito have actual
     // bold/italic faces; Source Sans 3 and JetBrains Mono use wght axes.
-    ("Caladea-Regular.ttf", include_bytes!("../fonts/Caladea-Regular.ttf")),
-    ("Caladea-Bold.ttf", include_bytes!("../fonts/Caladea-Bold.ttf")),
-    ("Caladea-Italic.ttf", include_bytes!("../fonts/Caladea-Italic.ttf")),
-    ("Caladea-BoldItalic.ttf", include_bytes!("../fonts/Caladea-BoldItalic.ttf")),
-    ("Carlito-Regular.ttf", include_bytes!("../fonts/Carlito-Regular.ttf")),
-    ("Carlito-Bold.ttf", include_bytes!("../fonts/Carlito-Bold.ttf")),
-    ("Carlito-Italic.ttf", include_bytes!("../fonts/Carlito-Italic.ttf")),
-    ("Carlito-BoldItalic.ttf", include_bytes!("../fonts/Carlito-BoldItalic.ttf")),
-    ("SourceSans3-Regular.ttf", include_bytes!("../fonts/SourceSans3-Regular.ttf")),
-    ("SourceSans3-Italic.ttf", include_bytes!("../fonts/SourceSans3-Italic.ttf")),
-    ("JetBrainsMono-Regular.ttf", include_bytes!("../fonts/JetBrainsMono-Regular.ttf")),
-    ("JetBrainsMono-Italic.ttf", include_bytes!("../fonts/JetBrainsMono-Italic.ttf")),
-    ("EBGaramond-Regular.ttf", include_bytes!("../fonts/EBGaramond-Regular.ttf")),
-    ("EBGaramond-Italic.ttf", include_bytes!("../fonts/EBGaramond-Italic.ttf")),
+    (
+        "Caladea-Regular.ttf",
+        include_bytes!("../fonts/Caladea-Regular.ttf"),
+    ),
+    (
+        "Caladea-Bold.ttf",
+        include_bytes!("../fonts/Caladea-Bold.ttf"),
+    ),
+    (
+        "Caladea-Italic.ttf",
+        include_bytes!("../fonts/Caladea-Italic.ttf"),
+    ),
+    (
+        "Caladea-BoldItalic.ttf",
+        include_bytes!("../fonts/Caladea-BoldItalic.ttf"),
+    ),
+    (
+        "Carlito-Regular.ttf",
+        include_bytes!("../fonts/Carlito-Regular.ttf"),
+    ),
+    (
+        "Carlito-Bold.ttf",
+        include_bytes!("../fonts/Carlito-Bold.ttf"),
+    ),
+    (
+        "Carlito-Italic.ttf",
+        include_bytes!("../fonts/Carlito-Italic.ttf"),
+    ),
+    (
+        "Carlito-BoldItalic.ttf",
+        include_bytes!("../fonts/Carlito-BoldItalic.ttf"),
+    ),
+    (
+        "SourceSans3-Regular.ttf",
+        include_bytes!("../fonts/SourceSans3-Regular.ttf"),
+    ),
+    (
+        "SourceSans3-Italic.ttf",
+        include_bytes!("../fonts/SourceSans3-Italic.ttf"),
+    ),
+    (
+        "JetBrainsMono-Regular.ttf",
+        include_bytes!("../fonts/JetBrainsMono-Regular.ttf"),
+    ),
+    (
+        "JetBrainsMono-Italic.ttf",
+        include_bytes!("../fonts/JetBrainsMono-Italic.ttf"),
+    ),
+    (
+        "EBGaramond-Regular.ttf",
+        include_bytes!("../fonts/EBGaramond-Regular.ttf"),
+    ),
+    (
+        "EBGaramond-Italic.ttf",
+        include_bytes!("../fonts/EBGaramond-Italic.ttf"),
+    ),
     // Opt-in Open Font License additions, preserving the original fallback chain.
-    ("Inter-Regular.ttf", include_bytes!("../fonts/Inter-Regular.ttf")),
-    ("Inter-Italic.ttf", include_bytes!("../fonts/Inter-Italic.ttf")),
-    ("LibreBaskerville-Regular.ttf", include_bytes!("../fonts/LibreBaskerville-Regular.ttf")),
-    ("LibreBaskerville-Italic.ttf", include_bytes!("../fonts/LibreBaskerville-Italic.ttf")),
-    ("PlayfairDisplay-Regular.ttf", include_bytes!("../fonts/PlayfairDisplay-Regular.ttf")),
-    ("PlayfairDisplay-Italic.ttf", include_bytes!("../fonts/PlayfairDisplay-Italic.ttf")),
-    ("SpaceGrotesk-Regular.ttf", include_bytes!("../fonts/SpaceGrotesk-Regular.ttf")),
+    (
+        "Inter-Regular.ttf",
+        include_bytes!("../fonts/Inter-Regular.ttf"),
+    ),
+    (
+        "Inter-Italic.ttf",
+        include_bytes!("../fonts/Inter-Italic.ttf"),
+    ),
+    (
+        "LibreBaskerville-Regular.ttf",
+        include_bytes!("../fonts/LibreBaskerville-Regular.ttf"),
+    ),
+    (
+        "LibreBaskerville-Italic.ttf",
+        include_bytes!("../fonts/LibreBaskerville-Italic.ttf"),
+    ),
+    (
+        "PlayfairDisplay-Regular.ttf",
+        include_bytes!("../fonts/PlayfairDisplay-Regular.ttf"),
+    ),
+    (
+        "PlayfairDisplay-Italic.ttf",
+        include_bytes!("../fonts/PlayfairDisplay-Italic.ttf"),
+    ),
+    (
+        "SpaceGrotesk-Regular.ttf",
+        include_bytes!("../fonts/SpaceGrotesk-Regular.ttf"),
+    ),
     // v4: opt-in families with separate original upright/italic variable fonts.
-    ("Lora-Regular.ttf", include_bytes!("../fonts/Lora-Regular.ttf")),
-    ("Lora-Italic.ttf", include_bytes!("../fonts/Lora-Italic.ttf")),
-    ("Montserrat-Regular.ttf", include_bytes!("../fonts/Montserrat-Regular.ttf")),
-    ("Montserrat-Italic.ttf", include_bytes!("../fonts/Montserrat-Italic.ttf")),
-    ("DMSans-Regular.ttf", include_bytes!("../fonts/DMSans-Regular.ttf")),
-    ("DMSans-Italic.ttf", include_bytes!("../fonts/DMSans-Italic.ttf")),
-    ("Bitter-Regular.ttf", include_bytes!("../fonts/Bitter-Regular.ttf")),
-    ("Bitter-Italic.ttf", include_bytes!("../fonts/Bitter-Italic.ttf")),
+    (
+        "Lora-Regular.ttf",
+        include_bytes!("../fonts/Lora-Regular.ttf"),
+    ),
+    (
+        "Lora-Italic.ttf",
+        include_bytes!("../fonts/Lora-Italic.ttf"),
+    ),
+    (
+        "Montserrat-Regular.ttf",
+        include_bytes!("../fonts/Montserrat-Regular.ttf"),
+    ),
+    (
+        "Montserrat-Italic.ttf",
+        include_bytes!("../fonts/Montserrat-Italic.ttf"),
+    ),
+    (
+        "DMSans-Regular.ttf",
+        include_bytes!("../fonts/DMSans-Regular.ttf"),
+    ),
+    (
+        "DMSans-Italic.ttf",
+        include_bytes!("../fonts/DMSans-Italic.ttf"),
+    ),
     // v5: opt-in official OFL faces, preserving existing fallback order.
-    ("WorkSans-Regular.ttf", include_bytes!("../fonts/WorkSans-Regular.ttf")),
-    ("WorkSans-Italic.ttf", include_bytes!("../fonts/WorkSans-Italic.ttf")),
-    ("CrimsonPro-Regular.ttf", include_bytes!("../fonts/CrimsonPro-Regular.ttf")),
-    ("CrimsonPro-Italic.ttf", include_bytes!("../fonts/CrimsonPro-Italic.ttf")),
-    ("Fraunces-Regular.ttf", include_bytes!("../fonts/Fraunces-Regular.ttf")),
-    ("Fraunces-Italic.ttf", include_bytes!("../fonts/Fraunces-Italic.ttf")),
-    ("RobotoMono-Regular.ttf", include_bytes!("../fonts/RobotoMono-Regular.ttf")),
-    ("RobotoMono-Italic.ttf", include_bytes!("../fonts/RobotoMono-Italic.ttf")),
-    ("Oswald-Regular.ttf", include_bytes!("../fonts/Oswald-Regular.ttf")),
+    (
+        "WorkSans-Regular.ttf",
+        include_bytes!("../fonts/WorkSans-Regular.ttf"),
+    ),
+    (
+        "WorkSans-Italic.ttf",
+        include_bytes!("../fonts/WorkSans-Italic.ttf"),
+    ),
+    (
+        "RobotoMono-Regular.ttf",
+        include_bytes!("../fonts/RobotoMono-Regular.ttf"),
+    ),
+    (
+        "RobotoMono-Italic.ttf",
+        include_bytes!("../fonts/RobotoMono-Italic.ttf"),
+    ),
+    (
+        "Oswald-Regular.ttf",
+        include_bytes!("../fonts/Oswald-Regular.ttf"),
+    ),
 ];
 
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
@@ -192,6 +292,7 @@ impl LayoutEngine {
                 height,
                 content_rect: area,
                 lines: Vec::new(),
+                table_cells: Vec::new(),
             });
         }
         for section in document.sections() {
@@ -214,7 +315,32 @@ impl LayoutEngine {
             let mut previous_after = 0;
             let mut numbering = 0_usize;
             for block in section.blocks() {
-                let Block::Paragraph(paragraph) = block;
+                let paragraph = match block {
+                    Block::Paragraph(paragraph) => paragraph,
+                    Block::Table(table) => {
+                        numbering = 0;
+                        self.place_table(
+                            document,
+                            table,
+                            options,
+                            TablePlacement {
+                                section_id: section.id().as_str(),
+                                page_width,
+                                page_height,
+                                area,
+                                cursor: &mut cursor,
+                                previous_after: &mut previous_after,
+                                line_count: &mut line_count,
+                            },
+                            ShapeSink {
+                                output: &mut output,
+                                cache: &mut cache,
+                                glyph_count: &mut glyph_count,
+                            },
+                        )?;
+                        continue;
+                    }
+                };
                 let marker = match paragraph.list() {
                     Some(ListKind::Bullet) => {
                         numbering = 0;
@@ -315,6 +441,162 @@ impl LayoutEngine {
         Ok(output)
     }
 
+    fn place_table(
+        &mut self,
+        document: &Document,
+        table: &Table,
+        options: &LayoutOptions,
+        placement: TablePlacement<'_>,
+        sink: ShapeSink<'_>,
+    ) -> Result<(), LayoutError> {
+        let TablePlacement {
+            section_id,
+            page_width,
+            page_height,
+            area,
+            cursor,
+            previous_after,
+            line_count,
+        } = placement;
+        let ShapeSink {
+            output,
+            cache,
+            glyph_count,
+        } = sink;
+        // Padding is a versioned first-profile layout policy, not model content.
+        const PADDING: i64 = 4 * UNITS_PER_POINT;
+        let columns = table.rows()[0].cells().len();
+        let widths = if let Some(widths) = table.column_widths() {
+            let widths = widths
+                .iter()
+                .map(|&width| twips(width))
+                .collect::<Result<Vec<_>, _>>()?;
+            if widths.iter().sum::<i64>() > area.width {
+                return Err(invalid("table column widths exceed the usable page width"));
+            }
+            widths
+        } else {
+            let width = area.width / columns as i64;
+            let mut widths = vec![width; columns];
+            widths[columns - 1] += area.width - width * columns as i64;
+            widths
+        };
+        if widths.iter().any(|&width| width <= 2 * PADDING) {
+            return Err(invalid("table cell padding leaves no positive text width"));
+        }
+        for row in table.rows() {
+            let mut cells = Vec::with_capacity(columns);
+            let mut row_height = 0;
+            for (cell, &width) in row.cells().iter().zip(&widths) {
+                let mut cell_lines = Vec::new();
+                let mut cell_cursor = PADDING;
+                let mut after = 0;
+                let mut numbering = 0_usize;
+                for paragraph in cell.paragraphs() {
+                    let resolved = resolve_paragraph_style(document, paragraph);
+                    if resolved.paragraph.page_break_before == Some(true) {
+                        return Err(LayoutError::Unsupported {
+                            feature: "page breaks inside table cells require a future row-splitting policy".into(),
+                            paragraph_id: Some(paragraph.id().as_str().into()),
+                        });
+                    }
+                    let before = twips(resolved.paragraph.spacing_before.unwrap_or(Twips(0)))?;
+                    cell_cursor += after.max(before);
+                    after = twips(
+                        resolved
+                            .paragraph
+                            .spacing_after
+                            .unwrap_or(options.spacing_after),
+                    )?;
+                    let marker = match paragraph.list() {
+                        Some(ListKind::Bullet) => {
+                            numbering = 0;
+                            Some("•".to_owned())
+                        }
+                        Some(ListKind::Numbered) => {
+                            numbering += 1;
+                            Some(format!("{numbering}."))
+                        }
+                        None => {
+                            numbering = 0;
+                            None
+                        }
+                    };
+                    let lines = self.shape_paragraph(
+                        document,
+                        paragraph,
+                        options,
+                        width - 2 * PADDING,
+                        marker.as_deref(),
+                        ShapeSink {
+                            output,
+                            cache,
+                            glyph_count,
+                        },
+                    )?;
+                    for mut line in lines {
+                        *line_count += 1;
+                        budget("lines", MAX_LINES, *line_count)?;
+                        translate_line(&mut line, PADDING, cell_cursor);
+                        cell_cursor += line.height;
+                        cell_lines.push(line);
+                    }
+                }
+                let height = cell_cursor + after + PADDING;
+                row_height = row_height.max(height);
+                cells.push((cell, cell_lines));
+            }
+            if row_height > area.height {
+                return Err(LayoutError::Unsupported {
+                    feature: "a table row is taller than the usable page area; this profile keeps rows intact".into(),
+                    paragraph_id: row.cells().first().and_then(|cell| cell.paragraphs().first())
+                        .map(|paragraph| paragraph.id().as_str().into()),
+                });
+            }
+            let gap = *previous_after;
+            if *cursor + gap + row_height > area.y + area.height {
+                if output
+                    .pages
+                    .last()
+                    .is_some_and(|page| !page.lines.is_empty())
+                {
+                    push_page(&mut output.pages, section_id, page_width, page_height, area)?;
+                }
+                *cursor = area.y;
+            } else {
+                *cursor += gap;
+            }
+            let mut x = area.x;
+            let page = output.pages.last_mut().expect("section page exists");
+            for ((cell, lines), &width) in cells.into_iter().zip(&widths) {
+                page.table_cells.push(TableCellLayout {
+                    table_id: table.id().as_str().into(),
+                    row_id: row.id().as_str().into(),
+                    cell_id: cell.id().as_str().into(),
+                    rect: Rect {
+                        x,
+                        y: *cursor,
+                        width,
+                        height: row_height,
+                    },
+                    paragraph_ids: cell
+                        .paragraphs()
+                        .iter()
+                        .map(|paragraph| paragraph.id().as_str().into())
+                        .collect(),
+                });
+                for mut line in lines {
+                    translate_line(&mut line, x, *cursor);
+                    page.lines.push(line);
+                }
+                x += width;
+            }
+            *cursor += row_height;
+            *previous_after = 0;
+        }
+        Ok(())
+    }
+
     fn shape_paragraph(
         &mut self,
         document: &Document,
@@ -379,7 +661,11 @@ impl LayoutEngine {
                     format.underline = Some(Underline::Single);
                 }
                 if format.color.is_none() {
-                    format.color = Some(TextColor::Rgb { red: 23, green: 98, blue: 166 });
+                    format.color = Some(TextColor::Rgb {
+                        red: 23,
+                        green: 98,
+                        blue: 166,
+                    });
                 }
             }
             formats.push(format);
@@ -694,13 +980,21 @@ impl LayoutEngine {
         }
         // Line geometry is fully owned before making the second pinned-font
         // layout for the decorative marker; native text offsets stay unchanged.
-        if let Some(marker) = marker {
-            if let Some(first_line) = result.first_mut() {
-                let size = formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.;
-                self.shape_list_marker(
-                    marker, first_line, size, output, cache, glyph_count, paragraph,
-                )?;
-            }
+        if let Some(marker) = marker
+            && let Some(first_line) = result.first_mut()
+        {
+            let size = formats[0].font_size.unwrap_or(options.font_size).0 as f32 / 2.;
+            self.shape_list_marker(
+                marker,
+                first_line,
+                size,
+                paragraph,
+                ShapeSink {
+                    output,
+                    cache,
+                    glyph_count,
+                },
+            )?;
         }
         Ok(result)
     }
@@ -712,17 +1006,20 @@ impl LayoutEngine {
         marker: &str,
         line: &mut LineLayout,
         font_size: f32,
-        output: &mut DocumentLayout,
-        cache: &mut OutlineCache,
-        glyph_count: &mut usize,
         paragraph: &Paragraph,
+        sink: ShapeSink<'_>,
     ) -> Result<(), LayoutError> {
-        let mut builder = self.layout_context.ranged_builder(
-            &mut self.font_context, marker, 1., false,
-        );
-        builder.push_default(StyleProperty::FontFamily(
-            FontFamily::Source(font_list("Arimo").into()),
-        ));
+        let ShapeSink {
+            output,
+            cache,
+            glyph_count,
+        } = sink;
+        let mut builder =
+            self.layout_context
+                .ranged_builder(&mut self.font_context, marker, 1., false);
+        builder.push_default(StyleProperty::FontFamily(FontFamily::Source(
+            font_list("Arimo").into(),
+        )));
         builder.push_default(StyleProperty::FontSize(font_size));
         builder.push_default(StyleProperty::Brush(0));
         let mut layout = builder.build(marker);
@@ -746,19 +1043,28 @@ impl LayoutEngine {
             };
             let run = glyph_run.run();
             let font_data = run.font();
-            let pinned = self.fonts.iter()
+            let pinned = self
+                .fonts
+                .iter()
                 .find(|entry| entry.blob.id() == font_data.data.id())
                 .ok_or_else(|| font_error("unknown", "list marker outside pinned catalog"))?;
             let synthesis = run.synthesis();
-            let normalized: Vec<i16> = run.normalized_coords().iter()
-                .map(|coordinate| coordinate.to_bits()).collect();
+            let normalized: Vec<i16> = run
+                .normalized_coords()
+                .iter()
+                .map(|coordinate| coordinate.to_bits())
+                .collect();
             let marker_baseline = quantize(glyph_run.baseline())?;
             for glyph in glyph_run.positioned_glyphs() {
                 *glyph_count += 1;
                 budget("glyphs", MAX_GLYPHS, *glyph_count)?;
                 if glyph.id == 0 {
-                    diagnostic(output, "missing_glyph", paragraph,
-                        "The pinned font has no glyph for the list marker.".into());
+                    diagnostic(
+                        output,
+                        "missing_glyph",
+                        paragraph,
+                        "The pinned font has no glyph for the list marker.".into(),
+                    );
                 }
                 let outline_id =
                     cache.outline(output, pinned, font_data.index, glyph.id, &normalized)?;
@@ -841,9 +1147,19 @@ fn preflight(document: &Document, options: &LayoutOptions) -> Result<(), LayoutE
             section.id().as_str().len(),
         )?;
         for block in section.blocks() {
+            if let Block::Table(table) = block {
+                budget("table_id_bytes", MAX_LABEL_BYTES, table.id().as_str().len())?;
+                for row in table.rows() {
+                    budget("row_id_bytes", MAX_LABEL_BYTES, row.id().as_str().len())?;
+                    for cell in row.cells() {
+                        budget("cell_id_bytes", MAX_LABEL_BYTES, cell.id().as_str().len())?;
+                    }
+                }
+            }
+        }
+        for paragraph in section.paragraphs() {
             paragraphs += 1;
             budget("paragraphs", 2000, paragraphs)?;
-            let Block::Paragraph(paragraph) = block;
             budget(
                 "paragraph_id_bytes",
                 MAX_LABEL_BYTES,
@@ -982,12 +1298,11 @@ fn resolved_family(requested: &str) -> &'static str {
         "playfair display" => "Playfair Display",
         "space grotesk" => "Space Grotesk",
         "lora" => "Lora",
+        // Retired optional families preserve source names while using the pinned serif fallback.
+        "bitter" | "crimson pro" | "fraunces" => "Tinos",
         "montserrat" => "Montserrat",
         "dm sans" => "DM Sans",
-        "bitter" => "Bitter",
         "work sans" => "Work Sans",
-        "crimson pro" => "Crimson Pro",
-        "fraunces" => "Fraunces",
         "roboto mono" => "Roboto Mono",
         "oswald" => "Oswald",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",
@@ -1026,6 +1341,7 @@ fn push_page(
         height,
         content_rect,
         lines: Vec::new(),
+        table_cells: Vec::new(),
     });
     Ok(())
 }

@@ -107,7 +107,6 @@ impl ParagraphFormatPatch {
     }
 }
 
-
 /// Independently changes concrete paragraph spacing and indentation overrides.
 ///
 /// Unlike `ParagraphFormatPatch::indentation`, this preserves every unmodified
@@ -157,7 +156,8 @@ impl ParagraphMetricsPatch {
     }
 
     pub(crate) fn validate(&self) -> Result<(), ValidationError> {
-        self.apply(&ParagraphFormat::default()).validate("paragraph_metrics")
+        self.apply(&ParagraphFormat::default())
+            .validate("paragraph_metrics")
     }
 
     /// Whether the patch requests any edits.

@@ -53,6 +53,7 @@ fn paragraphs(transaction: &Transaction) -> Vec<&Paragraph> {
         .flat_map(Section::blocks)
         .map(|block| match block {
             Block::Paragraph(paragraph) => paragraph,
+            Block::Table(_) => panic!("expected paragraph"),
         })
         .collect()
 }

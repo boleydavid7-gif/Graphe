@@ -1233,3 +1233,21 @@ font renaming, file-format changes or network font downloads are allowed.
 Substitution is disclosed in the inspector preview and the menu. Add native
 font-outline and browser export regression coverage. Treat the remaining
 metric/layout differences from Microsoft fonts as expected, not exact parity.
+
+## 2026-11-18 — Tables reuse paragraphs and Rust layout
+
+Implement bounded rectangular, unmerged, non-nested tables as a typed block
+with stable table/row/cell IDs and existing paragraph content. This extends the
+current engine rather than embedding a JavaScript editor. Keep text positions
+paragraph-relative, distinguish cell/body containers for destructive edits, and
+use explicit atomic structural transactions with existing exact-snapshot undo.
+Selection spanning cells may inspect/copy/format text but cannot replace/join
+cell containers implicitly. Column operations preserve valid geometry.
+
+Advance native envelope/model to version 5 with strict legacy decoding. Rust
+owns equal/explicit column widths, padding, shaping, intact-row pagination,
+borders and hit testing. React projects only that geometry; its semantic table
+is an input/assistive projection. An over-page row reports a layout limitation
+instead of silently clipping content. Unsupported imports/exports keep explicit
+loss/error/original safeguards. No dependencies were introduced. Primary sources,
+alternatives and unresolved compatibility limits are in `TABLES_RESEARCH.md`.

@@ -9,12 +9,14 @@ mod find;
 mod formats;
 mod layout;
 mod operations;
+mod tables;
 mod view;
 mod wire;
 
 use office_core::{
     Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, Paragraph, Section,
-    TextCoordinates, Transaction, WriterFile, deserialize_writer_file, serialize_document, serialize_writer_file,
+    TextCoordinates, Transaction, WriterFile, deserialize_writer_file, serialize_document,
+    serialize_writer_file,
 };
 use office_docx::{CompatibilityReport, DocxImportOutcome};
 use serde::Serialize;
@@ -319,6 +321,20 @@ impl BrowserEngine {
             } => self.replace_text(&text, selection),
             Command::ReplaceAll { query, text, .. } => self.replace_all(&query, &text),
             Command::InsertParagraph { selection, .. } => self.insert_list_paragraph(selection),
+            Command::InsertTable {
+                rows,
+                columns,
+                selection,
+                ..
+            } => self.insert_table(rows, columns, selection),
+            Command::TableAction {
+                action, selection, ..
+            } => self.table_action(action, selection),
+            Command::MoveTableCell {
+                direction,
+                selection,
+                ..
+            } => self.move_table_cell(direction, selection),
             Command::InsertLineBreak { selection, .. } => self.insert_line_break(selection),
             Command::Delete {
                 direction,
@@ -343,15 +359,34 @@ impl BrowserEngine {
                 ..
             } => self.format_paragraph(alignment, selection),
             Command::SetParagraphMetrics {
-                spacing_before_pt, spacing_after_pt, line_spacing_multiple,
-                indent_left_in, indent_right_in, first_line_in, selection, ..
+                spacing_before_pt,
+                spacing_after_pt,
+                line_spacing_multiple,
+                indent_left_in,
+                indent_right_in,
+                first_line_in,
+                selection,
+                ..
             } => self.set_paragraph_metrics(
-                spacing_before_pt, spacing_after_pt, line_spacing_multiple,
-                indent_left_in, indent_right_in, first_line_in, selection,
+                operations::ParagraphMetricsInput {
+                    spacing_before_pt,
+                    spacing_after_pt,
+                    line_spacing_multiple,
+                    indent_left_in,
+                    indent_right_in,
+                    first_line_in,
+                },
+                selection,
             ),
-            Command::SetList { list, selection, .. } => self.set_list(list, selection),
-            Command::SetHyperlink { url, text, selection, .. } =>
-                self.set_hyperlink(url, text, selection),
+            Command::SetList {
+                list, selection, ..
+            } => self.set_list(list, selection),
+            Command::SetHyperlink {
+                url,
+                text,
+                selection,
+                ..
+            } => self.set_hyperlink(url, text, selection),
             Command::AssignStyle {
                 style_id,
                 selection,
@@ -435,9 +470,21 @@ impl BrowserEngine {
                     .any(|style| style.id.as_str() == value)
                 || document.sections().iter().any(|section| {
                     section.id().as_str() == value
-                        || section.blocks().iter().any(|block| {
-                            let Block::Paragraph(paragraph) = block;
-                            paragraph.id().as_str() == value
+                        || section.blocks().iter().any(|block| match block {
+                            Block::Paragraph(paragraph) => paragraph.id().as_str() == value,
+                            Block::Table(table) => {
+                                table.id().as_str() == value
+                                    || table.rows().iter().any(|row| {
+                                        row.id().as_str() == value
+                                            || row.cells().iter().any(|cell| {
+                                                cell.id().as_str() == value
+                                                    || cell
+                                                        .paragraphs()
+                                                        .iter()
+                                                        .any(|p| p.id().as_str() == value)
+                                            })
+                                    })
+                            }
                         })
                 });
             if !used {
@@ -494,12 +541,12 @@ impl BrowserEngine {
         // formatted paragraph projection. This keeps status snapshots tied to
         // the exact core document (including edits spanning formatting runs).
         let word_count = document
-            .sections()
-            .iter()
-            .flat_map(|section| section.blocks())
-            .map(|block| {
-                let Block::Paragraph(paragraph) = block;
-                TextCoordinates::new(paragraph).text().unicode_words().count()
+            .paragraphs()
+            .map(|paragraph| {
+                TextCoordinates::new(paragraph)
+                    .text()
+                    .unicode_words()
+                    .count()
             })
             .sum();
         View {
@@ -517,6 +564,11 @@ impl BrowserEngine {
                 .collect(),
             paragraphs,
             selection: self.selection.clone(),
+            table: self.selection.as_ref().and_then(|selection| {
+                let anchor = view::table_cell(document, &selection.anchor.paragraph_id)?;
+                let focus = view::table_cell(document, &selection.focus.paragraph_id)?;
+                (anchor.cell_id == focus.cell_id).then_some(focus)
+            }),
             format,
             can_undo: self.session.can_undo(),
             can_redo: self.session.can_redo(),
@@ -631,12 +683,7 @@ fn transaction_document(transaction: &Transaction) -> Result<Document, EngineErr
 }
 
 fn first_cursor(document: &Document) -> Option<BrowserSelection> {
-    let paragraph = document
-        .sections()
-        .iter()
-        .flat_map(|section| section.blocks())
-        .next()?;
-    let Block::Paragraph(paragraph) = paragraph;
+    let paragraph = document.paragraphs().next()?;
     let point = Point {
         paragraph_id: paragraph.id().as_str().into(),
         utf16: 0,
@@ -671,8 +718,7 @@ fn checked_document(document: &Document) -> Result<Vec<u8>, EngineError> {
         }
     }
     for section in document.sections() {
-        for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
+        for paragraph in section.paragraphs() {
             paragraphs += 1;
             runs = runs.saturating_add(paragraph.runs().len());
             for run in paragraph.runs() {

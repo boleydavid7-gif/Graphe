@@ -53,7 +53,7 @@ test('Details inspector controls update Rust formatting, history, preview and sa
   await expect(page.locator('#paragraph-style')).toHaveValue('"project-notes-body-style"');
   await inspector.getByRole('combobox', { name: 'Font size', exact: true }).selectOption('18');
   await expect(page.locator('#font-size')).toHaveValue('18');
-  await page.getByRole('combobox', { name: 'Font family', exact: true }).selectOption('Tinos');
+  await inspector.getByRole('combobox', { name: 'Font family', exact: true }).selectOption('Tinos');
   for (const property of ['bold', 'italic', 'underline']) {
     const button = inspector.getByRole('button', { name: property, exact: true });
     await expect(button).toHaveAttribute('aria-pressed', 'false');

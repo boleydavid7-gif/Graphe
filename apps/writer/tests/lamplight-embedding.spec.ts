@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { expect, test, type Frame, type Page } from '@playwright/test';
 
 // The trusted host is fulfilled locally. Its iframe loads the actual production
@@ -13,6 +12,11 @@ const tokens = {
 };
 const text = 'Embedded Café e\u0301 👩🏽‍💻';
 const content = (frame: Frame) => frame.getByRole('textbox', { name: 'Document content', exact: true });
+interface HostFilesWindow extends Window {
+  writerFilesReady?: unknown[];
+  writerFileDialogs?: { requestId: string; name: string; format: string }[];
+  writerFileSaves?: { origin: string; requestId: string; name: string; mime: string; bytes: number[] }[];
+}
 
 async function openHost(page: Page): Promise<Frame> {
   // Serve the unchanged production preview under an intercepted HTTPS origin.
@@ -25,10 +29,43 @@ async function openHost(page: Page): Promise<Frame> {
   });
   await page.route(host, (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>html,body{margin:0;height:100%;overflow:hidden}iframe{display:block;border:0;width:100%;height:100%}</style></head>
-    <body><script>window.writerReady=[];addEventListener('message',event=>{
-      if(event.data?.type==='writer:lamplight-ready')window.writerReady.push({origin:event.origin,data:event.data});
-    });</script><iframe title="Writer integration test" referrerpolicy="origin" src="${writer}/"></iframe></body></html>` }));
+    <style>html,body{margin:0;height:100%;overflow:hidden}iframe{display:block;border:0;width:100%;height:100%}
+    dialog{box-sizing:border-box;max-width:calc(100vw - 24px);width:320px}dialog label{display:block;margin:12px 0}
+    dialog input,dialog select{box-sizing:border-box;width:100%}dialog button{min-height:44px}</style></head>
+    <body><iframe title="Writer integration test" referrerpolicy="origin" src="${writer}/"></iframe>
+    <dialog id="files-dialog" aria-labelledby="files-title"><h2 id="files-title">ProairetOS Save copy</h2>
+      <label>Filename<input id="files-name"></label><label>File format<select id="files-format">
+        <option value="writer">Native Writer document (.writer)</option></select></label>
+      <button id="files-save" type="button">Save copy</button></dialog>
+    <script>
+    window.writerReady=[];window.writerFilesReady=[];window.writerFileDialogs=[];window.writerFileSaves=[];
+    let activeCopy=null;
+    const child=document.querySelector('iframe');const dialog=document.getElementById('files-dialog');
+    addEventListener('message',event=>{
+      if(event.source!==child.contentWindow||event.origin!==${JSON.stringify(writer)})return;
+      const data=event.data;
+      if(data?.type==='writer:lamplight-ready')window.writerReady.push({origin:event.origin,data});
+      if(data?.version!==1)return;
+      if(data.type==='writer:files-ready')window.writerFilesReady.push(data);
+      if(data.type==='writer:files-dialog-open'){
+        activeCopy=data;window.writerFileDialogs.push({requestId:data.requestId,name:data.name,format:data.format});
+        document.getElementById('files-name').value=data.name;
+        document.getElementById('files-format').value=data.format;dialog.showModal();
+      }
+      if(data.type==='writer:files-save-request'&&activeCopy&&data.requestId===activeCopy.requestId&&data.data instanceof ArrayBuffer){
+        window.writerFileSaves.push({origin:event.origin,requestId:data.requestId,name:data.name,mime:data.mime,
+          bytes:Array.from(new Uint8Array(data.data))});
+        child.contentWindow.postMessage({type:'proairetos:files-save-result',version:1,requestId:data.requestId,
+          ok:true,fileId:'embedded_native_copy'},${JSON.stringify(writer)});
+        activeCopy=null;dialog.close();
+      }
+    });
+    document.getElementById('files-save').addEventListener('click',()=>{
+      if(!activeCopy)return;
+      child.contentWindow.postMessage({type:'proairetos:files-export-request',version:1,requestId:activeCopy.requestId,
+        name:document.getElementById('files-name').value,format:document.getElementById('files-format').value},${JSON.stringify(writer)});
+    });
+    </script></body></html>` }));
   await page.goto(host);
   await expect.poll(() => page.frames().filter((frame) => frame.url() === `${writer}/`).length).toBe(1);
   const frame = page.frames().find((candidate) => candidate.url() === `${writer}/`)!;
@@ -50,6 +87,26 @@ async function menuAction(frame: Frame, name: string) {
   const menu = frame.locator('details.document-menu');
   if (!await menu.evaluate((element) => element.hasAttribute('open'))) await menu.locator('summary').tap();
   await menu.getByRole('button', { name, exact: true }).tap();
+}
+
+/** Read committed bytes without interpreting or changing the Rust document. */
+async function nativeRecords(frame: Frame) {
+  return frame.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('writer-documents', 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      return await new Promise<{ id: string; etag: string; bytes: number[] }[]>((resolve, reject) => {
+        const transaction = database.transaction('documents', 'readonly');
+        const request = transaction.objectStore('documents').getAll();
+        transaction.oncomplete = () => resolve((request.result as { id: string; etag: string; bytes: Uint8Array }[])
+          .map((record) => ({ id: record.id, etag: record.etag, bytes: [...record.bytes] })));
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally { database.close(); }
+  });
 }
 
 test('standalone Writer keeps its identity and fallback palette', async ({ page }) => {
@@ -98,6 +155,7 @@ test.describe('trusted embedded mobile Writer', () => {
     let frame = await openHost(page);
     await theme(page);
     await expect(frame.locator('html')).toHaveAttribute('data-writer-appearance', 'dark');
+    await expect.poll(() => page.evaluate(() => (window as HostFilesWindow).writerFilesReady?.length ?? 0)).toBeGreaterThan(0);
     const title = frame.getByRole('textbox', { name: 'Document title', exact: true });
     await expect(title).toHaveCSS('font-size', '16px');
     await title.fill('Embedded merge regression');
@@ -120,21 +178,45 @@ test.describe('trusted embedded mobile Writer', () => {
       status: await frame.locator('.mobile-save-state').textContent(),
       alerts: await frame.getByRole('alert').allTextContents(),
     })).toEqual({ status: 'Saved on this device', alerts: [] });
+    const saved = await nativeRecords(frame);
+    expect(saved).toHaveLength(1);
     await menuAction(frame, 'Save As…');
-    const dialog = frame.getByRole('dialog', { name: 'Save As', exact: true });
-    await dialog.getByRole('combobox', { name: 'File format', exact: true }).selectOption('writer');
+    // Connected Save As deliberately belongs to the host Files UI. This local
+    // host stub uses the real postMessage protocol and waits for Rust bytes.
+    const dialog = page.getByRole('dialog', { name: 'ProairetOS Save copy', exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(frame.getByRole('dialog', { name: 'Save As', exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole('combobox', { name: 'File format', exact: true })).toHaveValue('writer');
+    await dialog.getByRole('textbox', { name: 'Filename', exact: true }).fill('Embedded copy.writer');
+    const requested = await page.evaluate(() => (window as HostFilesWindow).writerFileDialogs?.at(-1));
+    expect(requested?.requestId).toMatch(/^[a-zA-Z0-9_-]{8,80}$/);
+    if (!requested) throw new Error('The embedding host did not receive a save-dialog request');
+    // Wrong-origin and wrong-source messages must not export any document.
+    await frame.evaluate((requestId) => {
+      const data = { type: 'proairetos:files-export-request', version: 1, requestId,
+        name: 'Rejected copy.writer', format: 'writer' };
+      window.dispatchEvent(new MessageEvent('message', { source: window.parent, origin: 'https://untrusted.invalid', data }));
+      window.dispatchEvent(new MessageEvent('message', { source: window, origin: 'https://proairetos.com', data }));
+    }, requested.requestId);
+    expect(await page.evaluate(() => (window as HostFilesWindow).writerFileSaves)).toEqual([]);
     const copy = dialog.getByRole('button', { name: 'Save copy', exact: true });
     await expect(copy).toBeInViewport();
-    const downloading = page.waitForEvent('download');
     await copy.tap();
-    const download = await downloading;
-    expect(download.suggestedFilename()).toMatch(/\.writer$/);
-    const path = await download.path();
-    expect(path).not.toBeNull();
-    const bytes = await readFile(path!);
-    expect(bytes.toString('utf8')).toContain('Embedded merge regression');
-    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (window as HostFilesWindow).writerFileSaves?.length)).toBe(1);
+    const received = await page.evaluate(() => (window as HostFilesWindow).writerFileSaves?.[0]);
+    expect(received).toMatchObject({ origin: writer, requestId: requested.requestId,
+      name: 'Embedded copy.writer', mime: 'application/json', bytes: saved[0]?.bytes });
+    const native = JSON.parse(Buffer.from(received?.bytes ?? []).toString('utf8')) as {
+      document: { id: string; metadata: { title: string }; sections: { blocks: { content: { runs: { text: string }[] } }[] }[] };
+    };
+    expect(native.document.id).toBe(saved[0]?.id);
+    expect(native.document.metadata.title).toBe('Embedded merge regression');
+    expect(native.document.sections.flatMap((section) => section.blocks)
+      .flatMap((block) => block.content.runs).map((run) => run.text).join('')).toBe(text);
+    await expect(dialog).not.toBeVisible();
+    await expect(frame.locator('.status-message')).toHaveText('Saved in ProairetOS Files.');
     await expect(content(frame)).toHaveText(text);
+    expect(await nativeRecords(frame)).toEqual(saved);
     await page.reload();
     frame = page.frames().find((candidate) => candidate.url() === `${writer}/`)!;
     await expect(frame.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
@@ -144,6 +226,7 @@ test.describe('trusted embedded mobile Writer', () => {
     await library.getByRole('button', { name: /Embedded merge regression/ }).tap();
     await expect(library).toHaveCount(0);
     await expect(content(frame)).toHaveText(text);
+    expect(await nativeRecords(frame)).toEqual(saved);
     expect(errors).toEqual([]);
   });
 

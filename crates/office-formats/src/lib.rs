@@ -350,23 +350,36 @@ pub fn assess_export(
 ) -> Result<ExportReport, FormatError> {
     document.validate()?;
     let mut warnings = Vec::new();
-    let has_lists = document.sections().iter().flat_map(|section| section.blocks())
-        .any(|block| {
-            let Block::Paragraph(paragraph) = block;
-            paragraph.list().is_some()
-        });
+    let has_tables = document
+        .sections()
+        .iter()
+        .flat_map(|section| section.blocks())
+        .any(|block| matches!(block, Block::Table(_)));
+    if has_tables && format == DocumentFormat::Rtf {
+        return Err(FormatError::new(
+            "unsupported_rtf_export",
+            "RTF table export is not supported yet. Save a native Graphe, DOCX, ODT or PDF copy to preserve the table.",
+        ));
+    }
+    if has_tables && format == DocumentFormat::Txt {
+        warnings.push(FormatDiagnostic::new("tables_as_text", "txt", "document",
+            "Plain text converts table cells to tab-separated text and rows to separate lines. Table structure, borders and column widths will be lost."));
+    }
+    let has_lists = document
+        .paragraphs()
+        .any(|paragraph| paragraph.list().is_some());
     if has_lists && matches!(format, DocumentFormat::Odt | DocumentFormat::Rtf) {
         warnings.push(FormatDiagnostic::new(
             "list_formatting_omitted", format.extension(), "document",
             "This copy will preserve text but omit list bullets and numbering. Keep a native Writer or Word copy for list formatting.",
         ));
     }
-    let has_hyperlinks = document.sections().iter()
-        .flat_map(|section| section.blocks())
-        .any(|block| {
-            let Block::Paragraph(paragraph) = block;
-            paragraph.runs().iter().any(|run| run.format.hyperlink.is_some())
-        });
+    let has_hyperlinks = document.paragraphs().any(|paragraph| {
+        paragraph
+            .runs()
+            .iter()
+            .any(|run| run.format.hyperlink.is_some())
+    });
     if has_hyperlinks && !matches!(format, DocumentFormat::Docx | DocumentFormat::Writer) {
         warnings.push(FormatDiagnostic::new(
             "hyperlink_targets_omitted", format.extension(), "document",
@@ -554,7 +567,13 @@ fn docx_source(file: &WriterFile) -> Result<Option<office_docx::DocxSource>, For
 
 fn text_loses_formatting(document: &Document) -> bool {
     let defaults = office_layout::LayoutOptions::default();
-    if document.sections().len() > 1 {
+    if document.sections().len() > 1
+        || document
+            .sections()
+            .iter()
+            .flat_map(|section| section.blocks())
+            .any(|block| matches!(block, Block::Table(_)))
+    {
         return true;
     }
     for section in document.sections() {
@@ -576,9 +595,10 @@ fn text_loses_formatting(document: &Document) -> bool {
                 return true;
             }
         }
-        for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
-            if paragraph.list().is_some() { return true; }
+        for paragraph in section.paragraphs() {
+            if paragraph.list().is_some() {
+                return true;
+            }
             let inherited = office_layout::resolve_paragraph_style(document, paragraph);
             let paragraph_format = inherited.paragraph;
             if paragraph_format.alignment.unwrap_or(Alignment::Left) != Alignment::Left
