@@ -1,7 +1,9 @@
 # Graphe Step 8A verification
 
 Date: 2026-11-18. Branch: `dev/graphe-step8a-images`, from verified main
-`184364ac81b197c1f90a1f9ff836d688368f2f91`. No deployment or merge is included.
+`184364ac81b197c1f90a1f9ff836d688368f2f91`. Implementation commit: `e60de7cd60912e2b7f29645dbdef89751b26d5db`.
+Draft review: [PR #57](https://github.com/boleydavid7-gif/stuff/pull/57).
+No deployment or merge is included.
 The separate unfinished audit worktree was preserved. Feature scope and usage
 are in [IMAGES.md](IMAGES.md); standards/dependency review is in
 [IMAGES_RESEARCH.md](IMAGES_RESEARCH.md).
@@ -76,12 +78,14 @@ Commands from `apps/writer` with Node 24.22.1:
 | `npm test` | **64 passed, 0 failed** |
 | `npm run test:wasm` | **79 passed, 0 failed/skipped**, actual compiled WASM including native layout/PDF parity |
 | `npm run test:build` | **4 passed, 0 failed** |
-| `npm run test:browser -- --project=chromium` | Running; final result recorded before delivery |
+| `npm audit --audit-level=moderate` | **Failed**: one existing picomatch advisory propagated across 13 development packages; no patched published release at verification |
+| `npm audit --omit=dev --json --cache /tmp/graphe-audit-npm-cache` | Passed: zero production-dependency findings; does not waive full audit failure |
+| `npm run test:browser -- --project=chromium` | **222 passed, 0 failed/skipped**, including all 14 image cases; 16.4 minutes |
 
 New Rust regressions: 19 core, 14 DOCX, 12 format, 10 layout and 9 binding tests.
 These **64 additions are included in the 795 total**, not extra suite passes.
-The 7 new actual-WASM cases are included in 79. New image browser cases are
-included in the complete browser result; focused reruns are not added to totals.
+The 7 new actual-WASM cases are included in 79. All 14 new image browser cases
+are included in the complete 222-case Chromium result; focused reruns are not added to totals.
 
 The default process sandbox initially prevented child-process build tests and
 reported a failed test-file wrapper. Rerunning with permitted subprocess/network
@@ -93,7 +97,7 @@ required rebuilding; that incomplete run is not the final suite result.
 
 Actual LibreOfficeDev 26.8 alpha and Poppler 26.05 converted and rendered the
 procedural two-section/three-image fixture. Pillow 13 read raster pixels.
-`python3 crates/office-formats/tests/verify-image-consumers.py /tmp/graphe-image-consumers`
+`python3 crates/office-formats/tests/verify-image-consumers.py /tmp/graphe-image-consumers-final-062`
 passed **7 probes**: our DOCX/ODT, DOCX↔ODT conversion packages, and three two-page
 PDF renderings. Verified ordinary raster byte retention, image order, Unicode
 alt text, physical alignment, transparency and EXIF6 orientation. These are
@@ -129,8 +133,17 @@ are absent. Those suites did **not** pass. Physical iOS Safari, Android Chrome,
 installed-app keyboard behavior, screen readers and Microsoft Word were not
 available. Chromium uses a real browser with touch/viewport emulation and
 synthetic composition/clipboard events; that does not establish device behavior.
-Hosted cross-platform GitHub Actions results must be checked on the final PR
-commit; local Linux success is not macOS/Windows/hosted-CI success.
+Hosted PR CI run [44240061445](https://github.com/boleydavid7-gif/stuff/actions/runs/44240061445)
+reported all four jobs failed with no steps or job log URLs exposed by the
+connector. That does not establish a billing, runner-allocation or source-code
+cause. Hosted checks have **not** passed; local Linux success is not hosted
+macOS/Windows coverage. The final PR commit must be checked separately.
+
+A fresh npm advisory scan also failed for the existing development-tool
+`picomatch` graph (one advisory, 13 propagated package findings). At verification
+there was no published patched version. See DEPENDENCIES.md; the CI audit
+threshold was preserved. The PR remains draft pending review, hosted checks and
+resolution/review of that development-tool finding. No merge is recommended yet.
 
 Images are static standalone body PNG/JPEG, not floating/wrapped/cropped,
 inline-mixed, table-cell, clipboard or arbitrary vector images. Color management

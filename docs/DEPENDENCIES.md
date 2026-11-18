@@ -267,3 +267,20 @@ dependencies and bundle cost. The selected EXIF release fixes GHSA-53gf-vqf6-qvp
 bounded raw-TIFF parsing in 0.6.1. Regression coverage rejects repeated IFDs in
 both PNG and JPEG. It also postdates the old RUSTSEC-2021-0143 container fix. See IMAGES_RESEARCH.md for primary sources and remaining review
 limits. No new frontend dependency was introduced.
+
+### Existing development-tool advisory detected during final verification
+
+A fresh `npm audit --audit-level=moderate` on 2026-11-18 failed with 13 high-severity
+package findings originating from **one** advisory:
+[GHSA-fc5q-39xc-vjpf / CVE-2026-112366](https://github.com/advisories/GHSA-fc5q-39xc-vjpf).
+The locked `picomatch` 4.0.7 is a development dependency through Vite, Vitest,
+TypeScript ESLint and their glob helpers; no image work added this dependency.
+The official advisory lists versions through 4.0.7 as affected and no patched
+release; direct registry review also found latest 4.0.7. There is no safe published
+version override to apply at this check date. Do not disable or lower the CI audit
+threshold to hide this result. Track a verified upstream fix and rerun build,
+lint and tests when updating. This finding is separate from the fixed EXIF issue.
+`npm audit --omit=dev --json --cache /tmp/graphe-audit-npm-cache` passed with
+zero findings; the production tree contains React, React DOM and scheduler.
+No document-input-to-glob runtime path was found. That narrower result does not
+waive the full development-tool audit failure.
