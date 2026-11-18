@@ -696,10 +696,14 @@ necessary.
 
 ## Licensing
 
-The licensing decision is pending. The project owner has not yet chosen whether
-the engine will be open-source, source-available, or proprietary. No software
-license has been selected, and the `LICENSE` file is intentionally absent until
-that decision is made.
+Graphe and the Office Engine are proprietary software. The repository-root
+[`LICENSE`](LICENSE) grants free use of the software as supplied; it does not
+make the source open-source or grant redistribution rights over proprietary
+code. Third-party libraries and bundled fonts retain their separate licenses.
+
+For the current commercial-license/IP review, see
+[the licensing audit](docs/COMMERCIAL_LICENSING_AUDIT.md).
+This is a review in progress, not a claim of legal clearance.
 
 ### Tables
 
