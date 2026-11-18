@@ -12,8 +12,8 @@ copyright holder or as permitted by applicable law.
 Third-party libraries, fonts, and other components retain their own licenses.
 Nothing in this notice restricts rights granted under those licenses. See the
 bundled font and third-party software notices for their applicable terms.
-The bundled Lora, Montserrat, DM Sans, Bitter, Work Sans, Crimson Pro,
-Fraunces, Roboto Mono, and Oswald fonts are licensed under the SIL Open
+The bundled Lora, Montserrat, DM Sans, Work Sans, Roboto Mono,
+and Oswald fonts are licensed under the SIL Open
 Font License 1.1. Their complete copyright statements and licenses are
 included in crates/office-layout/fonts/NOTICE.txt and the corresponding
 individual *.OFL.txt files. They are not covered by this proprietary

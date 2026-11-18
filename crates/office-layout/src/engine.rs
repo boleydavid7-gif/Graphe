@@ -31,7 +31,7 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v5";
+const CATALOG_ID: &str = "writer-fonts-v6";
 
 struct PinnedFont {
     id: &'static str,
@@ -201,14 +201,6 @@ const FONT_FILES: &[(&str, &[u8])] = &[
         "DMSans-Italic.ttf",
         include_bytes!("../fonts/DMSans-Italic.ttf"),
     ),
-    (
-        "Bitter-Regular.ttf",
-        include_bytes!("../fonts/Bitter-Regular.ttf"),
-    ),
-    (
-        "Bitter-Italic.ttf",
-        include_bytes!("../fonts/Bitter-Italic.ttf"),
-    ),
     // v5: opt-in official OFL faces, preserving existing fallback order.
     (
         "WorkSans-Regular.ttf",
@@ -217,22 +209,6 @@ const FONT_FILES: &[(&str, &[u8])] = &[
     (
         "WorkSans-Italic.ttf",
         include_bytes!("../fonts/WorkSans-Italic.ttf"),
-    ),
-    (
-        "CrimsonPro-Regular.ttf",
-        include_bytes!("../fonts/CrimsonPro-Regular.ttf"),
-    ),
-    (
-        "CrimsonPro-Italic.ttf",
-        include_bytes!("../fonts/CrimsonPro-Italic.ttf"),
-    ),
-    (
-        "Fraunces-Regular.ttf",
-        include_bytes!("../fonts/Fraunces-Regular.ttf"),
-    ),
-    (
-        "Fraunces-Italic.ttf",
-        include_bytes!("../fonts/Fraunces-Italic.ttf"),
     ),
     (
         "RobotoMono-Regular.ttf",
@@ -1322,12 +1298,11 @@ fn resolved_family(requested: &str) -> &'static str {
         "playfair display" => "Playfair Display",
         "space grotesk" => "Space Grotesk",
         "lora" => "Lora",
+        // Retired optional families preserve source names while using the pinned serif fallback.
+        "bitter" | "crimson pro" | "fraunces" => "Tinos",
         "montserrat" => "Montserrat",
         "dm sans" => "DM Sans",
-        "bitter" => "Bitter",
         "work sans" => "Work Sans",
-        "crimson pro" => "Crimson Pro",
-        "fraunces" => "Fraunces",
         "roboto mono" => "Roboto Mono",
         "oswald" => "Oswald",
         "noto sans arabic" | "noto naskh arabic" => "Noto Sans Arabic",

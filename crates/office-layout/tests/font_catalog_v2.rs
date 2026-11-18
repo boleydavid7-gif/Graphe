@@ -45,10 +45,7 @@ fn all_new_families_are_shaped_from_their_actual_bundled_font_files() {
         ("Lora", "Lora"),
         ("Montserrat", "Montserrat"),
         ("DM Sans", "DMSans"),
-        ("Bitter", "Bitter"),
         ("Work Sans", "WorkSans"),
-        ("Crimson Pro", "CrimsonPro"),
-        ("Fraunces", "Fraunces"),
         ("Roboto Mono", "RobotoMono"),
         ("Oswald", "Oswald"),
     ] {
@@ -107,10 +104,7 @@ fn variable_faces_support_italic_and_weight_selection() {
         "Lora",
         "Montserrat",
         "DM Sans",
-        "Bitter",
         "Work Sans",
-        "Crimson Pro",
-        "Fraunces",
         "Roboto Mono",
     ] {
         let normal = sample(family, false, false);
@@ -170,4 +164,13 @@ fn oswald_uses_its_own_real_variable_weight_font() {
             .all(|face| face.font_id.starts_with("Oswald"))
     );
     assert_ne!(regular.outlines[0].path, bold.outlines[0].path);
+}
+
+#[test]
+fn retired_serif_families_substitute_without_silent_font_loss() {
+    for family in ["Bitter", "Crimson Pro", "Fraunces"] {
+        let page = sample(family, false, false);
+        assert!(page.outlines.iter().all(|outline| outline.font_id.starts_with("Tinos")), "{family}");
+        assert!(page.diagnostics.iter().any(|issue| issue.kind == "font_substitution"), "{family}");
+    }
 }

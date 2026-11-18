@@ -124,8 +124,8 @@ function commonFontSubstitute(font: string | null | undefined): string | null {
 // Unknown names from imported documents remain selectable and are preserved.
 const FONT_GROUPS = [
   { label: 'Sans serif', names: ['Arimo', 'Carlito', 'Source Sans 3', 'Inter', 'Montserrat', 'DM Sans', 'Work Sans'] },
-  { label: 'Serif', names: ['Tinos', 'Caladea', 'EB Garamond', 'Libre Baskerville', 'Lora', 'Bitter', 'Crimson Pro'] },
-  { label: 'Display', names: ['Playfair Display', 'Space Grotesk', 'Fraunces', 'Oswald'] },
+  { label: 'Serif', names: ['Tinos', 'Caladea', 'EB Garamond', 'Libre Baskerville', 'Lora'] },
+  { label: 'Display', names: ['Playfair Display', 'Space Grotesk', 'Oswald'] },
   { label: 'Monospace', names: ['JetBrains Mono', 'Roboto Mono'] },
   { label: 'Languages and symbols', names: [
     'Noto Sans Arabic', 'Noto Sans Devanagari', 'Noto Sans Hebrew', 'Noto Emoji',

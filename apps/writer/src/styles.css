@@ -246,21 +246,7 @@
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'Bitter';
-  src: url('../../../crates/office-layout/fonts/Bitter-Regular.ttf') format('truetype');
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-}
 
-@font-face {
-  font-family: 'Bitter';
-  src: url('../../../crates/office-layout/fonts/Bitter-Italic.ttf') format('truetype');
-  font-style: italic;
-  font-weight: 100 900;
-  font-display: swap;
-}
 
 @font-face {
   font-family: 'Work Sans';
@@ -278,37 +264,9 @@
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'Crimson Pro';
-  src: url('../../../crates/office-layout/fonts/CrimsonPro-Regular.ttf') format('truetype');
-  font-style: normal;
-  font-weight: 200 900;
-  font-display: swap;
-}
 
-@font-face {
-  font-family: 'Crimson Pro';
-  src: url('../../../crates/office-layout/fonts/CrimsonPro-Italic.ttf') format('truetype');
-  font-style: italic;
-  font-weight: 200 900;
-  font-display: swap;
-}
 
-@font-face {
-  font-family: 'Fraunces';
-  src: url('../../../crates/office-layout/fonts/Fraunces-Regular.ttf') format('truetype');
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-}
 
-@font-face {
-  font-family: 'Fraunces';
-  src: url('../../../crates/office-layout/fonts/Fraunces-Italic.ttf') format('truetype');
-  font-style: italic;
-  font-weight: 100 900;
-  font-display: swap;
-}
 
 @font-face {
   font-family: 'Roboto Mono';

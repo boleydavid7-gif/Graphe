@@ -60,7 +60,7 @@ test('pinned font bytes and redistributed license notices match the catalog prov
   const root = new URL('../../../crates/office-layout/fonts/', import.meta.url);
   const manifest = JSON.parse(await readFile(new URL('manifest.json', root), 'utf8'));
   assert.equal(manifest.format_version, 1);
-  assert.equal(manifest.catalog_id, 'writer-fonts-v5');
+  assert.equal(manifest.catalog_id, 'writer-fonts-v6');
   const entries = new Map(manifest.entries.map((entry) => [entry.file, entry]));
   let fontBytes = 0;
   for (const entry of [...manifest.entries, ...manifest.derived_files]) {
@@ -416,7 +416,7 @@ test('compiled WASM layout matches the complete native snapshot golden', async (
   // only v1 fonts, so normalize the version marker alone before checking the
   // reviewed full-geometry fingerprint. This must not hide changed glyphs,
   // line breaks, coordinates, pages, or outlines.
-  const oldMarker = '"fontCatalogId":"writer-fonts-v5"';
+  const oldMarker = '"fontCatalogId":"writer-fonts-v6"';
   assert.equal(compact.split(oldMarker).length, 2);
   const legacyGeometry = compact.replace(oldMarker, '"fontCatalogId":"writer-fonts-v1"');
   assert.equal(createHash('sha256').update(legacyGeometry).digest('hex'), expected.sha256);
