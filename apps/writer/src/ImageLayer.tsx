@@ -33,7 +33,7 @@ function alignmentFor(rect: LayoutRect, page: LayoutPage): Alignment {
 }
 
 /** Rust supplies all persisted placement. Pointer previews never change document data. */
-export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize, onMove, unitsPerPoint = 64 }: {
+export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize, onMove, unitsPerPoint = 64, disabled = false }: {
   readonly page: LayoutPage;
   readonly images: readonly ImageView[];
   readonly urls: ReadonlyMap<string, string>;
@@ -42,11 +42,12 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
   readonly onResize?: (id: string, widthPt: number, heightPt: number | undefined, lockAspect: boolean) => void;
   readonly onMove?: (id: string, alignment: Alignment, clientX: number, clientY: number) => void;
   readonly unitsPerPoint?: number;
+  readonly disabled?: boolean;
 }) {
   const active = useRef<Gesture | null>(null);
   const [preview, setPreview] = useState<{ id: string; rect: LayoutRect } | null>(null);
   const [dragging, setDragging] = useState(false);
-  const editable = !!onSelect && !!onResize && !!onMove;
+  const editable = !disabled && !!onSelect && !!onResize && !!onMove;
   const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const handleSize = Math.max(8, Math.min(10, page.width / unitsPerPoint / 72)) * unitsPerPoint;
   const hitSize = (coarse ? Math.max(28, Math.min(46, page.width / unitsPerPoint / 14))

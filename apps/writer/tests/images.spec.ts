@@ -558,3 +558,28 @@ test.describe('real browser touch image gestures', () => {
     expect(images(await nativeFile(page))).toEqual([before]);
   });
 });
+
+
+test('desktop vertical image drag reorders body blocks rather than storing floating coordinates', async ({ page }) => {
+  await start(page);
+  await insertPng(page);
+  const initial = await nativeFile(page);
+  expect(initial.document.sections[0]?.blocks.map((block) => block.kind)).toEqual(['paragraph', 'image', 'paragraph']);
+  const picture = await renderedImages(page).boundingBox();
+  const paper = await page.locator('svg[data-layout-page]').first().boundingBox();
+  if (!picture || !paper) throw new Error('Image is not positioned on the editable page');
+  const fromX = picture.x + picture.width / 2;
+  const fromY = picture.y + picture.height / 2;
+  const toY = Math.min(paper.y + paper.height - 25, picture.y + picture.height + 70);
+  await page.mouse.move(fromX, fromY);
+  await page.mouse.down();
+  await page.mouse.move(fromX, toY, { steps: 10 });
+  await page.mouse.up();
+  await readyPages(page);
+  const moved = await nativeFile(page);
+  expect(moved.document.sections[0]?.blocks.map((block) => block.kind)).toEqual(['paragraph', 'paragraph', 'image']);
+  expect(images(moved)[0]?.asset).toEqual(images(initial)[0]?.asset);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  const undone = await nativeFile(page);
+  expect(undone.document.sections[0]?.blocks).toEqual(initial.document.sections[0]?.blocks);
+});

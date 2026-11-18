@@ -819,7 +819,8 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     const live = latest.current.getCurrentView();
     const value = current.current;
     if (!live || !value.snapshot || !sameOrigin(value.snapshot, origin(live))) return;
-    const source = live.bodyBlocks.find((block) => block.id === imageId && block.kind === 'image');
+    const blocks = live.bodyBlocks ?? [];
+    const source = blocks.find((block) => block.id === imageId && block.kind === 'image');
     if (!source || live.selectedImageId !== imageId) return;
     let nearest: { page: LayoutPage; bounds: DOMRect; distance: number } | undefined;
     for (const page of value.snapshot.layout.pages) {
@@ -834,7 +835,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     if (!nearest) return;
     const hoverPage = nearest.page.number;
     const hoverY = (clientY - nearest.bounds.top) / nearest.bounds.height * nearest.page.height;
-    const sectionBlocks = live.bodyBlocks.filter((block) => block.sectionId === source.sectionId);
+    const sectionBlocks = blocks.filter((block) => block.sectionId === source.sectionId);
     const candidates = sectionBlocks.filter((block) => block.id !== imageId);
     const locate = (block: (typeof candidates)[number]): { pageNumber: number; y: number } | undefined => {
       for (const page of value.snapshot!.layout.pages) {
@@ -997,6 +998,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                   <TableGrid page={page} />
                   <ImageLayer page={page} images={props.view.images ?? []} urls={props.imageUrls ?? EMPTY_IMAGE_URLS}
                     selectedId={props.view.selectedImageId} unitsPerPoint={layout.unitsPerPoint}
+                    disabled={props.disabled}
                     onResize={(id, widthPt, heightPt, lockAspect) => commitImageEdit(id,
                       { type: 'resize_image', widthPt, ...(heightPt !== undefined ? { heightPt } : {}), lockAspect })}
                     onMove={commitImageMove} onSelect={(id) => {
