@@ -50,3 +50,9 @@ the committed geometry. Its one fixed-unit tolerance is 1/64 point; Rust integer
 centering can round by half that unit. Existing pinch, drag, undo/reopen and
 DOCX/ODT/PDF workflows pass in that 18-test suite. Physical iOS Safari/PWA and
 Android testing remain unavailable; emulation does not certify device behavior.
+
+Rebased onto dbda5cf to retain the concurrently updated responsive workspace and
+tablet inspector. Combined Chromium image + writing-first responsive checks:
+20 passed (the 18 image cases above plus 2 responsive cases, not additional image
+suite passes). TypeScript, ESLint and production Vite build also passed on that
+combined revision.
