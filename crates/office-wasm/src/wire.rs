@@ -1,4 +1,4 @@
-use office_core::{Alignment, ImageAlignment, ListKind};
+use office_core::{Alignment, ImageAlignment, ListKind, PageMargins, PageSize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -119,6 +119,21 @@ pub(crate) enum Command {
     },
     FormatParagraph {
         alignment: Alignment,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
+    SetPageSetup {
+        section_id: String,
+        page_size: PageSize,
+        page_margins: PageMargins,
+        expected_revision: Option<String>,
+    },
+    InsertPageBreak {
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
+    SetPageBreakBefore {
+        enabled: bool,
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
@@ -245,6 +260,15 @@ impl Command {
             | Self::FormatParagraph {
                 expected_revision, ..
             }
+            | Self::SetPageSetup {
+                expected_revision, ..
+            }
+            | Self::InsertPageBreak {
+                expected_revision, ..
+            }
+            | Self::SetPageBreakBefore {
+                expected_revision, ..
+            }
             | Self::SetParagraphMetrics {
                 expected_revision, ..
             }
@@ -277,12 +301,21 @@ pub(crate) struct View {
     pub images: Vec<ImageView>,
     pub selected_image_id: Option<String>,
     pub table: Option<TableCellView>,
+    pub page_setup: Option<PageSetupView>,
     pub format: FormatSummary,
     pub can_undo: bool,
     pub can_redo: bool,
     pub word_count: usize,
     pub original_source: Option<OriginalSourceView>,
     pub import_warnings: CompatibilityReportView,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PageSetupView {
+    pub section_id: String,
+    pub page_size: PageSize,
+    pub page_margins: PageMargins,
 }
 
 #[derive(Debug, Serialize)]
@@ -392,6 +425,7 @@ pub(crate) struct ParagraphFormatView {
     pub indent_left_pt: f64,
     pub indent_right_pt: f64,
     pub first_line_pt: f64,
+    pub page_break_before: bool,
 }
 
 #[derive(Debug, Serialize)]

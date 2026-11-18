@@ -2056,3 +2056,29 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
   #font-family { width: min(190px, 55vw); }
   .font-family-preview { min-height: 52px; }
 }
+
+/* Step 8C.1: page setup, using the same solid Lamplight sheet as paragraph settings. */
+.page-setup-controls { flex-wrap: nowrap; gap: 8px; }
+.page-setup-controls > button { white-space: nowrap; }
+.page-setup-dialog { width: min(500px, calc(100vw - 24px)); }
+.page-setup-dialog fieldset { display: grid; gap: 10px; }
+.page-setup-choice-grid, .page-setup-margins {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+}
+.page-setup-choice-grid label, .page-setup-margins label {
+  display: grid; gap: 5px; min-width: 0;
+}
+.page-setup-choice-grid label > span, .page-setup-margins label > span {
+  color: var(--writer-text-muted); font-size: 12px;
+}
+.page-setup-choice-grid input, .page-setup-choice-grid select, .page-setup-margins input {
+  min-width: 0; width: 100%; min-height: 40px;
+  border: 1px solid var(--writer-border-control); border-radius: var(--writer-radius-sm);
+  background: var(--writer-control); color: var(--writer-text-control);
+  padding: 8px 9px; font: inherit; font-size: 14px;
+}
+@media (max-width: 620px) {
+  .page-setup-choice-grid input, .page-setup-choice-grid select, .page-setup-margins input {
+    min-height: 44px; font-size: 16px;
+  }
+}

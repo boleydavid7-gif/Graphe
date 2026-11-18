@@ -17,7 +17,7 @@ mod view;
 mod wire;
 
 use office_core::{
-    Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, Paragraph, Section,
+    Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, PageMargins, PageSize, Paragraph, Section,
     TextCoordinates, Transaction, WriterFile, deserialize_writer_file, serialize_document,
     serialize_writer_file,
 };
@@ -298,6 +298,7 @@ impl BrowserEngine {
                 | Command::UpdateImage { .. }
                 | Command::SetImageAltText { .. }
                 | Command::SetImageAlignment { .. }
+                | Command::SetPageSetup { .. }
                 | Command::DeleteImage { .. }
                 | Command::MoveImageCursor { .. }
                 | Command::Undo { .. }
@@ -415,6 +416,13 @@ impl BrowserEngine {
                 selection,
                 ..
             } => self.format_paragraph(alignment, selection),
+            Command::SetPageSetup {
+                section_id, page_size, page_margins, ..
+            } => self.set_page_setup(&section_id, page_size, page_margins),
+            Command::InsertPageBreak { selection, .. } => self.insert_page_break(selection),
+            Command::SetPageBreakBefore { enabled, selection, .. } => {
+                self.set_page_break_before(enabled, selection)
+            }
             Command::SetParagraphMetrics {
                 spacing_before_pt,
                 spacing_after_pt,
@@ -681,6 +689,7 @@ impl BrowserEngine {
                     let focus = view::table_cell(document, &selection.focus.paragraph_id)?;
                     (anchor.cell_id == focus.cell_id).then_some(focus)
                 }),
+            page_setup: self.page_setup_view(),
             format,
             can_undo: self.session.can_undo(),
             can_redo: self.session.can_redo(),
@@ -695,6 +704,28 @@ impl BrowserEngine {
                 }),
             import_warnings: self.import_warnings.clone(),
         }
+    }
+
+
+    /// Effective page settings for the focused section (or the first section).
+    /// This is presentation only; the document retains explicit/absent overrides.
+    fn page_setup_view(&self) -> Option<wire::PageSetupView> {
+        let document = self.session.document();
+        let section = self.selection.as_ref().and_then(|selection| {
+            document.sections().iter().find(|section| {
+                section.paragraphs().any(|paragraph| paragraph.id().as_str() == selection.focus.paragraph_id)
+            })
+        }).or_else(|| self.selected_image.as_ref().and_then(|id| {
+            document.sections().iter().find(|section| section.blocks().iter().any(|block| {
+                matches!(block, Block::Image(image) if image.id() == id)
+            }))
+        })).or_else(|| document.sections().first())?;
+        let defaults = office_layout::LayoutOptions::default();
+        Some(wire::PageSetupView {
+            section_id: section.id().as_str().into(),
+            page_size: section.properties().and_then(|value| value.page_size).unwrap_or(defaults.page_size),
+            page_margins: section.properties().and_then(|value| value.page_margins).unwrap_or(defaults.page_margins),
+        })
     }
 
     fn check_candidate(&self, document: &Document) -> Result<(), EngineError> {

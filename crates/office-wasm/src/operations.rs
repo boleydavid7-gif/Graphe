@@ -4,8 +4,9 @@ use crate::{
 };
 use office_core::{
     Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, LineSpacing,
-    ListKind, Paragraph, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange, Section,
-    TextCoordinates, Transaction, Twips, Utf16Offset, valid_hyperlink,
+    ListKind, PageMargins, PageSize, Paragraph, ParagraphFormatPatch, ParagraphMetricsPatch,
+    PropertyChange, Section, SectionProperties, TextCoordinates, Transaction, Twips,
+    Utf16Offset, valid_hyperlink,
 };
 
 /// Browser units grouped at the private command adapter boundary.
@@ -776,6 +777,100 @@ impl BrowserEngine {
             }
         }
         self.replace_text("\n", supplied)
+    }
+
+
+    /// Commit page setup as one Rust-owned section edit, preserving every block,
+    /// section ID, header/footer offset, style and revision-guarded undo record.
+    pub(super) fn set_page_setup(
+        &mut self,
+        section_id: &str,
+        page_size: PageSize,
+        page_margins: PageMargins,
+    ) -> Result<(), EngineError> {
+        // A deliberately bounded editable profile; imported out-of-range source
+        // values remain preserved until the user explicitly changes page setup.
+        if !(4_320..=31_680).contains(&page_size.width.0)
+            || !(4_320..=31_680).contains(&page_size.height.0)
+            || [page_margins.top, page_margins.right, page_margins.bottom,
+                page_margins.left].iter().any(|value| !(0..=5_760).contains(&value.0))
+        {
+            return Err(EngineError::new(
+                "invalid_page_setup", "Paper must be 3–22 inches and body margins 0–4 inches.",
+            ));
+        }
+        let mut transaction = self.session.begin_transaction();
+        let index = transaction.draft().sections.iter()
+            .position(|section| section.id().as_str() == section_id)
+            .ok_or_else(|| EngineError::new("invalid_page_setup", "The selected section no longer exists."))?;
+        let current = &transaction.draft().sections[index];
+        let mut properties = current.properties().cloned().unwrap_or_else(SectionProperties::default);
+        properties.page_size = Some(page_size);
+        properties.page_margins = Some(page_margins);
+        let replacement = Section::new(current.id().clone(), current.blocks().to_vec())
+            .with_properties(properties);
+        transaction.draft_mut().sections[index] = replacement;
+        self.commit(transaction, self.selection.clone())
+    }
+
+    /// Insert a true manual break at the caret as one structural paragraph split
+    /// and one paragraph page-break override in a single atomic undo step.
+    pub(super) fn insert_page_break(
+        &mut self,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let selection = self.current_selection(supplied)?.ok_or_else(|| {
+            EngineError::new("missing_selection", "Place the cursor where the page should begin.")
+        })?;
+        if selection.anchor != selection.focus {
+            return Err(EngineError::new(
+                "invalid_page_break", "Place a single cursor before inserting a page break.",
+            ));
+        }
+        let document = self.session.document();
+        let paragraph_id = Id::new(&selection.focus.paragraph_id)?;
+        if document.table_for_paragraph(&paragraph_id).is_some() {
+            return Err(EngineError::new(
+                "invalid_page_break", "Page breaks cannot be inserted inside a table cell.",
+            ));
+        }
+        if document.paragraphs().count() >= crate::MAX_PARAGRAPHS {
+            return Err(crate::limit_error());
+        }
+        let new_id = self.allocate_id()?;
+        let mut transaction = self.session.begin_transaction();
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.insert_paragraph_break(&range, new_id.clone())?;
+        let at = transaction.position(&new_id, GraphemeOffset::new(0))?;
+        let range = transaction.selection(at.clone(), at)?;
+        transaction.apply_paragraph_format(&range, &ParagraphFormatPatch {
+            page_break_before: PropertyChange::Set(true),
+            ..Default::default()
+        })?;
+        let after = caret(Point { paragraph_id: new_id.as_str().into(), utf16: 0 });
+        self.commit_from(transaction, Some(selection), Some(after))?;
+        self.typing = None;
+        Ok(())
+    }
+
+    /// Toggle the existing direct paragraph break flag without splitting text.
+    pub(super) fn set_page_break_before(
+        &mut self,
+        enabled: bool,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let selection = self.current_selection(supplied)?.ok_or_else(|| {
+            EngineError::new("missing_selection", "Choose a paragraph before changing page breaks.")
+        })?;
+        let mut transaction = self.session.begin_transaction();
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.apply_paragraph_format(&range, &ParagraphFormatPatch {
+            page_break_before: PropertyChange::Set(enabled),
+            ..Default::default()
+        })?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
+        self.typing = None;
+        Ok(())
     }
 
     pub(super) fn format_paragraph(

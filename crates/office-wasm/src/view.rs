@@ -80,6 +80,7 @@ pub(crate) fn paragraphs(document: &Document) -> Vec<ParagraphView> {
                     indent_left_pt: indent.left.map_or(0., |v| f64::from(v.0) / 20.),
                     indent_right_pt: indent.right.map_or(0., |v| f64::from(v.0) / 20.),
                     first_line_pt: indent.first_line.map_or(0., |v| f64::from(v.0) / 20.),
+                    page_break_before: format.page_break_before == Some(true),
                 },
             });
         }
