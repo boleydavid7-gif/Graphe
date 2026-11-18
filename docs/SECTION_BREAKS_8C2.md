@@ -12,7 +12,7 @@ Development branch: `dev/graphe-step8c2-sections`. **Not merged or deployed.**
 
 ## Deliberate limits
 
-- Section insertion is rejected in tables, across noncollapsed selections, and at the very beginning of a section (to avoid creating a blank preceding page).
+- Section insertion is rejected in tables, across noncollapsed selections, at the very beginning of a section (to avoid creating a blank preceding page), and when the 512-page minimum section count limit is reached.
 - Removal joins complete sections and does **not** combine text paragraphs or discard blocks. Content from the deleted section adopts the predecessor's page layout. DOCX/ODT may not match full Microsoft Word section semantics, and advanced compatibility needs separate verification.
 - The selected section is determined by the Rust selection or image position. Browser rendering, text measurement, page pagination, and undo remain Rust-authoritative.
 - Validation required before merging: `cargo fmt --all -- --check`, strict workspace Clippy, `cargo test --workspace`, `npm run build` / `typecheck` / `lint` / `test` / `test:wasm` / `test:build`, and focused browser tests, plus real-device checks.

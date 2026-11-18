@@ -59,6 +59,19 @@ fn section_break_splits_body_text_and_preserves_ids_and_geometry_across_history(
     assert_eq!(altered["pageSetup"]["pageMargins"]["top"], 720);
     assert_eq!(saved(&engine)["document"]["sections"][0]["properties"], Value::Null);
     assert_eq!(saved(&engine)["document"]["sections"][1]["properties"]["page_size"]["width"], 20160);
+    // A serialized native file must reopen with independent section geometry.
+    let bytes = engine.export_document().unwrap();
+    let mut reopened = BrowserEngine::new("8c2-reopen").unwrap();
+    let restored: Value = serde_json::from_str(&reopened.open_document(&bytes)).unwrap();
+    assert_eq!(restored["ok"], true, "{restored}");
+    assert_eq!(restored["view"]["pageSetup"]["sectionCount"], 2);
+    let second_para = restored["view"]["paragraphs"][1]["id"].as_str().unwrap();
+    let selected = restored["view"]["selection"].clone();
+    assert!(selected.is_null() || selected["focus"]["paragraphId"] != second_para);
+    let cursor = caret(second_para, 0);
+    let active = dispatch(&mut reopened, json!({"type":"set_selection", "selection":cursor}));
+    assert_eq!(active["pageSetup"]["sectionIndex"], 1);
+    assert_eq!(active["pageSetup"]["pageSize"]["width"], 20160);
     let pages: Value = serde_json::from_str(
         &engine.layout_snapshot("{}", altered["revision"].as_str()).unwrap()).unwrap();
     let page_list = pages["layout"]["pages"].as_array().unwrap();

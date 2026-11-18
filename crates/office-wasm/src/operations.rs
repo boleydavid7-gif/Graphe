@@ -864,6 +864,12 @@ impl BrowserEngine {
         if !at_start && document.paragraphs().count() >= crate::MAX_PARAGRAPHS {
             return Err(crate::limit_error());
         }
+        // The paginated layout profile supports at most 512 physical pages.
+        // Each new section consumes at least one page; do not create a document
+        // that can never be laid out due solely to its section count.
+        if document.sections().len() >= 512 {
+            return Err(crate::limit_error());
+        }
 
         let new_section_id = self.allocate_id()?;
         let mut transaction = self.session.begin_transaction();
