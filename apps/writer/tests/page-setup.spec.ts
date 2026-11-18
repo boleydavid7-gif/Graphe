@@ -28,6 +28,12 @@ async function exportNative(page: Page) {
   };
 }
 
+function firstSection(file: Awaited<ReturnType<typeof exportNative>>) {
+  const section = file.document.sections[0];
+  if (!section) throw new Error('The exported document has no sections');
+  return section;
+}
+
 test('Layout page setup persists real paper size, orientation and margins', async ({ page }) => {
   await start(page);
   await page.getByRole('button', { name: 'Layout', exact: true }).click();
@@ -43,7 +49,7 @@ test('Layout page setup persists real paper size, orientation and margins', asyn
   await expect(dialog).toHaveCount(0);
   await readyPages(page);
   const native = await exportNative(page);
-  const properties = native.document.sections[0].properties;
+  const properties = firstSection(native).properties;
   expect(properties.page_size).toEqual({ width: 16838, height: 11906, orientation: 'landscape' });
   expect(properties.page_margins.top).toBe(1080);
   expect(properties.page_margins.bottom).toBe(720);
@@ -57,12 +63,16 @@ test('Insert Page break creates a separate paragraph; Layout can remove break', 
   await page.getByRole('button', { name: 'Page break', exact: true }).click();
   await readyPages(page);
   let native = await exportNative(page);
-  const paragraphs = native.document.sections[0].blocks.filter((block) => block.kind === 'paragraph');
+  const paragraphs = firstSection(native).blocks.filter((block) => block.kind === 'paragraph');
   expect(paragraphs).toHaveLength(2);
-  expect(paragraphs[0].content.runs?.map((run) => run.text).join('')).toBe('Before ');
-  expect(paragraphs[1].content.format?.page_break_before).toBe(true);
+  const [first, second] = paragraphs;
+  if (!first || !second) throw new Error('Expected both paragraphs after inserting a page break');
+  expect(first.content.runs?.map((run) => run.text).join('')).toBe('Before ');
+  expect(second.content.format?.page_break_before).toBe(true);
   await page.getByRole('button', { name: 'Layout', exact: true }).click();
   await page.getByRole('button', { name: 'Remove page break', exact: true }).click();
   native = await exportNative(page);
-  expect(native.document.sections[0].blocks[1].content.format?.page_break_before).toBe(false);
+  const secondAfter = firstSection(native).blocks[1];
+  if (!secondAfter) throw new Error('Expected the second paragraph after removing its page break');
+  expect(secondAfter.content.format?.page_break_before).toBe(false);
 });
