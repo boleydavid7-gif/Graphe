@@ -1,0 +1,23 @@
+name: Feature request
+description: Propose a bounded feature or compatibility improvement for Graphe
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: User problem
+      description: What practical problem would the feature solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested approach
+      description: Describe desired behavior, document compatibility and likely constraints
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
