@@ -129,8 +129,13 @@ suite passes. Browser tests
 use actual Chromium and the production WASM bundle; touch and composition events
 are simulated, not physical iOS/Android or OS IME verification. Firefox and WebKit
 install attempts failed with HTTP 403 `Domain forbidden` from their official
-download hosts. Hosted CI and Windows/macOS have not been executed for this
-unpublished branch. No Microsoft Word runtime or accessibility certification.
+download hosts. Hosted CI run
+[44230010027](https://github.com/boleydavid7-gif/stuff/actions/runs/44230010027)
+for implementation commit `eafcbdf` failed all four jobs (Linux, Windows, macOS
+and browser integration), with no steps or log URLs reported by the connector.
+That evidence does not establish the cause or a passing hosted check. Windows
+and macOS behavior remains unverified. See review PR #55 for subsequent status.
+No Microsoft Word runtime or accessibility certification.
 
 Screenshots from the running application:
 [desktop](images/graphe-tables-desktop.png), [mobile](images/graphe-tables-mobile.png).
