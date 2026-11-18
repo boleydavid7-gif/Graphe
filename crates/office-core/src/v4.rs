@@ -1,8 +1,9 @@
 //! Strict schema-4 migration: paragraph-only blocks cannot contain schema-5 tables.
 use super::{
-    Block, Document, DocumentMetadata, Id, NamedStyle, Paragraph, Section, SectionProperties,
+    Block, Document, DocumentMetadata, Id, Section, SectionProperties,
 };
 use crate::DocumentError;
+use super::v6::{V6Paragraph, V6NamedStyle};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -12,7 +13,7 @@ struct V4Document {
     id: Id,
     metadata: DocumentMetadata,
     sections: Vec<V4Section>,
-    styles: Vec<NamedStyle>,
+    styles: Vec<V6NamedStyle>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,7 +30,7 @@ struct V4Section {
     deny_unknown_fields
 )]
 enum V4Block {
-    Paragraph(Paragraph),
+    Paragraph(V6Paragraph),
 }
 
 pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
@@ -43,7 +44,7 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
                 .blocks
                 .into_iter()
                 .map(|block| match block {
-                    V4Block::Paragraph(p) => Block::Paragraph(p),
+                    V4Block::Paragraph(p) => Block::Paragraph(p.into()),
                 })
                 .collect();
             let current = Section::new(section.id, blocks);
@@ -53,5 +54,5 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
             }
         })
         .collect();
-    Document::from_parts(old.id, old.metadata, sections, old.styles).map_err(DocumentError::from)
+    Document::from_parts(old.id, old.metadata, sections, old.styles.into_iter().map(Into::into).collect()).map_err(DocumentError::from)
 }

@@ -1324,6 +1324,8 @@ export default function App() {
   const selectionForBreak = view?.selection;
   const currentParagraph = view?.paragraphs.find((paragraph) => paragraph.id === selectionForBreak?.focus.paragraphId);
   const hasPageBreakBefore = currentParagraph?.format.pageBreakBefore === true;
+  const keepTogether = currentParagraph?.format.keepTogether === true;
+  const keepWithNext = currentParagraph?.format.keepWithNext === true;
   const canInsertPageBreak = !unavailable && !selectedImage && !view?.table && !!selectionForBreak
     && selectionForBreak.anchor.paragraphId === selectionForBreak.focus.paragraphId
     && selectionForBreak.anchor.utf16 === selectionForBreak.focus.utf16;
@@ -1537,6 +1539,16 @@ export default function App() {
           </button>
           <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
             onClick={openParagraphDialog}>Paragraph spacing &amp; indents…</button>
+          <button disabled={unavailable || !view?.selection || !!view?.table}
+            aria-pressed={keepTogether} onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'set_paragraph_pagination', keepTogether: !keepTogether })}>
+            Keep together
+          </button>
+          <button disabled={unavailable || !view?.selection || !!view?.table}
+            aria-pressed={keepWithNext} onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'set_paragraph_pagination', keepWithNext: !keepWithNext })}>
+            Keep with next
+          </button>
           <button disabled={unavailable || !view?.selection || !!view?.table}
             aria-pressed={hasPageBreakBefore} onMouseDown={(event) => event.preventDefault()}
             onClick={() => format({ type: 'set_page_break_before', enabled: !hasPageBreakBefore })}>

@@ -263,6 +263,20 @@ pub(super) fn paragraph(
                     }
                 }
             }
+            (Some(FO), "keep-together") => {
+                result.keep_together = match value {
+                    "always" => Some(true),
+                    "auto" => Some(false),
+                    _ => { unsupported(report, part, node, attribute.name()); None }
+                }
+            }
+            (Some(FO), "keep-with-next") => {
+                result.keep_with_next = match value {
+                    "always" => Some(true),
+                    "auto" => Some(false),
+                    _ => { unsupported(report, part, node, attribute.name()); None }
+                }
+            }
             _ if super::compatibility::property(node, attribute, notices, part) => {}
             _ => unsupported(report, part, node, attribute.name()),
         }
@@ -420,6 +434,8 @@ pub(super) fn overlay_paragraph(base: &mut ParagraphFormat, direct: &ParagraphFo
     field!(spacing_after);
     field!(line_spacing);
     field!(page_break_before);
+    field!(keep_together);
+    field!(keep_with_next);
     if let Some(value) = &direct.indentation {
         let indent = base.indentation.get_or_insert_default();
         if value.left.is_some() {
@@ -566,6 +582,12 @@ pub(super) fn paragraph_xml(format: &ParagraphFormat) -> String {
             " fo:break-before=\"{}\"",
             if v { "page" } else { "auto" }
         ));
+    }
+    if let Some(v) = format.keep_together {
+        attributes.push_str(if v { " fo:keep-together=\"always\"" } else { " fo:keep-together=\"auto\"" });
+    }
+    if let Some(v) = format.keep_with_next {
+        attributes.push_str(if v { " fo:keep-with-next=\"always\"" } else { " fo:keep-with-next=\"auto\"" });
     }
     format!("<style:paragraph-properties{attributes}/>")
 }

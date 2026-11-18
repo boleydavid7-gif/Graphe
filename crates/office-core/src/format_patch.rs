@@ -87,6 +87,10 @@ pub struct ParagraphFormatPatch {
     pub indentation: PropertyChange<Indentation>,
     /// Change the direct page-break-before override.
     pub page_break_before: PropertyChange<bool>,
+    /// Control paragraph-internal page splitting.
+    pub keep_together: PropertyChange<bool>,
+    /// Keep this paragraph with its following body paragraph.
+    pub keep_with_next: PropertyChange<bool>,
 }
 
 impl ParagraphFormatPatch {
@@ -98,6 +102,8 @@ impl ParagraphFormatPatch {
             line_spacing: self.line_spacing.apply(&original.line_spacing),
             indentation: self.indentation.apply(&original.indentation),
             page_break_before: self.page_break_before.apply(&original.page_break_before),
+            keep_together: self.keep_together.apply(&original.keep_together),
+            keep_with_next: self.keep_with_next.apply(&original.keep_with_next),
         }
     }
 

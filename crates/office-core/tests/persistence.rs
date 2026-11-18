@@ -210,6 +210,7 @@ fn all_supported_character_and_paragraph_values_round_trip_with_order_and_defaul
                 right: Some(Twips(-120)),
                 first_line: Some(Twips(-360)),
             }),
+            ..Default::default()
         };
         paragraphs.push(Block::Paragraph(
             Paragraph::new(

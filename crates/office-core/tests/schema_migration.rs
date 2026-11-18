@@ -30,7 +30,7 @@ fn omit_unspecified_fields(value: &mut Value) {
 fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
     let mut before: Value = serde_json::from_str(LEGACY).unwrap();
     let document = Document::from_json(LEGACY).unwrap();
-    assert_eq!(SCHEMA_VERSION, 6);
+    assert_eq!(SCHEMA_VERSION, 7);
     assert_eq!(document.schema_version(), SCHEMA_VERSION);
     let mut after = serde_json::to_value(&document).unwrap();
     after["schema_version"] = json!(1);
@@ -48,6 +48,9 @@ fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
                     .unwrap()
                     .is_null()
             );
+            for field in ["keep_together", "keep_with_next"] {
+                assert!(block["content"]["format"].as_object_mut().unwrap().remove(field).unwrap().is_null());
+            }
         }
     }
     for style in after["styles"].as_array_mut().unwrap() {
@@ -59,6 +62,9 @@ fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
                 .unwrap()
                 .is_null()
         );
+        for field in ["keep_together", "keep_with_next"] {
+            assert!(style["paragraph_format"].as_object_mut().unwrap().remove(field).unwrap().is_null());
+        }
     }
     // Missing optional properties and explicit null both represented None in
     // schema 1. Compare their supported values rather than JSON field spelling.

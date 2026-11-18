@@ -164,6 +164,7 @@ fn multiple_sections_mixed_runs_paragraph_properties_geometry_and_title_roundtri
             first_line: Some(Twips(-160)),
         }),
         page_break_before: Some(false),
+        ..Default::default()
     };
     let geometry = SectionProperties {
         page_size: Some(PageSize {

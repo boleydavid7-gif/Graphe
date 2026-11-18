@@ -232,6 +232,12 @@ fn paragraph(output: &mut String, format: &ParagraphFormat) -> Result<(), Format
     if let Some(value) = format.page_break_before {
         write!(output, "\\pagebb{}", i32::from(value)).expect("String write");
     }
+    if let Some(value) = format.keep_together {
+        write!(output, "\\keep{}", i32::from(value)).expect("String write");
+    }
+    if let Some(value) = format.keep_with_next {
+        write!(output, "\\keepn{}", i32::from(value)).expect("String write");
+    }
     Ok(())
 }
 

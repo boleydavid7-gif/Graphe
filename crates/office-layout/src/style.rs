@@ -40,6 +40,8 @@ fn overlay_paragraph(base: &mut ParagraphFormat, direct: &ParagraphFormat) {
     field!(spacing_after);
     field!(line_spacing);
     field!(page_break_before);
+    field!(keep_together);
+    field!(keep_with_next);
     if let Some(override_indent) = &direct.indentation {
         let indent = base.indentation.get_or_insert_default();
         if override_indent.left.is_some() {

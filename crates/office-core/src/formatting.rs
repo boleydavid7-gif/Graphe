@@ -294,6 +294,10 @@ pub struct ParagraphFormat {
     pub indentation: Option<Indentation>,
     /// Request or explicitly disable a page break before this paragraph.
     pub page_break_before: Option<bool>,
+    /// Keep all paragraph lines on one page if they fit.
+    pub keep_together: Option<bool>,
+    /// Keep this paragraph together with the next body paragraph when possible.
+    pub keep_with_next: Option<bool>,
 }
 
 impl ParagraphFormat {

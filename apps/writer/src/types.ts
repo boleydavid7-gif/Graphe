@@ -92,6 +92,8 @@ export interface ParagraphView {
     readonly indentRightPt: number;
     readonly firstLinePt: number;
     readonly pageBreakBefore: boolean;
+    readonly keepTogether: boolean;
+    readonly keepWithNext: boolean;
   };
 }
 
@@ -188,6 +190,8 @@ export type WriterCommand =
   | { readonly type: 'remove_section_break'; readonly sectionId: string;
       readonly confirmLayoutChange: boolean; readonly expectedRevision?: string }
   | ({ readonly type: 'set_page_break_before'; readonly enabled: boolean } & EditOrigin)
+  | ({ readonly type: 'set_paragraph_pagination';
+      readonly keepTogether?: boolean; readonly keepWithNext?: boolean } & EditOrigin)
   | ({ readonly type: 'set_paragraph_metrics';
        readonly spacingBeforePt?: number; readonly spacingAfterPt?: number;
        readonly lineSpacingMultiple?: number;

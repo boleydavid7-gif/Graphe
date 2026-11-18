@@ -78,8 +78,8 @@ fn table_native_roundtrip_retains_all_ids_unicode_formatting_and_exact_original(
     let bytes = serialize_writer_file(&file).unwrap();
     assert_eq!(deserialize_writer_file(&bytes).unwrap(), file);
     assert_eq!(serialize_writer_file(&file).unwrap(), bytes);
-    assert_eq!(SCHEMA_VERSION, 6);
-    assert_eq!(WRITER_FORMAT_VERSION, 6);
+    assert_eq!(SCHEMA_VERSION, 7);
+    assert_eq!(WRITER_FORMAT_VERSION, 7);
 }
 
 #[test]
