@@ -11,6 +11,10 @@ on:
       - apps/writer/package-lock.json
       - scripts/audit-dependencies.mjs
       - scripts/audit-license-texts.py
+      - scripts/verify-rclip-evidence.py
+      - scripts/test_verify_rclip_evidence.py
+      - docs/dependency-evidence/rclip-0.1.0/**
+      - crates/office-formats/THIRD_PARTY_NOTICES.txt
       - .github/workflows/dependency-license-audit.yml
 permissions:
   contents: read
@@ -32,6 +36,10 @@ jobs:
         run: node scripts/audit-dependencies.mjs
       - name: Install production npm license evidence without lifecycle scripts
         run: npm ci --omit=dev --ignore-scripts --prefix apps/writer
+      - name: Verify pinned rclip declaration and reference-text evidence
+        run: |
+          python3 scripts/verify-rclip-evidence.py
+          python3 scripts/test_verify_rclip_evidence.py
       - name: Collect checksum-verified crate license texts
         run: python3 scripts/audit-license-texts.py
       - name: Upload evidence (not a legal clearance)

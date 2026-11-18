@@ -79,6 +79,11 @@ an `AND` requirement. File presence alone does not establish compliance.
 
 ### RTF packages: unresolved, not a confirmed violation
 
+Follow-up: [the focused rclip dossier](RCLIP_LICENSE_EVIDENCE.md) now retains
+exact manifests, upstream/source comparisons, canonical reference text and a
+verified existing distribution-notice path. Author confirmation/release approval
+are still not obtained. The dated archive-presence counts below remain valid.
+
 Both `rclip-core@0.1.0` and `rclip-rtf@0.1.0` are in the browser-runtime graph.
 Their checksum-verified archives declare `MIT OR Apache-2.0`, name Felix Schütt
 as author, and contain no standalone license/notice text. `rclip-core` also has

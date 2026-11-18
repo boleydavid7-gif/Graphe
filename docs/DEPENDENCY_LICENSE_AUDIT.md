@@ -45,7 +45,11 @@ The script intentionally marks valid SPDX declarations **declaration-only**,
 not legally cleared. Generate a complete release notice with `cargo-about`
 or an equivalent library once upstream-license text and reachability are checked.
 
-### D-02 — RTF source copyright notice evidence (**release blocker pending resolution**)
+### D-02 — RTF source copyright notice evidence (**release review pending**)
+
+**Follow-up:** [rclip evidence dossier](RCLIP_LICENSE_EVIDENCE.md) completes
+the technical source/declaration/reference-text collection. No author
+confirmation has been received; final redistribution approval remains pending.
 
 `rclip-rtf 0.1.0` and `rclip-core 0.1.0` inherit `MIT OR Apache-2.0` from
 `[workspace.package]` in the published `fschutt/rich-clipboard` source.

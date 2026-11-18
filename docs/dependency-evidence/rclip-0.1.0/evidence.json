@@ -1,0 +1,271 @@
+{
+  "status": "EVIDENCE_ASSEMBLED_NOT_LEGAL_CLEARANCE",
+  "date": "2026-11-18",
+  "scope": "Exact rclip 0.1.0 declarations, source identity, notice search and official reference-text comparison. No author confirmation or ownership guarantee.",
+  "upstream": {
+    "repository": "https://github.com/fschutt/rich-clipboard",
+    "reviewedHead": "371c7203faeb3a5f13604a574a7a2e37bba48226",
+    "nonShallow": true,
+    "reachableCommitCount": 31,
+    "historicalLicensePaths": []
+  },
+  "referenceLicense": {
+    "file": "Apache-2.0.txt",
+    "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "retrievedVia": "https://api.github.com/repos/apache/www-site/contents/content/licenses/LICENSE-2.0.txt",
+    "sourceCommit": "01b1be9fbc5cd93b6794f5653a58b9b863807f84",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "bytes": 11358,
+    "existingFormatNoticeTermsMatchIgnoringWhitespace": true
+  },
+  "packages": [
+    {
+      "identity": "rclip-core@0.1.0",
+      "archiveSha256": "6414ce752a0d18ee3d000b6c76fccbc30e90b93c2a8c1e7fdd855ab9b7ea0af6",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "existingSelectedLicense": "Apache-2.0",
+      "authors": [
+        "Felix Schütt <felix.schuett@maps4print.com>"
+      ],
+      "sourceCommit": "2be8cabe96655f98bec3d5dc9781f1713cd46246",
+      "sourcePath": "crates/rclip-core",
+      "standaloneNoticeFiles": [],
+      "noticePatternHits": [],
+      "snapshots": [
+        {
+          "file": "rclip-core/Cargo.toml",
+          "sha256": "85c486996d152e81dc884c8802bae3167eabe09fc3435abe717a9df793274a44"
+        },
+        {
+          "file": "rclip-core/Cargo.toml.orig",
+          "sha256": "3895acbcf83d111396b28256b4c175d4bd55db7f9503b61c9f6efa37a5fc47f5"
+        },
+        {
+          "file": "rclip-core/README.md",
+          "sha256": "cc683309152f47b774386b1d5be7a021bcd743d5c221db68d422e0709848ae90"
+        },
+        {
+          "file": "rclip-core/.cargo_vcs_info.json",
+          "sha256": "3c98d56b401fa2cddaaed71dcb19376ff25863defa60fd08fe0c3d82e831090b"
+        },
+        {
+          "file": "rclip-core/workspace-Cargo.toml",
+          "sha256": "74dc6f278438ec3f781e970478428be6f22c3647e0e4dddfb3b03baedd4dbfbc"
+        }
+      ],
+      "sourceComparisons": [
+        {
+          "path": "Cargo.toml.orig",
+          "archiveSha256": "3895acbcf83d111396b28256b4c175d4bd55db7f9503b61c9f6efa37a5fc47f5",
+          "upstreamSha256": "3895acbcf83d111396b28256b4c175d4bd55db7f9503b61c9f6efa37a5fc47f5",
+          "identical": true
+        },
+        {
+          "path": "README.md",
+          "archiveSha256": "cc683309152f47b774386b1d5be7a021bcd743d5c221db68d422e0709848ae90",
+          "upstreamSha256": "cc683309152f47b774386b1d5be7a021bcd743d5c221db68d422e0709848ae90",
+          "identical": true
+        },
+        {
+          "path": "src/error.rs",
+          "archiveSha256": "ea86e2eb0d4c018734a8566ca72dce7e2d2ac3d95620c9360824f6ada410c89b",
+          "upstreamSha256": "ea86e2eb0d4c018734a8566ca72dce7e2d2ac3d95620c9360824f6ada410c89b",
+          "identical": true
+        },
+        {
+          "path": "src/flavor.rs",
+          "archiveSha256": "f229f1b2af6c9eb91f0349f341997ec40595948d7f53d70376e9c20dc6ce0755",
+          "upstreamSha256": "f229f1b2af6c9eb91f0349f341997ec40595948d7f53d70376e9c20dc6ce0755",
+          "identical": true
+        },
+        {
+          "path": "src/lib.rs",
+          "archiveSha256": "168fdb985161ec85d8eebdee7acf40a90f58a5ba04d4f40cc49456c3bffe2b2d",
+          "upstreamSha256": "168fdb985161ec85d8eebdee7acf40a90f58a5ba04d4f40cc49456c3bffe2b2d",
+          "identical": true
+        },
+        {
+          "path": "src/limits.rs",
+          "archiveSha256": "dee72ca632af509b2a1fb331042aab514235e216d77956360e86c289cad4b939",
+          "upstreamSha256": "dee72ca632af509b2a1fb331042aab514235e216d77956360e86c289cad4b939",
+          "identical": true
+        },
+        {
+          "path": "src/payload.rs",
+          "archiveSha256": "ea427796aaac3fb4887ef33f857dc8446ba38a7de6604a3440d1ddfdd00a2a16",
+          "upstreamSha256": "ea427796aaac3fb4887ef33f857dc8446ba38a7de6604a3440d1ddfdd00a2a16",
+          "identical": true
+        },
+        {
+          "path": "src/reader.rs",
+          "archiveSha256": "a6b09817225ed81030664b44cc50b7ebf178c265b4ecf7b3130a89987c8d8034",
+          "upstreamSha256": "a6b09817225ed81030664b44cc50b7ebf178c265b4ecf7b3130a89987c8d8034",
+          "identical": true
+        },
+        {
+          "path": "src/shortcut.rs",
+          "archiveSha256": "add1210abbf1846834786491a4465af5a42eb9f5eb473c73ad8708c840632c22",
+          "upstreamSha256": "add1210abbf1846834786491a4465af5a42eb9f5eb473c73ad8708c840632c22",
+          "identical": true
+        },
+        {
+          "path": "src/text.rs",
+          "archiveSha256": "5965a13f7991fc1551eb6982170727165a720bd02dcf135dcf2de75497490964",
+          "upstreamSha256": "5965a13f7991fc1551eb6982170727165a720bd02dcf135dcf2de75497490964",
+          "identical": true
+        },
+        {
+          "path": "src/utf16.rs",
+          "archiveSha256": "ecb74c97206e65722aaf6d5bd49d99ee944434af48e4973135be41c18e7fe45c",
+          "upstreamSha256": "ecb74c97206e65722aaf6d5bd49d99ee944434af48e4973135be41c18e7fe45c",
+          "identical": true
+        },
+        {
+          "path": "tests/flavor.rs",
+          "archiveSha256": "5cd51acde009ad36202f67b91b200b6666d53d6ebcba31e9cc9d14df0448a5c0",
+          "upstreamSha256": "5cd51acde009ad36202f67b91b200b6666d53d6ebcba31e9cc9d14df0448a5c0",
+          "identical": true
+        },
+        {
+          "path": "tests/limits.rs",
+          "archiveSha256": "4653886bad1905d17f5bd5766217dd0569c4c60b97a1ffaa50e3669b7015da17",
+          "upstreamSha256": "4653886bad1905d17f5bd5766217dd0569c4c60b97a1ffaa50e3669b7015da17",
+          "identical": true
+        },
+        {
+          "path": "tests/payload.rs",
+          "archiveSha256": "a49422981b361ba2898bbe8c95710eeee16efc6c68036a2030f0b1d598dfe3e3",
+          "upstreamSha256": "a49422981b361ba2898bbe8c95710eeee16efc6c68036a2030f0b1d598dfe3e3",
+          "identical": true
+        },
+        {
+          "path": "tests/reader.rs",
+          "archiveSha256": "1b1c92badec498af5b4475756498da959398bfaccca5214d49543b52bcf770d8",
+          "upstreamSha256": "1b1c92badec498af5b4475756498da959398bfaccca5214d49543b52bcf770d8",
+          "identical": true
+        },
+        {
+          "path": "tests/text.rs",
+          "archiveSha256": "96af2565fbc381b73770e7384570ca86456a2fea4a2175d0370f30ad660f96f6",
+          "upstreamSha256": "96af2565fbc381b73770e7384570ca86456a2fea4a2175d0370f30ad660f96f6",
+          "identical": true
+        }
+      ]
+    },
+    {
+      "identity": "rclip-rtf@0.1.0",
+      "archiveSha256": "e64929d6244eea54b6ae4276d5724ae8833c269b8156dd63d48b4f13d39a78ed",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "existingSelectedLicense": "Apache-2.0",
+      "authors": [
+        "Felix Schütt <felix.schuett@maps4print.com>"
+      ],
+      "sourceCommit": "371c7203faeb3a5f13604a574a7a2e37bba48226",
+      "sourcePath": "crates/rclip-rtf",
+      "standaloneNoticeFiles": [],
+      "noticePatternHits": [],
+      "snapshots": [
+        {
+          "file": "rclip-rtf/Cargo.toml",
+          "sha256": "3af91d1bc18fe2a714cb25eb40e58b13b4c4d416f6f68a177659acf11fc704cf"
+        },
+        {
+          "file": "rclip-rtf/Cargo.toml.orig",
+          "sha256": "501071d040ec9e3e415b35be463269b3d9913f622cf3b3c230b821b0b2daac18"
+        },
+        {
+          "file": "rclip-rtf/README.md",
+          "sha256": "5262511388f2db2cf49f5fabe3794c06f078cddac1304ff1fd04f007606801f1"
+        },
+        {
+          "file": "rclip-rtf/.cargo_vcs_info.json",
+          "sha256": "ceae9a473bdd853daf25c366bb7e030338ee93a12a902ae70c643acc5eb860aa"
+        },
+        {
+          "file": "rclip-rtf/workspace-Cargo.toml",
+          "sha256": "74dc6f278438ec3f781e970478428be6f22c3647e0e4dddfb3b03baedd4dbfbc"
+        }
+      ],
+      "sourceComparisons": [
+        {
+          "path": "Cargo.toml.orig",
+          "archiveSha256": "501071d040ec9e3e415b35be463269b3d9913f622cf3b3c230b821b0b2daac18",
+          "upstreamSha256": "501071d040ec9e3e415b35be463269b3d9913f622cf3b3c230b821b0b2daac18",
+          "identical": true
+        },
+        {
+          "path": "README.md",
+          "archiveSha256": "5262511388f2db2cf49f5fabe3794c06f078cddac1304ff1fd04f007606801f1",
+          "upstreamSha256": "5262511388f2db2cf49f5fabe3794c06f078cddac1304ff1fd04f007606801f1",
+          "identical": true
+        },
+        {
+          "path": "src/codepage.rs",
+          "archiveSha256": "061eea2dcee0697af1aa27d114865cb85131d06a118dc9de452991aadd065e60",
+          "upstreamSha256": "061eea2dcee0697af1aa27d114865cb85131d06a118dc9de452991aadd065e60",
+          "identical": true
+        },
+        {
+          "path": "src/control.rs",
+          "archiveSha256": "0076870af444f58c2602a445616562ea4504eddf3d9c48f052941c9fe73b8426",
+          "upstreamSha256": "0076870af444f58c2602a445616562ea4504eddf3d9c48f052941c9fe73b8426",
+          "identical": true
+        },
+        {
+          "path": "src/document.rs",
+          "archiveSha256": "48baa25aec06eb6549fdc2f83f61093e6be04d769a11993f8c27fc9509d0c560",
+          "upstreamSha256": "48baa25aec06eb6549fdc2f83f61093e6be04d769a11993f8c27fc9509d0c560",
+          "identical": true
+        },
+        {
+          "path": "src/lib.rs",
+          "archiveSha256": "06f2c97c19232af84d55b26072aa067fe64da0237fec46dea5e879e49f81bce8",
+          "upstreamSha256": "06f2c97c19232af84d55b26072aa067fe64da0237fec46dea5e879e49f81bce8",
+          "identical": true
+        },
+        {
+          "path": "src/parse.rs",
+          "archiveSha256": "7984a8ef91ca184f31913bf1be5d82a90dafe548ae04a7903b3ef92a1c8bf2bb",
+          "upstreamSha256": "7984a8ef91ca184f31913bf1be5d82a90dafe548ae04a7903b3ef92a1c8bf2bb",
+          "identical": true
+        },
+        {
+          "path": "src/style.rs",
+          "archiveSha256": "f64f376a8c8fed7b61d7c56260fa196107320f88a7b4c798a781366955dff996",
+          "upstreamSha256": "f64f376a8c8fed7b61d7c56260fa196107320f88a7b4c798a781366955dff996",
+          "identical": true
+        },
+        {
+          "path": "src/tables.rs",
+          "archiveSha256": "2b6f5a39069065db7bcb82beb0c062269f2c48cc26702a8560cf3ea69fd0961d",
+          "upstreamSha256": "2b6f5a39069065db7bcb82beb0c062269f2c48cc26702a8560cf3ea69fd0961d",
+          "identical": true
+        },
+        {
+          "path": "src/token.rs",
+          "archiveSha256": "e739baa77ce5c0d4950e477d6b6e4fa771bb9c9d15eaf2b2b4029cbd926e2ef4",
+          "upstreamSha256": "e739baa77ce5c0d4950e477d6b6e4fa771bb9c9d15eaf2b2b4029cbd926e2ef4",
+          "identical": true
+        },
+        {
+          "path": "src/write.rs",
+          "archiveSha256": "9d619dbea0094dd181ba79119f6d9850748373f29c4b327ea66f38ea46b32889",
+          "upstreamSha256": "9d619dbea0094dd181ba79119f6d9850748373f29c4b327ea66f38ea46b32889",
+          "identical": true
+        },
+        {
+          "path": "tests/rtf.rs",
+          "archiveSha256": "b1c3f7d3792ae52c3b9f32015e30bdd8c650b7ec72f5285db68abb1f615f81f7",
+          "upstreamSha256": "b1c3f7d3792ae52c3b9f32015e30bdd8c650b7ec72f5285db68abb1f615f81f7",
+          "identical": true
+        },
+        {
+          "path": "tests/write.rs",
+          "archiveSha256": "0314a59ca5ddaf8fe868c6ff2ef50bc39540739fc19466dcd501cf6265d5ad71",
+          "upstreamSha256": "0314a59ca5ddaf8fe868c6ff2ef50bc39540739fc19466dcd501cf6265d5ad71",
+          "identical": true
+        }
+      ]
+    }
+  ]
+}
