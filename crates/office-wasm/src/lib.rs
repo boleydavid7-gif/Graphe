@@ -17,7 +17,7 @@ mod view;
 mod wire;
 
 use office_core::{
-    Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, PageMargins, PageSize, Paragraph, Section,
+    Block, CharacterFormat, Document, DocumentSession, Id, OriginalSource, Paragraph, Section,
     TextCoordinates, Transaction, WriterFile, deserialize_writer_file, serialize_document,
     serialize_writer_file,
 };
@@ -711,14 +711,14 @@ impl BrowserEngine {
     /// This is presentation only; the document retains explicit/absent overrides.
     fn page_setup_view(&self) -> Option<wire::PageSetupView> {
         let document = self.session.document();
-        let section = self.selection.as_ref().and_then(|selection| {
-            document.sections().iter().find(|section| {
-                section.paragraphs().any(|paragraph| paragraph.id().as_str() == selection.focus.paragraph_id)
-            })
-        }).or_else(|| self.selected_image.as_ref().and_then(|id| {
+        let section = self.selected_image.as_ref().and_then(|id| {
             document.sections().iter().find(|section| section.blocks().iter().any(|block| {
                 matches!(block, Block::Image(image) if image.id() == id)
             }))
+        }).or_else(|| self.selection.as_ref().and_then(|selection| {
+            document.sections().iter().find(|section| {
+                section.paragraphs().any(|paragraph| paragraph.id().as_str() == selection.focus.paragraph_id)
+            })
         })).or_else(|| document.sections().first())?;
         let defaults = office_layout::LayoutOptions::default();
         Some(wire::PageSetupView {
