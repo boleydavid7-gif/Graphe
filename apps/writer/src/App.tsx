@@ -812,9 +812,14 @@ export default function App() {
       return;
     }
     const value = state.values;
-    const numbers = [value.widthIn, value.heightIn, value.topIn, value.rightIn, value.bottomIn, value.leftIn]
-      .map((entry) => entry.trim() ? Number(entry) : NaN);
-    const [width, height, top, right, bottom, left] = numbers;
+    const parseInches = (entry: string) => entry.trim() ? Number(entry) : NaN;
+    const width = parseInches(value.widthIn);
+    const height = parseInches(value.heightIn);
+    const top = parseInches(value.topIn);
+    const right = parseInches(value.rightIn);
+    const bottom = parseInches(value.bottomIn);
+    const left = parseInches(value.leftIn);
+    const numbers = [width, height, top, right, bottom, left];
     if (!numbers.every(Number.isFinite) || width < 3 || width > 22 || height < 3 || height > 22
       || [top, right, bottom, left].some((margin) => margin < 0 || margin > 4)) {
       setPageSetupDialog({ ...state, error: 'Paper dimensions must be 3–22 inches; margins must be 0–4 inches.' });
