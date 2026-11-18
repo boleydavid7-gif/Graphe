@@ -11,6 +11,7 @@ interface Gesture {
   readonly initial: Point;
   readonly pointers: Map<number, Point>;
   readonly handle: Handle | null;
+  readonly transform: { left: number; top: number; scaleX: number; scaleY: number };
   readonly kind: 'move' | 'resize' | 'pinch';
   rect: LayoutRect;
   distance?: number;
@@ -39,15 +40,23 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
   readonly urls: ReadonlyMap<string, string>;
   readonly selectedId?: string | null;
   readonly onSelect?: (id: string) => void;
-  readonly onResize?: (id: string, widthPt: number, heightPt: number | undefined, lockAspect: boolean) => void;
-  readonly onMove?: (id: string, alignment: Alignment, clientX: number, clientY: number) => void;
+  readonly onResize?: (id: string, widthPt: number, heightPt: number | undefined, lockAspect: boolean) => boolean;
+  readonly onMove?: (id: string, alignment: Alignment, clientX: number, clientY: number) => boolean;
   readonly unitsPerPoint?: number;
   readonly disabled?: boolean;
 }) {
   const group = useRef<SVGGElement>(null);
   const active = useRef<Gesture | null>(null);
+  const frame = useRef<number | null>(null);
+  useEffect(() => () => { if (frame.current !== null) cancelAnimationFrame(frame.current); }, []);
   const [preview, setPreview] = useState<{ id: string; rect: LayoutRect } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const pending = useRef(false);
+  useEffect(() => {
+    // A new immutable page snapshot is Rust's acknowledgement, including an
+    // undo/replacement received before the original edit finished laying out.
+    if (pending.current) { pending.current = false; setPreview(null); }
+  }, [page]);
   const editable = !disabled && !!onSelect && !!onResize && !!onMove;
   useEffect(() => {
     const element = group.current;
@@ -73,6 +82,8 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
   function point(event: ReactPointerEvent<SVGGElement>): Point | null {
     const svg = event.currentTarget.ownerSVGElement;
     if (!svg) return null;
+    const frozen = active.current?.transform;
+    if (frozen) return { x: (event.clientX - frozen.left) * frozen.scaleX, y: (event.clientY - frozen.top) * frozen.scaleY };
     const bounds = svg.getBoundingClientRect();
     if (!bounds.width || !bounds.height) return null;
     return {
@@ -108,6 +119,10 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
       id: image.id, start: rect, image, initial: here, pointers: new Map([[event.pointerId, here]]),
       kind: handle && selectedId === image.id ? 'resize' : 'move',
       handle: handle && selectedId === image.id ? handle : null,
+      transform: (() => {
+        const bounds = event.currentTarget.ownerSVGElement!.getBoundingClientRect();
+        return { left: bounds.left, top: bounds.top, scaleX: page.width / bounds.width, scaleY: page.height / bounds.height };
+      })(),
       rect, changed: false,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -160,9 +175,20 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
     }
     const changed = Math.abs(next.x - original.x) + Math.abs(next.y - original.y)
       + Math.abs(next.width - original.width) + Math.abs(next.height - original.height) > 3 * unitsPerPoint;
+    // Use the same alignment anchor as committed Rust layout: center/right
+    // pictures must not jump sideways when the final size is published.
+    if (gesture.kind !== 'move') next = { ...next, x: page.contentRect.x
+      + (gesture.image.alignment === 'center' ? (page.contentRect.width - next.width) / 2
+        : gesture.image.alignment === 'right' ? page.contentRect.width - next.width : 0) };
     gesture.rect = next;
     gesture.changed ||= changed;
-    if (gesture.changed) { setPreview({ id: gesture.id, rect: next }); setDragging(true); }
+    if (gesture.changed && frame.current === null) {
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null;
+        const current = active.current;
+        if (current) { setPreview({ id: current.id, rect: current.rect }); setDragging(true); }
+      });
+    }
   }
 
   function finish(event: ReactPointerEvent<SVGGElement>, commit: boolean): void {
@@ -170,6 +196,7 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
     if (!gesture?.pointers.has(event.pointerId)) return;
     event.preventDefault();
     event.stopPropagation();
+    if (frame.current !== null) { cancelAnimationFrame(frame.current); frame.current = null; }
     const rect = gesture.rect;
     const changed = gesture.changed;
     const kind = gesture.kind;
@@ -177,17 +204,20 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
       if (event.currentTarget.hasPointerCapture(pointerId)) event.currentTarget.releasePointerCapture(pointerId);
     }
     active.current = null;
-    setPreview(null);
     setDragging(false);
-    if (!commit || !changed) return;
+    if (!commit || !changed) { setPreview(null); return; }
+    pending.current = true;
+    setPreview({ id: gesture.id, rect });
+    let accepted: boolean;
     if (kind === 'move') {
-      onMove?.(gesture.id, alignmentFor(rect, page), event.clientX, event.clientY);
+      accepted = onMove?.(gesture.id, alignmentFor(rect, page), event.clientX, event.clientY) ?? false;
     } else {
       const widthPt = Math.round(rect.width / unitsPerPoint * 20) / 20;
       const heightPt = Math.round(rect.height / unitsPerPoint * 20) / 20;
       const lockAspect = kind === 'pinch' || !!gesture.handle && gesture.handle.length === 2;
-      onResize?.(gesture.id, widthPt, lockAspect ? undefined : heightPt, lockAspect);
+      accepted = onResize?.(gesture.id, widthPt, lockAspect ? undefined : heightPt, lockAspect) ?? false;
     }
+    if (!accepted) { pending.current = false; setPreview(null); }
   }
 
   return <g ref={group} className="document-images">{page.images?.map((placement) => {

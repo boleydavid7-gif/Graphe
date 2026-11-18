@@ -583,3 +583,39 @@ test('desktop vertical image drag reorders body blocks rather than storing float
   const undone = await nativeFile(page);
   expect(undone.document.sections[0]?.blocks).toEqual(initial.document.sections[0]?.blocks);
 });
+
+test('centered image resize stays anchored when the viewport shifts during a gesture', async ({ page }) => {
+  await start(page);
+  await insertPng(page);
+  const dialog = await properties(page);
+  await dialog.getByRole('combobox', { name: 'Alignment', exact: true }).selectOption('center');
+  await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+  await readyPages(page);
+  await renderedImages(page).click();
+  const image = renderedImages(page);
+  const initial = await image.evaluate((element) => ({ x: Number(element.getAttribute('x')), width: Number(element.getAttribute('width')) }));
+  const handle = page.locator('[data-image-resize-handle="se"]');
+  const box = await handle.boundingBox();
+  if (!box) throw new Error('Resize handle missing');
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 15, y + 8);
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  await expect.poll(async () => Number(await image.getAttribute('width'))).toBeGreaterThan(initial.width);
+  const beforeShift = await image.getAttribute('width');
+  // Controlled viewport/keyboard movement: change the page origin without
+  // moving the finger. This must not change the gesture's scale or distance.
+  await image.evaluate((element) => { (element as SVGGraphicsElement).ownerSVGElement!.style.transform = 'translateY(60px)'; });
+  await page.mouse.move(x + 15, y + 8);
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(Number(await image.getAttribute('width'))).toBeCloseTo(Number(beforeShift), 2);
+  const preview = await image.evaluate((element) => ({ x: Number(element.getAttribute('x')), width: Number(element.getAttribute('width')) }));
+  expect(preview.x + preview.width / 2).toBeCloseTo(initial.x + initial.width / 2, 2);
+  await image.evaluate((element) => { (element as SVGGraphicsElement).ownerSVGElement!.style.transform = ''; });
+  await page.mouse.up();
+  await readyPages(page);
+  const committed = await image.evaluate((element) => ({ x: Number(element.getAttribute('x')), width: Number(element.getAttribute('width')) }));
+  expect(committed.width).toBeGreaterThan(initial.width);
+  expect(Math.abs(committed.x + committed.width / 2 - initial.x - initial.width / 2)).toBeLessThanOrEqual(1);
+});

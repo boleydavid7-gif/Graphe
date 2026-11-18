@@ -797,31 +797,32 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }
 
 
-  function commitImageEdit(imageId: string, action: Extract<WriterCommand, { type: 'resize_image' | 'move_image' }>): void {
+  function commitImageEdit(imageId: string, action: Extract<WriterCommand, { type: 'resize_image' | 'move_image' }>): boolean {
     const live = latest.current.getCurrentView();
     const displayed = current.current;
     if (!live || latest.current.disabled || composingRef.current
         || displayed.status !== 'ready' || !displayed.snapshot
         || live.selectedImageId !== imageId
-        || !sameOrigin(displayed.snapshot, origin(live))) return;
+        || !sameOrigin(displayed.snapshot, origin(live))) return false;
     const next = latest.current.onCommand({ ...action, expectedRevision: live.revision });
     if (next) {
       input.current?.syncView(next);
       refresh(origin(next));
     }
+    return !!next && next.revision !== live.revision;
   }
 
   // Find a structural insertion point in Rust's already-positioned body flow.
   // Images remain in-flow, not floating overlays: dropping before a paragraph,
   // table or image moves the image block rather than inventing a CSS position.
   function commitImageMove(imageId: string, alignment: ImageView['alignment'],
-    clientX: number, clientY: number): void {
+    clientX: number, clientY: number): boolean {
     const live = latest.current.getCurrentView();
     const value = current.current;
-    if (!live || !value.snapshot || !sameOrigin(value.snapshot, origin(live))) return;
+    if (!live || !value.snapshot || !sameOrigin(value.snapshot, origin(live))) return false;
     const blocks = live.bodyBlocks ?? [];
     const source = blocks.find((block) => block.id === imageId && block.kind === 'image');
-    if (!source || live.selectedImageId !== imageId) return;
+    if (!source || live.selectedImageId !== imageId) return false;
     let nearest: { page: LayoutPage; bounds: DOMRect; distance: number } | undefined;
     for (const page of value.snapshot.layout.pages) {
       if (page.sectionId !== source.sectionId) continue;
@@ -832,7 +833,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
       const distance = dx * dx + dy * dy;
       if (!nearest || distance < nearest.distance) nearest = { page, bounds, distance };
     }
-    if (!nearest) return;
+    if (!nearest) return false;
     const hoverPage = nearest.page.number;
     const hoverY = (clientY - nearest.bounds.top) / nearest.bounds.height * nearest.page.height;
     const sectionBlocks = blocks.filter((block) => block.sectionId === source.sectionId);
@@ -855,8 +856,8 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
     })?.id ?? null;
     const originalIndex = sectionBlocks.findIndex((block) => block.id === imageId);
     const originalNext = sectionBlocks[originalIndex + 1]?.id ?? null;
-    if (originalNext === beforeBlockId && live.images?.find((image) => image.id === imageId)?.alignment === alignment) return;
-    commitImageEdit(imageId, { type: 'move_image', beforeBlockId, alignment });
+    if (originalNext === beforeBlockId && live.images?.find((image) => image.id === imageId)?.alignment === alignment) return false;
+    return commitImageEdit(imageId, { type: 'move_image', beforeBlockId, alignment });
   }
 
   const snapshot = display.snapshot;
@@ -1006,7 +1007,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                       cancelGesture();
                       setTouchSelection(null);
                       const next = props.onCommand({ type: 'select_image', imageId: id, expectedRevision: snapshot.revision });
-                      if (next) { input.current?.syncView(next); root.current?.focus({ preventScroll: true }); refresh(origin(next)); }
+                      if (next) { input.current?.syncView(next); root.current?.focus({ preventScroll: true }); if (props.view.selectedImageId !== id) refresh(origin(next)); }
                     }} />
                   {!props.view.selectedImageId && selection?.rectangles.filter((rectangle) => rectangle.pageNumber === page.number).map((rectangle, index) =>
                     <rect key={`selection-${index}`} className="paged-editor-selection" {...rectangle.rect} data-editor-selection="true" />)}
