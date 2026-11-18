@@ -4,6 +4,7 @@ description = "Deterministic pinned-font typography and paginated Writer layout"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 office-core = { path = "../office-core" }
