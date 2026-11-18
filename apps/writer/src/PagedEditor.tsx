@@ -4,6 +4,7 @@ import {
 } from 'react';
 import { EditorSurface, type EditorSurfaceHandle, type EditorSurfaceProps } from './EditorSurface';
 import { SelectionActions } from './SelectionActions';
+import { TableGrid } from './TableGrid';
 import type { LayoutOrigin, PreviewZoom } from './PagePreview';
 import type {
   CaretGeometry, LayoutAction, LayoutGlyphOutline, LayoutLine, LayoutPage, LayoutSelectionView, LayoutView,
@@ -891,6 +892,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
                   // Keep native magnification available alongside document
                   // scrolling; pan-y alone disables the browser's pinch zoom.
                   style={{ touchAction: 'pan-x pan-y pinch-zoom', userSelect: 'none', cursor: 'text' }}>
+                  <TableGrid page={page} />
                   {selection?.rectangles.filter((rectangle) => rectangle.pageNumber === page.number).map((rectangle, index) =>
                     <rect key={`selection-${index}`} className="paged-editor-selection" {...rectangle.rect} data-editor-selection="true" />)}
                   <GlyphLines lines={page.lines} namespace={namespace} />

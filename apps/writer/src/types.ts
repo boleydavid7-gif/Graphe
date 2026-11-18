@@ -42,11 +42,26 @@ export interface RunView {
   readonly format: CharacterView;
 }
 
+/** Rust-owned table location, kept out of JavaScript text editing logic. */
+export interface TableCellContext {
+  readonly tableId: string;
+  readonly rowId: string;
+  readonly cellId: string;
+  readonly row: number;
+  readonly column: number;
+  readonly rowCount: number;
+  readonly columnCount: number;
+}
+
+export type TableAction = 'insert_row_above' | 'insert_row_below' | 'delete_row'
+  | 'insert_column_before' | 'insert_column_after' | 'delete_column' | 'delete_table';
+
 export interface ParagraphView {
   readonly id: string;
   readonly sectionId: string;
   readonly styleId: string | null;
   readonly list: ListKind | null;
+  readonly tableCell?: TableCellContext | null;
   readonly runs: readonly RunView[];
   readonly format: {
     readonly alignment: Alignment;
@@ -68,6 +83,7 @@ export interface WriterView {
   readonly paragraphs: readonly ParagraphView[];
   readonly styles: readonly { readonly id: string; readonly name: string }[];
   readonly selection: WriterSelection | null;
+  readonly table?: TableCellContext | null;
   readonly format: {
     readonly bold: boolean | null;
     readonly italic: boolean | null;
@@ -115,6 +131,9 @@ export type WriterCommand =
   | { readonly type: 'replace_all'; readonly query: string; readonly text: string; readonly expectedRevision?: string }
   | ({ readonly type: 'insert_paragraph' } & EditOrigin)
   | ({ readonly type: 'insert_line_break' } & EditOrigin)
+  | ({ readonly type: 'insert_table'; readonly rows: number; readonly columns: number } & EditOrigin)
+  | ({ readonly type: 'table_action'; readonly action: TableAction } & EditOrigin)
+  | ({ readonly type: 'move_table_cell'; readonly direction: 'forward' | 'backward' } & EditOrigin)
   | ({ readonly type: 'delete'; readonly direction: 'backward' | 'forward' } & EditOrigin)
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
@@ -251,6 +270,13 @@ export interface LayoutPage {
   readonly height: number;
   readonly contentRect: LayoutRect;
   readonly lines: readonly LayoutLine[];
+  readonly tableCells?: readonly {
+    readonly tableId: string;
+    readonly rowId: string;
+    readonly cellId: string;
+    readonly rect: LayoutRect;
+    readonly paragraphIds: readonly string[];
+  }[];
 }
 
 export interface LayoutDiagnostic {

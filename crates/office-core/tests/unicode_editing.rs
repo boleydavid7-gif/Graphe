@@ -71,7 +71,9 @@ fn original(text: &str, split: bool) -> Document {
 }
 
 fn paragraph(document: &Document) -> &Paragraph {
-    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph");
+    };
     paragraph
 }
 

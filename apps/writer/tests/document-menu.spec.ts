@@ -289,10 +289,12 @@ for (const touch of [false, true]) {
 
     test('both notice links open actual bundled attribution resources', async ({ page }) => {
       await start(page);
-      for (const [name, contents] of [['Font licenses', 'SIL OPEN FONT LICENSE'], ['Format library notices', 'Apache License']] as const) {
-        await openMenu(page, touch);
+      await action(page, 'About Graphe', touch);
+      const about = page.getByRole('dialog', { name: 'About Graphe', exact: true });
+      await expect(about).toBeVisible();
+      for (const [name, contents] of [['Bundled font licenses', 'SIL OPEN FONT LICENSE'], ['Third-party format library notices', 'Apache License']] as const) {
         const pending = page.waitForEvent('popup');
-        await activate(menu(page).getByRole('link', { name, exact: true }), touch);
+        await activate(about.getByRole('link', { name, exact: true }), touch);
         const popup = await pending;
         try {
           await popup.waitForLoadState();
@@ -300,6 +302,9 @@ for (const touch of [false, true]) {
           expect(new URL(popup.url()).origin).toBe(new URL(page.url()).origin);
         } finally { await popup.close(); }
       }
+      await activate(about.getByRole('button', { name: 'Done', exact: true }), touch);
+      await expect(about).toHaveCount(0);
+      await expect(summary(page)).toBeFocused();
     });
 
     test('null-target focus loss during a trusted menu activation does not swallow its click', async ({ page }) => {
@@ -332,15 +337,27 @@ for (const touch of [false, true]) {
       expect(panel.y).toBeGreaterThanOrEqual(0);
       expect(panel.y + panel.height).toBeLessThanOrEqual(page.viewportSize()!.height);
       expect(await page.locator('.writer-app').evaluate((element) => element.scrollTop)).toBe(0);
-      const last = menu(page).getByRole('link', { name: 'Format library notices', exact: true });
+      const last = menu(page).getByRole('button', { name: 'About Graphe', exact: true });
       await scrollMenuToEnd(page);
       const box = await last.boundingBox();
       if (!box) throw new Error('Last menu command is not reachable');
       expect(box.y).toBeGreaterThanOrEqual(0);
       expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
-      const pending = page.waitForEvent('popup');
       await activate(last, touch);
+      const about = page.getByRole('dialog', { name: 'About Graphe', exact: true });
+      await expect(about).toBeVisible();
+      const notices = about.getByRole('link', { name: 'Third-party format library notices', exact: true });
+      await notices.scrollIntoViewIfNeeded();
+      const noticeBox = await notices.boundingBox();
+      if (!noticeBox) throw new Error('The bundled notices are not reachable in About Graphe');
+      expect(noticeBox.y).toBeGreaterThanOrEqual(0);
+      expect(noticeBox.y + noticeBox.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+      const pending = page.waitForEvent('popup');
+      await activate(notices, touch);
       await (await pending).close();
+      await activate(about.getByRole('button', { name: 'Done', exact: true }), touch);
+      await expect(about).toHaveCount(0);
+      await expect(summary(page)).toBeFocused();
       expect(await page.locator('.writer-app').evaluate((element) => element.scrollTop)).toBe(0);
       await openMenu(page, touch);
       const outside = page.getByRole('button', { name: 'Write', exact: true });
@@ -365,7 +382,7 @@ for (const touch of [false, true]) {
       await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
       if (touch) {
         await activate(summary(page), true);
-        await page.getByRole('button', { name: 'More formatting', exact: true }).tap();
+        await page.getByRole('button', { name: 'Show text formatting', exact: true }).tap();
       }
       for (const name of ['Font family', 'Font size']) {
         await expect(page.getByRole('combobox', { name, exact: true })).toBeDisabled();
@@ -380,7 +397,7 @@ for (const touch of [false, true]) {
         await expect(page.getByRole('combobox', { name, exact: true })).toBeEnabled();
       }
       await expect(page.getByRole('button', { name: 'Align right', exact: true })).toBeEnabled();
-      if (touch) await page.getByRole('button', { name: 'More formatting', exact: true }).tap();
+      if (touch) await page.getByRole('button', { name: 'Hide text formatting', exact: true }).tap();
       await action(page, 'Save As…', touch);
       const dialog = page.getByRole('dialog', { name: 'Save As', exact: true });
       await activate(dialog.getByRole('button', { name: 'Cancel', exact: true }), touch);
@@ -412,9 +429,15 @@ for (const touch of [false, true]) {
         return !!panel && panel.y >= 88 && panel.y + panel.height <= 452;
       }).toBe(true);
       await scrollMenuToEnd(page);
+      await action(page, 'About Graphe', touch);
+      const about = page.getByRole('dialog', { name: 'About Graphe', exact: true });
+      await expect(about).toBeVisible();
       const pending = page.waitForEvent('popup');
-      await activate(menu(page).getByRole('link', { name: 'Format library notices', exact: true }), touch);
+      await activate(about.getByRole('link', { name: 'Third-party format library notices', exact: true }), touch);
       await (await pending).close();
+      await activate(about.getByRole('button', { name: 'Done', exact: true }), touch);
+      await expect(about).toHaveCount(0);
+      await expect(summary(page)).toBeFocused();
       if (await menu(page).evaluate((element) => element.hasAttribute('open'))) await activate(summary(page), touch);
       const box = await page.locator('svg[data-layout-page]').first().boundingBox();
       if (!box) throw new Error('The document page is not displayed');
@@ -433,10 +456,12 @@ for (const touch of [false, true]) {
       await page.keyboard.insertText(text);
       await page.keyboard.press('Control+Home');
       await page.keyboard.press('Control+Shift+End');
-      const more = page.getByRole('button', { name: 'More formatting', exact: true });
+      const more = page.locator('button.more-formatting');
       await expect(more).toHaveAttribute('aria-expanded', 'false');
+      await expect(more).toHaveAccessibleName('Show text formatting');
       await more.tap();
       await expect(more).toHaveAttribute('aria-expanded', 'true');
+      await expect(more).toHaveAccessibleName('Hide text formatting');
       await page.getByRole('combobox', { name: 'Font family', exact: true }).selectOption('Tinos');
       await page.getByRole('combobox', { name: 'Font size', exact: true }).selectOption('18');
       await page.getByRole('button', { name: 'Align right', exact: true }).tap();
@@ -471,9 +496,25 @@ test('keyboard disclosure, Escape and Tab preserve visible focus and close on le
   await page.keyboard.press('Escape');
   await expect(menu(page)).not.toHaveAttribute('open', '');
   await expect(summary(page)).toBeFocused();
+  const commands = ['New document', 'Open document', 'Save As…', 'Export', 'Export Word', 'Page preview', 'Close', 'About Graphe'];
   await page.keyboard.press('Enter');
-  for (let index = 0; index < 9; index += 1) await page.keyboard.press('Tab');
-  await expect(menu(page).getByRole('link', { name: 'Format library notices', exact: true })).toBeFocused();
+  for (const name of commands) {
+    await page.keyboard.press('Tab');
+    await expect(menu(page).getByRole('button', { name, exact: true })).toBeFocused();
+  }
+  await page.keyboard.press('Enter');
+  const about = page.getByRole('dialog', { name: 'About Graphe', exact: true });
+  await expect(about).toBeVisible();
+  await expect(about.getByRole('link', { name: 'Bundled font licenses', exact: true })).toBeVisible();
+  await expect(about.getByRole('link', { name: 'Third-party format library notices', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(about).toHaveCount(0);
+  await expect(summary(page)).toBeFocused();
+  await page.keyboard.press('Enter');
+  for (const name of commands) {
+    await page.keyboard.press('Tab');
+    await expect(menu(page).getByRole('button', { name, exact: true })).toBeFocused();
+  }
   await page.keyboard.press('Tab');
   await expect(menu(page)).not.toHaveAttribute('open', '');
 });

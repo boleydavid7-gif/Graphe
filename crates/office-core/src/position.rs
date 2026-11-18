@@ -3,9 +3,7 @@ use std::error::Error;
 use std::fmt;
 use std::ops::Range;
 
-use crate::{
-    Block, Document, GraphemeOffset, Id, Paragraph, TextCoordinates, Utf8Offset, Utf16Offset,
-};
+use crate::{Document, GraphemeOffset, Id, Paragraph, TextCoordinates, Utf8Offset, Utf16Offset};
 
 /// The coordinate system used by an offset validation error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -239,10 +237,9 @@ impl Document {
         paragraph_id: &Id,
     ) -> Result<(&Paragraph, (usize, usize)), PositionError> {
         for (section_index, section) in self.sections().iter().enumerate() {
-            for (block_index, block) in section.blocks().iter().enumerate() {
-                let Block::Paragraph(paragraph) = block;
+            for (paragraph_index, paragraph) in section.paragraphs().enumerate() {
                 if paragraph.id() == paragraph_id {
-                    return Ok((paragraph, (section_index, block_index)));
+                    return Ok((paragraph, (section_index, paragraph_index)));
                 }
             }
         }

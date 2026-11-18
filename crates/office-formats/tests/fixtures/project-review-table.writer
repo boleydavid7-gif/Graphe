@@ -1,0 +1,2290 @@
+{
+  "format": "office-writer",
+  "format_version": 5,
+  "document": {
+    "schema_version": 5,
+    "id": "table-workflow-document",
+    "metadata": {
+      "title": "Quarterly project review"
+    },
+    "styles": [],
+    "sections": [
+      {
+        "id": "section",
+        "properties": null,
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "intro",
+              "runs": [
+                {
+                  "text": "Quarterly project review",
+                  "format": {
+                    "bold": true,
+                    "font_size": 32
+                  }
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 40,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 240
+                }
+              }
+            }
+          },
+          {
+            "kind": "table",
+            "content": {
+              "id": "review-table",
+              "column_widths": [
+                3000,
+                5000
+              ],
+              "rows": [
+                {
+                  "id": "r0",
+                  "cells": [
+                    {
+                      "id": "r0c0",
+                      "paragraphs": [
+                        {
+                          "id": "r0c0p0",
+                          "runs": [
+                            {
+                              "text": "Project milestone",
+                              "format": {
+                                "bold": true,
+                                "italic": false,
+                                "underline": "single",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r0c1",
+                      "paragraphs": [
+                        {
+                          "id": "r0c1p0",
+                          "runs": [
+                            {
+                              "text": "Status and notes",
+                              "format": {
+                                "bold": true,
+                                "italic": false,
+                                "underline": "single",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r1",
+                  "cells": [
+                    {
+                      "id": "r1c0",
+                      "paragraphs": [
+                        {
+                          "id": "r1c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 01 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        },
+                        {
+                          "id": "r1c0p1",
+                          "runs": [
+                            {
+                              "text": "A second paragraph in the same cell.",
+                              "format": {
+                                "underline": "none"
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r1c1",
+                      "paragraphs": [
+                        {
+                          "id": "r1c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 1: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r2",
+                  "cells": [
+                    {
+                      "id": "r2c0",
+                      "paragraphs": [
+                        {
+                          "id": "r2c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 02 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r2c1",
+                      "paragraphs": [
+                        {
+                          "id": "r2c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 2: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r3",
+                  "cells": [
+                    {
+                      "id": "r3c0",
+                      "paragraphs": [
+                        {
+                          "id": "r3c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 03 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r3c1",
+                      "paragraphs": [
+                        {
+                          "id": "r3c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 3: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r4",
+                  "cells": [
+                    {
+                      "id": "r4c0",
+                      "paragraphs": [
+                        {
+                          "id": "r4c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 04 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r4c1",
+                      "paragraphs": [
+                        {
+                          "id": "r4c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 4: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r5",
+                  "cells": [
+                    {
+                      "id": "r5c0",
+                      "paragraphs": [
+                        {
+                          "id": "r5c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 05 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r5c1",
+                      "paragraphs": [
+                        {
+                          "id": "r5c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 5: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r6",
+                  "cells": [
+                    {
+                      "id": "r6c0",
+                      "paragraphs": [
+                        {
+                          "id": "r6c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 06 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r6c1",
+                      "paragraphs": [
+                        {
+                          "id": "r6c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 6: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r7",
+                  "cells": [
+                    {
+                      "id": "r7c0",
+                      "paragraphs": [
+                        {
+                          "id": "r7c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 07 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r7c1",
+                      "paragraphs": [
+                        {
+                          "id": "r7c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 7: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r8",
+                  "cells": [
+                    {
+                      "id": "r8c0",
+                      "paragraphs": [
+                        {
+                          "id": "r8c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 08 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r8c1",
+                      "paragraphs": [
+                        {
+                          "id": "r8c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 8: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r9",
+                  "cells": [
+                    {
+                      "id": "r9c0",
+                      "paragraphs": [
+                        {
+                          "id": "r9c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 09 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r9c1",
+                      "paragraphs": [
+                        {
+                          "id": "r9c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 9: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r10",
+                  "cells": [
+                    {
+                      "id": "r10c0",
+                      "paragraphs": [
+                        {
+                          "id": "r10c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 10 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r10c1",
+                      "paragraphs": [
+                        {
+                          "id": "r10c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 10: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r11",
+                  "cells": [
+                    {
+                      "id": "r11c0",
+                      "paragraphs": [
+                        {
+                          "id": "r11c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 11 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r11c1",
+                      "paragraphs": [
+                        {
+                          "id": "r11c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 11: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r12",
+                  "cells": [
+                    {
+                      "id": "r12c0",
+                      "paragraphs": [
+                        {
+                          "id": "r12c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 12 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r12c1",
+                      "paragraphs": [
+                        {
+                          "id": "r12c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 12: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r13",
+                  "cells": [
+                    {
+                      "id": "r13c0",
+                      "paragraphs": [
+                        {
+                          "id": "r13c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 13 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r13c1",
+                      "paragraphs": [
+                        {
+                          "id": "r13c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 13: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r14",
+                  "cells": [
+                    {
+                      "id": "r14c0",
+                      "paragraphs": [
+                        {
+                          "id": "r14c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 14 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r14c1",
+                      "paragraphs": [
+                        {
+                          "id": "r14c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 14: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r15",
+                  "cells": [
+                    {
+                      "id": "r15c0",
+                      "paragraphs": [
+                        {
+                          "id": "r15c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 15 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r15c1",
+                      "paragraphs": [
+                        {
+                          "id": "r15c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 15: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r16",
+                  "cells": [
+                    {
+                      "id": "r16c0",
+                      "paragraphs": [
+                        {
+                          "id": "r16c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 16 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r16c1",
+                      "paragraphs": [
+                        {
+                          "id": "r16c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 16: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r17",
+                  "cells": [
+                    {
+                      "id": "r17c0",
+                      "paragraphs": [
+                        {
+                          "id": "r17c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 17 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r17c1",
+                      "paragraphs": [
+                        {
+                          "id": "r17c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 17: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r18",
+                  "cells": [
+                    {
+                      "id": "r18c0",
+                      "paragraphs": [
+                        {
+                          "id": "r18c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 18 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r18c1",
+                      "paragraphs": [
+                        {
+                          "id": "r18c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 18: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r19",
+                  "cells": [
+                    {
+                      "id": "r19c0",
+                      "paragraphs": [
+                        {
+                          "id": "r19c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 19 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r19c1",
+                      "paragraphs": [
+                        {
+                          "id": "r19c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 19: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r20",
+                  "cells": [
+                    {
+                      "id": "r20c0",
+                      "paragraphs": [
+                        {
+                          "id": "r20c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 20 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r20c1",
+                      "paragraphs": [
+                        {
+                          "id": "r20c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 20: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r21",
+                  "cells": [
+                    {
+                      "id": "r21c0",
+                      "paragraphs": [
+                        {
+                          "id": "r21c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 21 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r21c1",
+                      "paragraphs": [
+                        {
+                          "id": "r21c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 21: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r22",
+                  "cells": [
+                    {
+                      "id": "r22c0",
+                      "paragraphs": [
+                        {
+                          "id": "r22c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 22 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r22c1",
+                      "paragraphs": [
+                        {
+                          "id": "r22c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 22: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r23",
+                  "cells": [
+                    {
+                      "id": "r23c0",
+                      "paragraphs": [
+                        {
+                          "id": "r23c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 23 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r23c1",
+                      "paragraphs": [
+                        {
+                          "id": "r23c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 23: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r24",
+                  "cells": [
+                    {
+                      "id": "r24c0",
+                      "paragraphs": [
+                        {
+                          "id": "r24c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 24 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r24c1",
+                      "paragraphs": [
+                        {
+                          "id": "r24c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 24: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r25",
+                  "cells": [
+                    {
+                      "id": "r25c0",
+                      "paragraphs": [
+                        {
+                          "id": "r25c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 25 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r25c1",
+                      "paragraphs": [
+                        {
+                          "id": "r25c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 25: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r26",
+                  "cells": [
+                    {
+                      "id": "r26c0",
+                      "paragraphs": [
+                        {
+                          "id": "r26c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 26 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r26c1",
+                      "paragraphs": [
+                        {
+                          "id": "r26c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 26: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r27",
+                  "cells": [
+                    {
+                      "id": "r27c0",
+                      "paragraphs": [
+                        {
+                          "id": "r27c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 27 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r27c1",
+                      "paragraphs": [
+                        {
+                          "id": "r27c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 27: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r28",
+                  "cells": [
+                    {
+                      "id": "r28c0",
+                      "paragraphs": [
+                        {
+                          "id": "r28c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 28 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r28c1",
+                      "paragraphs": [
+                        {
+                          "id": "r28c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 28: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r29",
+                  "cells": [
+                    {
+                      "id": "r29c0",
+                      "paragraphs": [
+                        {
+                          "id": "r29c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 29 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r29c1",
+                      "paragraphs": [
+                        {
+                          "id": "r29c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 29: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r30",
+                  "cells": [
+                    {
+                      "id": "r30c0",
+                      "paragraphs": [
+                        {
+                          "id": "r30c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 30 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r30c1",
+                      "paragraphs": [
+                        {
+                          "id": "r30c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 30: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r31",
+                  "cells": [
+                    {
+                      "id": "r31c0",
+                      "paragraphs": [
+                        {
+                          "id": "r31c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 31 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r31c1",
+                      "paragraphs": [
+                        {
+                          "id": "r31c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 31: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r32",
+                  "cells": [
+                    {
+                      "id": "r32c0",
+                      "paragraphs": [
+                        {
+                          "id": "r32c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 32 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r32c1",
+                      "paragraphs": [
+                        {
+                          "id": "r32c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 32: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r33",
+                  "cells": [
+                    {
+                      "id": "r33c0",
+                      "paragraphs": [
+                        {
+                          "id": "r33c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 33 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r33c1",
+                      "paragraphs": [
+                        {
+                          "id": "r33c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 33: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r34",
+                  "cells": [
+                    {
+                      "id": "r34c0",
+                      "paragraphs": [
+                        {
+                          "id": "r34c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 34 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r34c1",
+                      "paragraphs": [
+                        {
+                          "id": "r34c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 34: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": true,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "id": "r35",
+                  "cells": [
+                    {
+                      "id": "r35c0",
+                      "paragraphs": [
+                        {
+                          "id": "r35c0p0",
+                          "runs": [
+                            {
+                              "text": "Phase 35 — Café é",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "r35c1",
+                      "paragraphs": [
+                        {
+                          "id": "r35c1p0",
+                          "runs": [
+                            {
+                              "text": "Row 35: Review العربية 👩🏽‍💻 text and formatting",
+                              "format": {
+                                "bold": false,
+                                "italic": false,
+                                "underline": "none",
+                                "font_family": "Arimo",
+                                "font_size": 24
+                              }
+                            }
+                          ],
+                          "style": null,
+                          "format": {
+                            "spacing_after": 40,
+                            "line_spacing": {
+                              "kind": "multiple",
+                              "value": 240
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "closing",
+              "runs": [
+                {
+                  "text": "Prepared locally in Graphe. No cloud account required.",
+                  "format": {}
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 40,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 240
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

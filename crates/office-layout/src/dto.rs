@@ -147,6 +147,25 @@ pub struct LineLayout {
     pub decorations: Vec<Decoration>,
 }
 
+/// A table cell's border box, computed by Rust independently of a renderer.
+///
+/// Cells are emitted in row-major document order. Shared borders coincide;
+/// renderers should draw a half-point solid neutral border on these rectangles.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TableCellLayout {
+    /// Stable table identifier.
+    pub table_id: String,
+    /// Stable row identifier.
+    pub row_id: String,
+    /// Stable cell identifier.
+    pub cell_id: String,
+    /// Page-local cell border box in fixed output units.
+    pub rect: Rect,
+    /// Stable paragraph IDs belonging to this cell, in source order.
+    pub paragraph_ids: Vec<String>,
+}
+
 /// One physical page. Sections start on a new page in this first layout profile.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -163,6 +182,9 @@ pub struct PageLayout {
     pub content_rect: Rect,
     /// Lines placed by Rust; frontend text measurement is unnecessary.
     pub lines: Vec<LineLayout>,
+    /// Rust-positioned cell borders; absent from serialized tableless layouts.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub table_cells: Vec<TableCellLayout>,
 }
 
 /// A supported layout completed with a clearly reported fidelity limitation.

@@ -1,27 +1,39 @@
 //! First-level external links survive the DOCX relationship graph.
 
 use office_core::{Block, Document, DocumentMetadata, Id, Paragraph, Section, TextRun};
-use office_docx::{DocxImportOutcome, DocxSource, export_docx,
-    export_docx_with_source, import_docx};
+use office_docx::{
+    DocxImportOutcome, DocxSource, export_docx, export_docx_with_source, import_docx,
+};
 
 fn document() -> Document {
     let mut run = TextRun::new("Example website");
     run.format.hyperlink = Some("https://example.com/article?x=1&y=2".into());
-    let paragraph = Paragraph::new(Id::new("p").unwrap(),
-        vec![TextRun::new("Before "), run, TextRun::new(" after")]);
+    let paragraph = Paragraph::new(
+        Id::new("p").unwrap(),
+        vec![TextRun::new("Before "), run, TextRun::new(" after")],
+    );
     Document::from_parts(
-        Id::new("doc").unwrap(), DocumentMetadata::default(),
-        vec![Section::new(Id::new("s").unwrap(),
-            vec![Block::Paragraph(paragraph)])], vec![],
-    ).unwrap()
+        Id::new("doc").unwrap(),
+        DocumentMetadata::default(),
+        vec![Section::new(
+            Id::new("s").unwrap(),
+            vec![Block::Paragraph(paragraph)],
+        )],
+        vec![],
+    )
+    .unwrap()
 }
 
 fn assert_link(document: &Document) {
-    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0];
+    let Block::Paragraph(paragraph) = &document.sections()[0].blocks()[0] else {
+        panic!("expected paragraph")
+    };
     assert_eq!(paragraph.runs().len(), 3);
     assert_eq!(paragraph.runs()[1].text, "Example website");
-    assert_eq!(paragraph.runs()[1].format.hyperlink.as_deref(),
-        Some("https://example.com/article?x=1&y=2"));
+    assert_eq!(
+        paragraph.runs()[1].format.hyperlink.as_deref(),
+        Some("https://example.com/article?x=1&y=2")
+    );
     assert_eq!(paragraph.runs()[0].format.hyperlink, None);
     assert_eq!(paragraph.runs()[2].format.hyperlink, None);
 }

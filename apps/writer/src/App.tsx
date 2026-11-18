@@ -15,7 +15,9 @@ import formatLicensesUrl from '../../../crates/office-formats/THIRD_PARTY_NOTICE
 import grapheLicenseUrl from '../../../LICENSE?url';
 
 function safeHyperlink(value: string): boolean {
+  // Explicit ASCII control rejection matches the Rust URL validation contract.
   if (value.length === 0 || value.length > 2048 ||
+    // eslint-disable-next-line no-control-regex
     /[\s\x00-\x1f\x7f<>"\\]/.test(value)) return false;
   try {
     const url = new URL(value);
@@ -284,10 +286,20 @@ export default function App() {
   const [findOpen, setFindOpen] = useState(false);
   const [hyperlinkDialog, setHyperlinkDialog] = useState<HyperlinkDialogState | null>(null);
   const [paragraphDialog, setParagraphDialog] = useState<ParagraphDialogState | null>(null);
+  const [tableDialog, setTableDialog] = useState<{ rows: number; columns: number; revision: string } | null>(null);
+  const pendingTableFocus = useRef(false);
+  const [proairetosFileId, setProairetosFileId] = useState<string | null>(null);
+  const proairetosSession = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'insert' | 'layout' | 'review'>('write');
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const ribbonRef = useRef<HTMLDivElement | null>(null);
   const previousTabRef = useRef(activeTab);
+  useLayoutEffect(() => {
+    if (!tableDialog && pendingTableFocus.current) {
+      pendingTableFocus.current = false;
+      surface.current?.focus();
+    }
+  }, [tableDialog]);
   useEffect(() => {
     if (previousTabRef.current === activeTab) return;
     previousTabRef.current = activeTab;
@@ -840,7 +852,7 @@ export default function App() {
   }
 
   const importFileRef = useRef(importFile);
-  importFileRef.current = importFile;
+  useLayoutEffect(() => { importFileRef.current = importFile; });
   useEffect(() => {
     const open = (event: Event) => {
       const payload = (event as CustomEvent<FilesOpenPayload>).detail;
@@ -948,9 +960,6 @@ export default function App() {
     reviewSaveAs(format, filename);
   }
 
-  const [proairetosFileId, setProairetosFileId] = useState<string | null>(null);
-  const proairetosSession = useRef<string | null>(null);
-
   function downloadSaveAs() {
     const current = saveAs;
     if (!engine.current || !current?.assessment || !documentOpen || composing || busy) return;
@@ -1046,6 +1055,16 @@ export default function App() {
     if (refocus && next && !mobileFormattingPointer.current) surface.current?.focus();
   }
 
+  function insertTable() {
+    if (!tableDialog) return;
+    const next = command({ type: 'insert_table', rows: tableDialog.rows, columns: tableDialog.columns,
+      expectedRevision: tableDialog.revision });
+    if (next) {
+      pendingTableFocus.current = true;
+      setTableDialog(null);
+    }
+  }
+
   const unavailable = !view || !documentOpen || busy || composing;
   const formatState = view?.format;
   const importWarnings = view?.importWarnings;
@@ -1064,7 +1083,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app" onKeyDownCapture={(event) => {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
-      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog) {
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !tableDialog) {
       event.preventDefault();
       event.stopPropagation();
       openHyperlink();
@@ -1113,7 +1132,7 @@ export default function App() {
             {view?.originalSource && <button disabled={unavailable} onClick={() => documentAction(downloadOriginal)}>Download original</button>}
             <button disabled={unavailable} onClick={() => documentAction(togglePagePreview)} aria-pressed={pagePreview}>Page preview</button>
             <button disabled={unavailable} onClick={() => documentAction(closeDocument)}>Close</button>
-            <button type="button" onClick={() => { documentMenu.current?.removeAttribute("open"); setAboutOpen(true); }}>About Graphe</button>
+            <button type="button" onClick={() => documentAction(() => setAboutOpen(true))}>About Graphe</button>
           </div>
         </details>
       </nav>
@@ -1200,7 +1219,27 @@ export default function App() {
         title={moreFormatting ? 'Hide font and alignment controls' : 'Show font and alignment controls'}
         aria-expanded={moreFormatting}
         onClick={() => setMoreFormatting((value) => !value)}><WriterIcon name="text-format" /></button>}
+      {activeTab === 'insert' && view?.table && <div className="format-group table-controls" role="group" aria-label="Table controls">
+        <span className="table-position">Row {view.table.row + 1}, column {view.table.column + 1}</span>
+        <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => format({ type: 'table_action', action: 'insert_row_below' })}>Add row below</button>
+        <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => format({ type: 'table_action', action: 'insert_column_after' })}>Add column after</button>
+        <details className="table-options">
+          <summary aria-label="More table commands">More</summary>
+          <div className="table-options-panel">
+            <button disabled={unavailable} onClick={() => format({ type: 'table_action', action: 'insert_row_above' })}>Add row above</button>
+            <button disabled={unavailable} onClick={() => format({ type: 'table_action', action: 'insert_column_before' })}>Add column before</button>
+            <button disabled={unavailable || view.table.rowCount <= 1} onClick={() => format({ type: 'table_action', action: 'delete_row' })}>Delete row</button>
+            <button disabled={unavailable || view.table.columnCount <= 1} onClick={() => format({ type: 'table_action', action: 'delete_column' })}>Delete column</button>
+            <button disabled={unavailable} onClick={() => format({ type: 'table_action', action: 'delete_table' })}>Delete table</button>
+          </div>
+        </details>
+      </div>}
       {activeTab === 'insert' && <div className="format-group insert-controls" role="group" aria-label="Insert text structure">
+        <button disabled={unavailable || !!view?.table} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => { if (view) { setError(''); setTableDialog({ rows: 2, columns: 2, revision: view.revision }); } }}>
+          <WriterIcon name="table" /> Table…</button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_paragraph' })}>Paragraph <kbd>Enter</kbd></button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_line_break' })}>Line break <kbd>Shift Enter</kbd></button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
@@ -1416,6 +1455,24 @@ export default function App() {
         <div className="dialog-actions">
           <button type="button" onClick={() => setParagraphDialog(null)}>Cancel</button>
           <button type="submit" className="primary-button">Apply</button>
+        </div>
+      </form>
+    </Dialog>}
+    {tableDialog && <Dialog title="Insert table" onClose={() => { setTableDialog(null); setError(''); }} className="save-copy-dialog table-dialog">
+      <form onSubmit={(event) => { event.preventDefault(); insertTable(); }}>
+        <div className="save-as-fields">
+          <label htmlFor="table-rows">Rows</label>
+          <input id="table-rows" type="number" inputMode="numeric" min={1} max={20} step={1} autoFocus required
+            value={tableDialog.rows} onChange={(event) => setTableDialog({ ...tableDialog, rows: Number(event.target.value) })} />
+          <label htmlFor="table-columns">Columns</label>
+          <input id="table-columns" type="number" inputMode="numeric" min={1} max={20} step={1} required
+            value={tableDialog.columns} onChange={(event) => setTableDialog({ ...tableDialog, columns: Number(event.target.value) })} />
+        </div>
+        <p className="dialog-description">Insert after the current paragraph. Use Tab and Shift+Tab to move between cells. Tables cannot be nested.</p>
+        {error && <p role="alert" className="dialog-error">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" onClick={() => { setTableDialog(null); setError(''); }}>Cancel</button>
+          <button type="submit" className="primary-button" disabled={unavailable}>Insert table</button>
         </div>
       </form>
     </Dialog>}

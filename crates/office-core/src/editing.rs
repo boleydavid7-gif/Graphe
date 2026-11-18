@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use crate::{
     CharacterFormat, CharacterFormatPatch, Document, DocumentPosition, GraphemeOffset, Id,
-    ListKind, ParagraphFormatPatch, ParagraphMetricsPatch, PositionError, Selection, TextCoordinates, Transaction, ValidationError,
-    edit_ops,
+    ListKind, ParagraphFormatPatch, ParagraphMetricsPatch, PositionError, Selection,
+    TextCoordinates, Transaction, ValidationError, edit_ops,
 };
 
 /// A rejected operation on a transaction draft.
@@ -19,11 +19,24 @@ pub enum EditError {
     InvalidDocument(ValidationError),
     /// Text replacement would merge section boundaries, whose policy is undefined.
     CrossSectionRange,
+    /// Text replacement would join independent table cells or cross a table boundary.
+    CrossCellRange,
+    /// The table command targets a missing entity or invalid structural index.
+    InvalidTableOperation {
+        /// Stable explanatory category, suitable for interface translation.
+        reason: &'static str,
+    },
 }
 
 impl fmt::Display for EditError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::CrossCellRange => {
+                f.write_str("text replacement cannot cross table or cell boundaries")
+            }
+            Self::InvalidTableOperation { reason } => {
+                write!(f, "invalid table operation: {reason}")
+            }
             Self::WrongContext => {
                 f.write_str("editing endpoint is stale or belongs to another draft")
             }

@@ -691,3 +691,14 @@ The licensing decision is pending. The project owner has not yet chosen whether
 the engine will be open-source, source-available, or proprietary. No software
 license has been selected, and the `LICENSE` file is intentionally absent until
 that decision is made.
+
+### Tables
+
+Use **Insert → Table…** to create a rectangular table. Type and format text in
+each cell; **Tab / Shift+Tab** moves between cells and **Enter** creates another
+paragraph inside the cell. The Insert toolbar provides row/column commands and
+Delete table, all backed by Rust transactions and undo/redo. Native files preserve
+stable identities and structure. Supported DOCX/ODT tables can be exchanged; PDF
+uses Rust table geometry. TXT warns before flattening; RTF table export reports
+that it is unsupported. Merged/nested tables and rows taller than a page remain
+limited. See [table scope and checks](docs/TABLES.md).

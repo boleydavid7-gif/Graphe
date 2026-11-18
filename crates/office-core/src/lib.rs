@@ -49,14 +49,16 @@ mod format_patch;
 mod formatting;
 mod persistence;
 mod position;
+mod table_ops;
 mod transaction;
 
 pub use coordinates::{
     GRAPHEME_UNICODE_VERSION, GraphemeOffset, TextCoordinates, Utf8Offset, Utf16Offset,
 };
 pub use document::{
-    Block, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, SCHEMA_VERSION, Section,
-    SectionProperties, TextRun,
+    Block, Document, DocumentMetadata, Id, ListKind, MAX_TABLE_CELLS, MAX_TABLE_COLUMNS,
+    MAX_TABLE_ROWS, NamedStyle, Paragraph, SCHEMA_VERSION, Section, SectionProperties, Table,
+    TableCell, TableRow, TextRun,
 };
 pub use editing::{EditError, EditPosition, EditSelection};
 pub use error::{DocumentError, ValidationError};
@@ -69,7 +71,9 @@ pub use filesystem::{
     ReplacementState, StorageError, StorageOperation, TemporaryCleanupError, load_document,
     load_writer_file, save_document, save_writer_file,
 };
-pub use format_patch::{CharacterFormatPatch, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange};
+pub use format_patch::{
+    CharacterFormatPatch, ParagraphFormatPatch, ParagraphMetricsPatch, PropertyChange,
+};
 pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, PageMargins, PageOrientation,
     PageSize, ParagraphFormat, TextColor, Twips, Underline, valid_hyperlink,

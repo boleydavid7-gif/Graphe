@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use office_core::{
-    Block, CharacterFormat, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, ParagraphFormat,
-    Section, SectionProperties, TextRun, valid_hyperlink,
+    Block, CharacterFormat, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph,
+    ParagraphFormat, Section, SectionProperties, TextRun, valid_hyperlink,
 };
 use roxmltree::{Document as XmlDocument, Node};
 
@@ -13,12 +13,15 @@ use crate::{
     DocxError, DocxImportOutcome, DocxSource, ImportedDocx,
     ancillary::AncillaryKind,
     conversion::{bounded_label, invalid},
+    numbering::parse_numbering,
     opc::{parse_relationships, relationship_source, resolve_target},
     package::{Package, read_package},
     properties::{parse_character, parse_paragraph, parse_run_character},
-    numbering::parse_numbering,
     xml::parse_xml,
 };
+
+#[path = "table_import.rs"]
+mod tables;
 
 const WORD_TRANSITIONAL: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const WORD_STRICT: &str = "http://purl.oclc.org/ooxml/wordprocessingml/main";
@@ -60,6 +63,16 @@ struct StyleBook {
     effective_characters: BTreeMap<String, CharacterFormat>,
     character_styles: BTreeMap<String, CharacterFormat>,
     default_character: Option<CharacterFormat>,
+}
+
+#[derive(Clone, Copy)]
+struct ImportContext<'a> {
+    namespace: &'a str,
+    part: &'a str,
+    document_id: &'a Id,
+    styles: &'a StyleBook,
+    numbering: &'a BTreeMap<u32, ListKind>,
+    hyperlinks: &'a BTreeMap<String, String>,
 }
 
 struct RawStyle {
@@ -112,13 +125,15 @@ pub(crate) fn import_document(
     };
     let main_part = &original.inspection().main_document_part;
     let sections = parse_main_document(
-        main_part,
         &package.parts[main_part],
-        namespace,
-        &document_id,
-        &styles,
-        &numbering,
-        &graph.hyperlinks,
+        ImportContext {
+            namespace,
+            part: main_part,
+            document_id: &document_id,
+            styles: &styles,
+            numbering: &numbering,
+            hyperlinks: &graph.hyperlinks,
+        },
         &mut report,
     )?;
     if styles.default_style.is_some() && sections.iter().all(|section| section.blocks().is_empty())
@@ -172,14 +187,24 @@ pub(crate) fn inspect_semantic_graph(
             if relation.external {
                 if main_source && relation_kind(&relation.relationship_type, "hyperlink") {
                     if valid_hyperlink(&relation.target) {
-                        graph.hyperlinks.insert(relation.id.clone(), relation.target.clone());
+                        graph
+                            .hyperlinks
+                            .insert(relation.id.clone(), relation.target.clone());
                     } else {
-                        unsupported_relationship(&part.name, &relation, report,
-                            "This external hyperlink target is not a safe HTTP(S) URL.");
+                        unsupported_relationship(
+                            &part.name,
+                            &relation,
+                            report,
+                            "This external hyperlink target is not a safe HTTP(S) URL.",
+                        );
                     }
                 } else {
-                    unsupported_relationship(&part.name, &relation, report,
-                        "External targets are never fetched and have no supported editable mapping.");
+                    unsupported_relationship(
+                        &part.name,
+                        &relation,
+                        report,
+                        "External targets are never fetched and have no supported editable mapping.",
+                    );
                 }
                 continue;
             }
@@ -195,7 +220,10 @@ pub(crate) fn inspect_semantic_graph(
             }
             if main_source && relation_kind(&relation.relationship_type, "numbering") {
                 if graph.numbering.replace((*target).into()).is_some() {
-                    return Err(invalid(&part.name, "multiple numbering relationships are ambiguous"));
+                    return Err(invalid(
+                        &part.name,
+                        "multiple numbering relationships are ambiguous",
+                    ));
                 }
                 understood.insert((*target).into());
             } else if main_source && relation_kind(&relation.relationship_type, "styles") {
@@ -244,9 +272,14 @@ pub(crate) fn inspect_semantic_graph(
             );
         }
         if graph.numbering.as_deref() == Some(part.name.as_str())
-            && !part.content_type.eq_ignore_ascii_case(NUMBERING_CONTENT_TYPE)
+            && !part
+                .content_type
+                .eq_ignore_ascii_case(NUMBERING_CONTENT_TYPE)
         {
-            return Err(invalid(&part.name, "numbering relationship has an incorrect content type"));
+            return Err(invalid(
+                &part.name,
+                "numbering relationship has an incorrect content type",
+            ));
         }
         if graph.styles.as_deref() == Some(part.name.as_str())
             && !part.content_type.eq_ignore_ascii_case(STYLES_CONTENT_TYPE)
@@ -432,6 +465,24 @@ fn parse_styles(
     let main = parse_xml("main document style references", main_bytes)?;
     let mut required_characters = BTreeSet::new();
     let mut required_paragraphs = BTreeSet::new();
+    let mut required_tables = BTreeSet::new();
+    for node in main
+        .descendants()
+        .filter(|node| node.has_tag_name((namespace, "tblStyle")))
+    {
+        required_tables.insert(required_word_attribute(node, namespace, "val", part)?.to_owned());
+    }
+    for id in &required_tables {
+        let declaration = declarations
+            .get(id)
+            .ok_or_else(|| invalid(part, "table references a missing table style"))?;
+        if declaration.attribute((namespace, "type")) != Some("table") {
+            return Err(invalid(
+                part,
+                "table style reference has the wrong style type",
+            ));
+        }
+    }
     for node in main
         .descendants()
         .filter(|node| node.has_tag_name((namespace, "rStyle")))
@@ -557,6 +608,9 @@ fn parse_styles(
             characters.push(style);
         } else {
             inspect_unused_style(node, namespace, part, report)?;
+            if kind == "table" && required_tables.contains(&word_id) {
+                report.normalize(part, "tblPr/tblStyle", "Applied table-style formatting is normalized to Graphe's simple grid; the full style remains in the original source.");
+            }
         }
     }
     if !report.is_supported() {
@@ -621,7 +675,10 @@ fn parse_defaults(
                     character = parse_character(properties, namespace, part, report)?;
                 } else {
                     let parsed = parse_paragraph(properties, namespace, part, report)?;
-                    if parsed.style_id.is_some() || parsed.section.is_some() || parsed.numbering_id.is_some() {
+                    if parsed.style_id.is_some()
+                        || parsed.section.is_some()
+                        || parsed.numbering_id.is_some()
+                    {
                         unsupported_element(
                             properties,
                             part,
@@ -999,7 +1056,10 @@ fn parse_style(
             "rPr" => character = parse_character(child, namespace, part, report)?,
             "pPr" => {
                 let parsed = parse_paragraph(child, namespace, part, report)?;
-                if parsed.style_id.is_some() || parsed.section.is_some() || parsed.numbering_id.is_some() {
+                if parsed.style_id.is_some()
+                    || parsed.section.is_some()
+                    || parsed.numbering_id.is_some()
+                {
                     unsupported_element(
                         child,
                         part,
@@ -1293,15 +1353,16 @@ fn check_metadata_attributes(node: Node<'_, '_>, part: &str, report: &mut Compat
 }
 
 fn parse_main_document(
-    part: &str,
     bytes: &[u8],
-    namespace: &str,
-    document_id: &Id,
-    styles: &StyleBook,
-    numbering: &BTreeMap<u32, ListKind>,
-    hyperlinks: &BTreeMap<String, String>,
+    context: ImportContext<'_>,
     report: &mut CompatibilityReport,
 ) -> Result<Vec<Section>, ConversionError> {
+    let ImportContext {
+        namespace,
+        part,
+        document_id,
+        ..
+    } = context;
     let xml = parse_xml(part, bytes)?;
     let root = require_root(&xml, namespace, "document", part)?;
     check_word_attributes(root, namespace, &[], part, report);
@@ -1323,6 +1384,7 @@ fn parse_main_document(
     let mut sections = Vec::new();
     let mut blocks = Vec::new();
     let mut paragraph_index = 0;
+    let mut table_index = 0;
     let mut preceding_numbering: Option<(u32, ListKind)> = None;
     let mut used_numbering = BTreeSet::new();
     let mut final_properties = None;
@@ -1339,28 +1401,18 @@ fn parse_main_document(
             return Err(invalid(part, "content follows final section properties"));
         }
         if node.has_tag_name((namespace, "p")) {
-            let (paragraph, properties, numbering_id) = parse_paragraph_content(
-                node,
-                namespace,
-                part,
-                document_id,
-                paragraph_index,
-                styles,
-                numbering,
-                hyperlinks,
-                report,
-            )?;
+            let (paragraph, properties, numbering_id) =
+                parse_paragraph_content(node, context, paragraph_index, report)?;
             paragraph_index += 1;
             if let Some(id) = numbering_id {
                 if let Some(kind) = paragraph.list() {
-                    if preceding_numbering != Some((id, kind))
-                        && used_numbering.contains(&id)
-                    {
+                    if preceding_numbering != Some((id, kind)) && used_numbering.contains(&id) {
                         report.push(Issue::UnsupportedValue, part, "pPr/numPr",
                             "A Word numbering instance resumes after a break; Graphe would restart its sequence.");
                     }
                     if let Some((previous_id, previous_kind)) = preceding_numbering
-                        && previous_id != id && previous_kind == kind
+                        && previous_id != id
+                        && previous_kind == kind
                     {
                         report.push(Issue::UnsupportedValue, part, "pPr/numPr",
                             "Adjacent Word list groups with separate numbering instances must remain distinct.");
@@ -1385,6 +1437,19 @@ fn parse_main_document(
                 ended_section = true;
                 preceding_numbering = None;
             }
+        } else if node.has_tag_name((namespace, "tbl")) {
+            let table = tables::parse_table(
+                node,
+                context,
+                table_index,
+                &mut paragraph_index,
+                &mut used_numbering,
+                report,
+            )?;
+            table_index += 1;
+            blocks.push(Block::Table(table));
+            preceding_numbering = None;
+            ended_section = false;
         } else if node.has_tag_name((namespace, "sectPr")) {
             final_properties = Some(crate::properties::parse_section(
                 node, namespace, part, report,
@@ -1423,15 +1488,18 @@ fn append_section(
 
 fn parse_paragraph_content(
     node: Node<'_, '_>,
-    namespace: &str,
-    part: &str,
-    document_id: &Id,
+    context: ImportContext<'_>,
     index: usize,
-    styles: &StyleBook,
-    numbering: &BTreeMap<u32, ListKind>,
-    hyperlinks: &BTreeMap<String, String>,
     report: &mut CompatibilityReport,
 ) -> Result<(Paragraph, Option<SectionProperties>, Option<u32>), ConversionError> {
+    let ImportContext {
+        namespace,
+        part,
+        document_id,
+        styles,
+        numbering,
+        hyperlinks,
+    } = context;
     check_word_attributes(node, namespace, &[], part, report);
     let mut properties = None;
     let mut runs = Vec::new();
@@ -1459,14 +1527,22 @@ fn parse_paragraph_content(
             let id = child.attribute((relation_ns, "id"));
             for attribute in child.attributes() {
                 if attribute.namespace() != Some(relation_ns) || attribute.name() != "id" {
-                    report.push(Issue::UnsupportedAttribute, part, "w:hyperlink",
-                        "Unsupported Word hyperlink attribute.");
+                    report.push(
+                        Issue::UnsupportedAttribute,
+                        part,
+                        "w:hyperlink",
+                        "Unsupported Word hyperlink attribute.",
+                    );
                 }
             }
             let destination = id.and_then(|id| hyperlinks.get(id));
             if destination.is_none() {
-                report.push(Issue::UnsupportedValue, part, "w:hyperlink",
-                    "Hyperlink lacks a supported external relationship.");
+                report.push(
+                    Issue::UnsupportedValue,
+                    part,
+                    "w:hyperlink",
+                    "Hyperlink lacks a supported external relationship.",
+                );
             }
             for nested in child.children() {
                 if !nested.is_element() {
@@ -1477,8 +1553,12 @@ fn parse_paragraph_content(
                     runs.push(run);
                     character_styles.push(style);
                 } else {
-                    unsupported_element(nested, part, report,
-                        "Unsupported hyperlink child; only text runs are editable.");
+                    unsupported_element(
+                        nested,
+                        part,
+                        report,
+                        "Unsupported hyperlink child; only text runs are editable.",
+                    );
                 }
             }
         } else if bookmark_marker(child, namespace) {
@@ -1502,8 +1582,12 @@ fn parse_paragraph_content(
         if let Some(id) = numbering_id {
             match numbering.get(&id) {
                 Some(kind) => paragraph = paragraph.with_list(Some(*kind)),
-                None => report.push(Issue::UnsupportedValue, part, "pPr/numPr",
-                    "List numbering instance has no supported first-level definition."),
+                None => report.push(
+                    Issue::UnsupportedValue,
+                    part,
+                    "pPr/numPr",
+                    "List numbering instance has no supported first-level definition.",
+                ),
             }
         }
         section = properties.section;

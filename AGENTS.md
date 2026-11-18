@@ -167,6 +167,22 @@ and explicit approvals govern the task's scope.
   after Step 7; do not interpret that as completion of the audit or permission
   to begin Step 8 or additional feature work automatically.
 
+## Table capability
+
+- The owner authorized basic tables in the renamed Graphe app (`apps/writer`).
+  Work from current main on `dev/graphe-tables`; preserve separate unfinished
+  audit work. This request does not authorize a merge or deployment.
+- Tables are format-neutral typed blocks with stable table/row/cell IDs and
+  existing paragraphs. Keep destructive text edits inside one cell or a body
+  flow that does not cross a table. Structural edits use core transactions.
+- Native envelope/model version 5 requires strict legacy migrations. Never
+  accept tables under earlier version labels or discard retained originals.
+- Render Rust-provided cell and paragraph geometry. The semantic HTML table is
+  an input/accessibility projection, not a competing document/layout engine.
+- Preserve explicit total width when editing columns. Keep unsupported merged,
+  nested or content-bearing table imports guarded. Never silently flatten a
+  table on export; consult `docs/TABLES.md` and `docs/TABLES_RESEARCH.md`.
+
 ## Required engine checks
 
 Run from the repository root:

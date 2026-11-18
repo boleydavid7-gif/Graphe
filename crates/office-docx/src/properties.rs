@@ -224,23 +224,37 @@ pub(crate) fn parse_paragraph(
                         "ilvl" => {
                             attributes(part_node, namespace, &["val"], part, report);
                             leaf(part_node, part, report)?;
-                            if level.is_some() { return Err(invalid(part, "duplicate list level")); }
-                            level = Some(required(part_node, namespace, "val", part)?
-                                .parse::<u32>().map_err(|_| invalid(part, "invalid list level"))?);
+                            if level.is_some() {
+                                return Err(invalid(part, "duplicate list level"));
+                            }
+                            level = Some(
+                                required(part_node, namespace, "val", part)?
+                                    .parse::<u32>()
+                                    .map_err(|_| invalid(part, "invalid list level"))?,
+                            );
                         }
                         "numId" => {
                             attributes(part_node, namespace, &["val"], part, report);
                             leaf(part_node, part, report)?;
-                            if num_id.is_some() { return Err(invalid(part, "duplicate numbering id")); }
-                            num_id = Some(required(part_node, namespace, "val", part)?
-                                .parse::<u32>().map_err(|_| invalid(part, "invalid numbering id"))?);
+                            if num_id.is_some() {
+                                return Err(invalid(part, "duplicate numbering id"));
+                            }
+                            num_id = Some(
+                                required(part_node, namespace, "val", part)?
+                                    .parse::<u32>()
+                                    .map_err(|_| invalid(part, "invalid numbering id"))?,
+                            );
                         }
                         _ => unsupported_element(part_node, part, report),
                     }
                 }
                 if level != Some(0) || num_id.is_none() {
-                    report.push(Issue::UnsupportedValue, part, "pPr/numPr",
-                        "Only first-level numbered or bulleted paragraphs are editable.");
+                    report.push(
+                        Issue::UnsupportedValue,
+                        part,
+                        "pPr/numPr",
+                        "Only first-level numbered or bulleted paragraphs are editable.",
+                    );
                 } else {
                     result.numbering_id = num_id.filter(|id| *id != 0);
                 }

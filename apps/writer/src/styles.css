@@ -1866,6 +1866,27 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 }
 .document-menu-panel > button { border-radius: 9px; }
 
+/* Table commands retain the existing opaque Lamplight ribbon. The dialog keeps
+   overflow commands reachable on narrow screens without an overlay in a
+   horizontally scrolling toolbar. */
+.table-controls { gap: 7px; flex-wrap: wrap; }
+.table-position { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.table-options { position: relative; }
+.table-options > summary { cursor: pointer; padding: 7px 10px; list-style: none; }
+.table-options > summary:focus-visible { outline: 2px solid var(--writer-accent); outline-offset: 2px; }
+.table-options-panel { display: flex; gap: 6px; flex-wrap: wrap; }
+.table-options[open] { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.document-table-grid { pointer-events: none; }
+.editor-surface table { border-collapse: collapse; }
+.editor-surface td { vertical-align: top; }
+@media (max-width: 620px) {
+  .table-controls { flex-wrap: nowrap; }
+  .table-position { display: none; }
+  .table-options[open], .table-options-panel { flex-wrap: nowrap; }
+  .table-controls button { white-space: nowrap; font-size: 12px; }
+  .table-dialog input { min-height: 44px; }
+}
+
 
 /* Preserve audited fixed geometry while integrating main's control motion. */
 .writer-app dialog.save-copy-dialog[open] {

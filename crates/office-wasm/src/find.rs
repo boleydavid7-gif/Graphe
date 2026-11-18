@@ -1,6 +1,6 @@
 //! Bounded literal search over Rust document text, with core cursor boundaries.
 
-use office_core::{Block, GraphemeOffset, TextCoordinates};
+use office_core::{GraphemeOffset, TextCoordinates};
 use serde::Serialize;
 
 use crate::{
@@ -51,8 +51,7 @@ impl BrowserEngine {
         };
         if !query.is_empty() {
             'sections: for section in self.session.document().sections() {
-                for block in section.blocks() {
-                    let Block::Paragraph(paragraph) = block;
+                for paragraph in section.paragraphs() {
                     let coordinates = TextCoordinates::new(paragraph);
                     // Build each paragraph's byte/UTF-16 cursor table once;
                     // repeated prefix conversion for every hit would be quadratic.

@@ -480,20 +480,18 @@ pub(super) fn character_xml(format: &CharacterFormat) -> Result<String, FormatEr
             if v { "italic" } else { "normal" }
         ));
     }
-    if let Some(v) = format.underline {
-        attributes.push_str(&format!(
-            " style:text-underline-style=\"{}\" style:text-underline-type=\"{}\"",
-            if v == Underline::None {
-                "none"
-            } else {
-                "solid"
-            },
-            if v == Underline::Double {
-                "double"
-            } else {
-                "single"
+    if let Some(value) = format.underline {
+        // ODF 1.3 Part 3 §20.391: underline-type is omitted when style is none.
+        // LibreOffice treats an explicit single type as active even with none.
+        attributes.push_str(match value {
+            Underline::None => " style:text-underline-style=\"none\"",
+            Underline::Single => {
+                " style:text-underline-style=\"solid\" style:text-underline-type=\"single\""
             }
-        ));
+            Underline::Double => {
+                " style:text-underline-style=\"solid\" style:text-underline-type=\"double\""
+            }
+        });
     }
     if let Some(v) = &format.font_family {
         font_family(v)?;

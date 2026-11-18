@@ -34,7 +34,9 @@ fn paragraphs(document: &Document) -> Vec<&Paragraph> {
         .iter()
         .flat_map(|s| s.blocks())
         .map(|b| {
-            let Block::Paragraph(p) = b;
+            let Block::Paragraph(p) = b else {
+                panic!("expected paragraph fixture")
+            };
             p
         })
         .collect()
@@ -722,14 +724,13 @@ fn other_libreoffice_profiles_remain_guarded_when_unknown_preferences_remain() {
 }
 
 #[test]
-fn active_notes_lists_tables_and_headings_remain_preserved() {
+fn active_notes_lists_and_headings_remain_preserved() {
     assert_preserved(include_bytes!(
         "../../../tests/fixtures/formats/unsupported-active-note.odt"
     ));
     for body in [
         "<text:list><text:list-item><text:p>Important list item</text:p></text:list-item></text:list>",
         "<text:h text:outline-level=\"1\">Important heading semantics</text:h>",
-        "<table:table xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\"><table:table-row><table:table-cell><text:p>Important table text</text:p></table:table-cell></table:table-row></table:table>",
         "<text:p><text:sequence text:name=\"Figure\">1</text:sequence></text:p>",
     ] {
         assert_preserved(&package(content(body), None));

@@ -94,6 +94,22 @@ fn write_layout(layout: &DocumentLayout, title: &str) -> Result<Vec<u8>, FormatE
         // page matrix converts it into PDF bottom-left/upward points. Supplied
         // glyph transforms already include their font-y flip and synthesis.
         content.transform([1. / units as f32, 0., 0., -1. / units as f32, 0., height]);
+        // Borders use the same authoritative Rust cell rectangles as the editor.
+        for cell in &page.table_cells {
+            if cell.rect.width <= 0 || cell.rect.height <= 0 {
+                return Err(invalid("Invalid PDF table cell geometry."));
+            }
+            content.set_stroke_rgb(128. / 255., 128. / 255., 128. / 255.);
+            content.set_line_width((units / 2.) as f32);
+            content.rect(
+                number(cell.rect.x as f64)?,
+                number(cell.rect.y as f64)?,
+                number(cell.rect.width as f64)?,
+                number(cell.rect.height as f64)?,
+            );
+            content.stroke();
+            check_size(pdf.len().saturating_add(content.len()))?;
+        }
         let mut used_forms = BTreeMap::new();
         for line in &page.lines {
             for glyph in &line.glyphs {

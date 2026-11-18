@@ -3,12 +3,11 @@
 
 use serde::Deserialize;
 
+use super::v3::{V3NamedStyle, V3TextRun};
 use super::{
-    Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section,
-    SectionProperties,
+    Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section, SectionProperties,
 };
 use crate::{DocumentError, ParagraphFormat};
-use super::v3::{V3NamedStyle, V3TextRun};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,7 +28,12 @@ struct V2Section {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "kind", content = "content", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    content = "content",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 enum V2Block {
     Paragraph(V2Paragraph),
 }
@@ -47,25 +51,38 @@ struct V2Paragraph {
 pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
     let value: V2Document = serde_json::from_str(json)?;
     debug_assert_eq!(value.schema_version, 2);
-    let sections = value.sections.into_iter().map(|section| {
-        let blocks = section.blocks.into_iter().map(|block| match block {
-            V2Block::Paragraph(old) => {
-                let mut paragraph = Paragraph::new(old.id, old.runs.into_iter().map(Into::into).collect())
-                    .with_format(old.format)
-                    .with_list(None::<ListKind>);
-                if let Some(style) = old.style {
-                    paragraph = paragraph.with_style(style);
-                }
-                Block::Paragraph(paragraph)
+    let sections = value
+        .sections
+        .into_iter()
+        .map(|section| {
+            let blocks = section
+                .blocks
+                .into_iter()
+                .map(|block| match block {
+                    V2Block::Paragraph(old) => {
+                        let mut paragraph =
+                            Paragraph::new(old.id, old.runs.into_iter().map(Into::into).collect())
+                                .with_format(old.format)
+                                .with_list(None::<ListKind>);
+                        if let Some(style) = old.style {
+                            paragraph = paragraph.with_style(style);
+                        }
+                        Block::Paragraph(paragraph)
+                    }
+                })
+                .collect();
+            let mut current = Section::new(section.id, blocks);
+            if let Some(properties) = section.properties {
+                current = current.with_properties(properties);
             }
-        }).collect();
-        let mut current = Section::new(section.id, blocks);
-        if let Some(properties) = section.properties {
-            current = current.with_properties(properties);
-        }
-        current
-    }).collect();
-    Document::from_parts(value.id, value.metadata, sections,
-        value.styles.into_iter().map(Into::into).collect())
-        .map_err(DocumentError::from)
+            current
+        })
+        .collect();
+    Document::from_parts(
+        value.id,
+        value.metadata,
+        sections,
+        value.styles.into_iter().map(Into::into).collect(),
+    )
+    .map_err(DocumentError::from)
 }

@@ -14,6 +14,8 @@ mod compatibility;
 mod export;
 mod package;
 mod properties;
+mod tables;
+use tables::TABLE;
 
 pub(super) const MEDIA_TYPE: &str = "application/vnd.oasis.opendocument.text";
 const OFFICE: &str = "urn:oasis:names:tc:opendocument:xmlns:office:1.0";
@@ -191,6 +193,10 @@ struct Catalog {
     first_master: Option<String>,
     section_styles: BTreeSet<String>,
     drawing_styles: BTreeSet<String>,
+    table_columns: BTreeMap<String, office_core::Twips>,
+    table_cells: BTreeMap<String, bool>,
+    table_masters: BTreeMap<String, Option<String>>,
+    table_breaks: BTreeSet<String>,
 }
 
 impl Catalog {
@@ -257,6 +263,10 @@ impl Catalog {
                     if !self.drawing_styles.insert(name.into()) {
                         return Err(package::invalid("duplicate drawing page style"));
                     }
+                    continue;
+                }
+                if matches!(family, "table" | "table-column" | "table-cell") {
+                    self.read_table_style(node, part, report)?;
                     continue;
                 }
                 if !matches!(family, "paragraph" | "text") {
@@ -659,6 +669,8 @@ fn import_document(
         named_ids: &named_ids,
         document_id: &document_id,
         paragraph_count: 0,
+        table_count: 0,
+        notices,
         section_count: 0,
         text_bytes: 0,
         run_count: 0,
@@ -798,6 +810,8 @@ struct TextParser<'a> {
     named_ids: &'a BTreeMap<String, Id>,
     document_id: &'a Id,
     paragraph_count: usize,
+    table_count: usize,
+    notices: &'a mut ImportNotices,
     section_count: usize,
     text_bytes: usize,
     run_count: usize,
@@ -870,6 +884,22 @@ impl TextParser<'_> {
                             );
                         }
                         blocks.push(Block::Paragraph(p));
+                    } else if paragraph.has_tag_name((TABLE, "table")) {
+                        let (table, g) = self.table(paragraph)?;
+                        if blocks.is_empty() && g.is_some() {
+                            section_geometry = g;
+                        } else if g.is_some() {
+                            diagnostic(
+                                self.report,
+                                "unsupported_section",
+                                "content.xml",
+                                "table",
+                                "Page changes within a section are retained read-only.",
+                            );
+                        }
+                        if let Some(table) = table {
+                            blocks.push(Block::Table(table));
+                        }
                     } else {
                         diagnostic(
                             self.report,
@@ -890,6 +920,17 @@ impl TextParser<'_> {
                     geometry = Some(next);
                 }
                 current.push(Block::Paragraph(p));
+            } else if child.has_tag_name((TABLE, "table")) {
+                let (table, g) = self.table(child)?;
+                if let Some(next) = g {
+                    if !current.is_empty() {
+                        result.push(self.section(std::mem::take(&mut current), geometry.take())?);
+                    }
+                    geometry = Some(next);
+                }
+                if let Some(table) = table {
+                    current.push(Block::Table(table));
+                }
             } else if compatibility::sequence_declarations(child) {
                 // Actual sequence fields remain unsupported in runs().
             } else {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PageInfo } from './PagedEditor';
 import type { LayoutView } from './types';
+import { TableGrid } from './TableGrid';
 
 export interface LayoutOrigin {
   readonly sessionId: string;
@@ -179,6 +180,7 @@ export function PagePreview({
             <div className="layout-page-paper" style={{ aspectRatio: `${page.width} / ${page.height}` }}>
               <svg ref={(element) => { if (element) pages.current.set(page.number, element); else pages.current.delete(page.number); }}
                 viewBox={`0 0 ${page.width} ${page.height}`} width="100%" height="100%" aria-hidden="true" focusable="false">
+                <TableGrid page={page} />
                 {page.lines.map((line) => <g key={JSON.stringify([line.paragraphId, line.lineIndex])}
                   data-layout-line={line.lineIndex} data-layout-paragraph-id={line.paragraphId}
                   data-layout-utf16-start={line.textRange.startUtf16} data-layout-utf16-end={line.textRange.endUtf16}

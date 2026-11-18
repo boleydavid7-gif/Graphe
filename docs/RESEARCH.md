@@ -1333,3 +1333,14 @@ unchanged in the Rust document model and exports; map only at layout/glyph
 selection and browser previews. Preview labels explicitly disclose the
 substitute. This is not a pixel-perfect guarantee for Microsoft Word pagination,
 and no commercial trademark affiliation should be implied.
+
+## Graphe rectangular tables — November 2026
+
+See [table research and retrospective](TABLES_RESEARCH.md). Reviewed OOXML block
+tables/grid/cells, ODF table structure, ProseMirror's rectangular table invariants
+and W3C table/grid accessibility patterns. Reuse existing Rust paragraph shaping,
+transaction/history, XML/package and PDF libraries. A separate rich-text/table
+engine would duplicate document authority. First profile excludes spans/nesting
+and keeps intact-row pagination; unsupported structure stays preserved read-only.
+The existing paragraph-only traversal/splicing assumptions were corrected at
+core, layout, WASM and adapter boundaries, with schema-version regression tests.

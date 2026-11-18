@@ -41,6 +41,7 @@ function sameSelection(left: WriterSelection | null, right: WriterSelection | nu
 class SurfaceController {
   private view: WriterView;
   private readonly paragraphs = new Map<string, HTMLParagraphElement>();
+  private readonly tableNodes = new Map<string, HTMLElement>();
   private readonly identities = new WeakMap<Node, string>();
   private readonly signatures = new WeakMap<Node, string>();
   private composition: CompositionOrigin | null = null;
@@ -254,7 +255,24 @@ class SurfaceController {
   private reconcile(force = false): void {
     if (this.composition || this.disposed) return;
     const active = new Set<string>();
-    let index = 0;
+    const rootChildren: Node[] = [];
+    const tableChildren = new Map<HTMLElement, Node[]>();
+    const activeTableNodes = new Set<string>();
+    const container = (kind: 'table' | 'tbody' | 'tr' | 'td', id: string): HTMLElement => {
+      const key = JSON.stringify([kind, id]);
+      activeTableNodes.add(key);
+      let node = this.tableNodes.get(key);
+      if (!node) {
+        node = document.createElement(kind);
+        this.tableNodes.set(key, node);
+      }
+      if (!tableChildren.has(node)) tableChildren.set(node, []);
+      return node;
+    };
+    const add = (parent: HTMLElement, child: Node) => {
+      const children = tableChildren.get(parent)!;
+      if (!children.includes(child)) children.push(child);
+    };
     for (const paragraph of this.view.paragraphs) {
       active.add(paragraph.id);
       let element = this.paragraphs.get(paragraph.id);
@@ -266,11 +284,33 @@ class SurfaceController {
         this.identities.set(element, paragraph.id);
       }
       this.renderParagraph(element, paragraph, force);
-      if (this.element.childNodes[index] !== element) {
-        this.element.insertBefore(element, this.element.childNodes[index] ?? null);
-      }
-      index += 1;
+      const context = paragraph.tableCell;
+      if (context) {
+        const table = container('table', context.tableId);
+        table.dataset.tableId = context.tableId;
+        table.setAttribute('aria-label', 'Document table');
+        const body = container('tbody', context.tableId);
+        const row = container('tr', context.rowId);
+        const cell = container('td', context.cellId);
+        cell.dataset.tableCellId = context.cellId;
+        cell.setAttribute('aria-label', `Row ${context.row + 1}, column ${context.column + 1}`);
+        if (!rootChildren.includes(table)) rootChildren.push(table);
+        add(table, body);
+        add(body, row);
+        add(row, cell);
+        add(cell, element);
+      } else rootChildren.push(element);
     }
+    const place = (parent: HTMLElement, children: readonly Node[]) => {
+      children.forEach((child, index) => {
+        if (parent.childNodes[index] !== child) parent.insertBefore(child, parent.childNodes[index] ?? null);
+      });
+      while (parent.childNodes.length > children.length) parent.lastChild?.remove();
+    };
+    // Keep surviving paragraph/text nodes for native IME and selection. This is
+    // a semantic input projection only; Rust supplies visible table geometry.
+    for (const [parent, children] of tableChildren) place(parent, children);
+    let index = rootChildren.length;
     if (!index) {
       let placeholder = this.element.firstChild;
       if (!(placeholder instanceof HTMLParagraphElement) || placeholder.dataset.empty !== 'true') {
@@ -286,7 +326,7 @@ class SurfaceController {
         placeholder.replaceChildren(document.createElement('br'));
       }
       index = 1;
-    }
+    } else place(this.element, rootChildren);
     while (this.element.childNodes.length > index) this.element.lastChild?.remove();
     for (const [id, element] of this.paragraphs) {
       if (!active.has(id)) {
@@ -294,20 +334,31 @@ class SurfaceController {
         this.paragraphs.delete(id);
       }
     }
+    for (const [key] of this.tableNodes) {
+      if (!activeTableNodes.has(key)) this.tableNodes.delete(key);
+    }
   }
 
   private point(node: Node | null, offset: number): TextPoint | null {
     if (!node || !this.element.contains(node)) return null;
-    if (node === this.element) {
-      const next = this.view.paragraphs[offset];
-      if (next) return { paragraphId: next.id, utf16: 0 };
-      const last = this.view.paragraphs.at(-1);
-      return last ? { paragraphId: last.id, utf16: last.runs.reduce((sum, run) => sum + run.text.length, 0) } : null;
-    }
     let paragraph: Node | null = node;
-    while (paragraph && paragraph.parentNode !== this.element) paragraph = paragraph.parentNode;
+    while (paragraph && paragraph !== this.element && !this.identities.has(paragraph)) paragraph = paragraph.parentNode;
     const id = paragraph ? this.identities.get(paragraph) : undefined;
-    if (!paragraph || !id) return null;
+    if (!paragraph || !id) {
+      // Container endpoints occur in native select-all/selection gestures. Map
+      // only actual projected paragraph nodes, never child indices into Rust.
+      if (!(node instanceof Element)) return null;
+      const boundary = node.childNodes[offset];
+      const next = boundary instanceof Element
+        ? boundary.matches('[data-paragraph-id]') ? boundary : boundary.querySelector('[data-paragraph-id]') : null;
+      if (next instanceof HTMLElement && next.dataset.paragraphId) return { paragraphId: next.dataset.paragraphId, utf16: 0 };
+      const previous = node.childNodes[Math.min(offset, node.childNodes.length) - 1];
+      const candidates = previous instanceof Element
+        ? previous.matches('[data-paragraph-id]') ? [previous] : [...previous.querySelectorAll('[data-paragraph-id]')] : [];
+      const last = candidates.at(-1);
+      return last instanceof HTMLElement && last.dataset.paragraphId
+        ? { paragraphId: last.dataset.paragraphId, utf16: last.textContent?.length ?? 0 } : null;
+    }
     try {
       const range = document.createRange();
       range.setStart(paragraph, 0);
@@ -485,6 +536,11 @@ class SurfaceController {
     const origin = this.origin();
     const modifier = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
+    if (event.key === 'Tab' && !modifier && !event.altKey && this.view.table) {
+      event.preventDefault();
+      this.apply({ type: 'move_table_cell', direction: event.shiftKey ? 'backward' : 'forward', ...origin });
+      return;
+    }
     if (this.props().inputOnly && this.props().onNavigate) {
       let action: LayoutAction | undefined;
       let direction: LayoutMoveDirection | undefined;

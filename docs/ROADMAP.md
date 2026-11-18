@@ -132,3 +132,12 @@ The owner subsequently authorized completion of missing DOCX conversion before
 Step 6. Its profile, preservation policy and regression fixtures are recorded in
 [DOCX.md](DOCX.md) and [DOCX_CONVERSION.md](DOCX_CONVERSION.md). Significant changes
 outside that scope, merging and deployment still require approval.
+
+## Authorized table capability (November 2026)
+
+Basic rectangular tables are implemented on `dev/graphe-tables`: insertion, cell
+text/formatting, row/column edits, Rust layout/pagination and native persistence.
+DOCX/ODT adapters and PDF/TXT export follow the documented supported profile.
+Merged/nested tables, row splitting, repeating headers and visual table styling
+remain future work. Review `TABLES.md` before merging or publishing. This change
+does not authorize unrelated features, ProairetOS changes or deployment.

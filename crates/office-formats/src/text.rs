@@ -103,13 +103,8 @@ fn utf8(bytes: &[u8]) -> Result<String, FormatError> {
 
 pub(crate) fn validate_export(document: &Document) -> Result<(), FormatError> {
     if document
-        .sections()
-        .iter()
-        .flat_map(|section| section.blocks())
-        .any(|block| {
-            let Block::Paragraph(paragraph) = block;
-            paragraph.runs().iter().any(|run| run.text.contains('\0'))
-        })
+        .paragraphs()
+        .any(|paragraph| paragraph.runs().iter().any(|run| run.text.contains('\0')))
     {
         return Err(FormatError::new(
             "unsupported_txt_export",
@@ -130,31 +125,54 @@ fn push(output: &mut String, scalar: char) -> Result<(), FormatError> {
     Ok(())
 }
 
+fn paragraph_text(output: &mut String, paragraph: &Paragraph) -> Result<(), FormatError> {
+    let mut after_cr = false;
+    for scalar in paragraph.runs().iter().flat_map(|run| run.text.chars()) {
+        if after_cr && scalar == '\n' {
+            after_cr = false;
+            continue;
+        }
+        after_cr = scalar == '\r';
+        // Protect a semantic initial FEFF from being treated as a transport BOM.
+        if output.is_empty() && scalar == '\u{feff}' {
+            push(output, '\u{feff}')?;
+        }
+        push(output, if after_cr { '\n' } else { scalar })?;
+    }
+    Ok(())
+}
+
 pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, FormatError> {
     validate_export(document)?;
     let mut output = String::new();
     let mut first = true;
     for section in document.sections() {
         for block in section.blocks() {
-            let Block::Paragraph(paragraph) = block;
             if !first {
                 push(&mut output, '\n')?;
             }
             first = false;
-            let mut after_cr = false;
-            for scalar in paragraph.runs().iter().flat_map(|run| run.text.chars()) {
-                if after_cr && scalar == '\n' {
-                    after_cr = false;
-                    continue;
+            match block {
+                Block::Paragraph(paragraph) => paragraph_text(&mut output, paragraph)?,
+                Block::Table(table) => {
+                    for (row_index, row) in table.rows().iter().enumerate() {
+                        if row_index > 0 {
+                            push(&mut output, '\n')?;
+                        }
+                        for (cell_index, cell) in row.cells().iter().enumerate() {
+                            if cell_index > 0 {
+                                push(&mut output, '\t')?;
+                            }
+                            for (paragraph_index, paragraph) in cell.paragraphs().iter().enumerate()
+                            {
+                                if paragraph_index > 0 {
+                                    push(&mut output, '\n')?;
+                                }
+                                paragraph_text(&mut output, paragraph)?;
+                            }
+                        }
+                    }
                 }
-                after_cr = scalar == '\r';
-                // A semantic first FEFF would otherwise be mistaken for the
-                // transport BOM on reopening. One extra transport BOM protects
-                // it; ordinary UTF-8 output remains BOM-free.
-                if output.is_empty() && scalar == '\u{feff}' {
-                    push(&mut output, '\u{feff}')?;
-                }
-                push(&mut output, if after_cr { '\n' } else { scalar })?;
             }
         }
     }
