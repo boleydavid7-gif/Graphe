@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { URL } from 'node:url';
 import { TextEncoder } from 'node:util';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
 // Compiled Rust ABI: fixtures and expected endpoints are test data, never a
 // JavaScript word breaker, grapheme segmenter, document or layout engine.
-await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
+await initializeWithFonts();
 
 function engine(context) {
   const instance = new WriterEngine(context.name);

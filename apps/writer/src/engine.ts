@@ -1,5 +1,9 @@
-import initialize, { WriterEngine } from './wasm/office_wasm.js';
+import initialize, {
+  WriterEngine, finalize_font_catalog, font_catalog_manifest, font_catalog_status, register_font,
+} from './wasm/office_wasm.js';
 import wasmUrl from './wasm/office_wasm_bg.wasm?url';
+import { FontLoadError, loadFontCatalog, type FontCatalogManifest, type FontLoadProgress,
+  type FontLoadResult } from './font-loader';
 import type {
   CompatibilityReport, DocumentFormat, EngineFailure, EngineResponse, ExportAssessment, FindSnapshot, LayoutAction,
   LayoutActionView, LayoutOptions, LayoutSelectionView, LayoutView,
@@ -7,6 +11,73 @@ import type {
 } from './types';
 
 let initialization: Promise<unknown> | undefined;
+let fontInitialization: Promise<FontLoadResult> | undefined;
+let fontProgress: FontLoadProgress | undefined;
+const fontListeners = new Set<(progress: FontLoadProgress) => void>();
+const previewFaces = new Map<string, FontFace>();
+
+interface BrowserFontManifest extends Omit<FontCatalogManifest, 'fonts'> {
+  fonts: readonly (FontCatalogManifest['fonts'][number] & {
+    family: string; style: string; weightMin: number; weightMax: number;
+  })[];
+}
+
+function reportFontProgress(progress: FontLoadProgress): void {
+  fontProgress = progress;
+  for (const listener of fontListeners) listener(progress);
+}
+
+async function loadPreviewFace(font: BrowserFontManifest['fonts'][number], bytes: Uint8Array): Promise<void> {
+  if (previewFaces.has(font.id)) return;
+  if (typeof FontFace === 'undefined' || !document.fonts) {
+    throw new Error('This browser cannot load the verified font catalog. Try a current browser.');
+  }
+  // Use the same verified bytes for semantic input/previews, including offline
+  // cache hits. CSS points at these assets too; no host font is substituted.
+  const face = new FontFace(font.family, bytes.slice().buffer, {
+    style: font.style, weight: font.weightMin === font.weightMax ? String(font.weightMin)
+      : `${font.weightMin} ${font.weightMax}`,
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([face.load(), new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Preparing font ${font.id} timed out. Please retry.`)), 30_000);
+    })]);
+    document.fonts.add(face);
+    previewFaces.set(font.id, face);
+  } finally { clearTimeout(timer); }
+}
+
+async function initializeFonts(): Promise<FontLoadResult> {
+  const manifest = JSON.parse(font_catalog_manifest()) as BrowserFontManifest;
+  const status = JSON.parse(font_catalog_status()) as { ready: boolean; missingFontIds: string[] };
+  // CSS-connected faces cannot be removed through FontFaceSet.delete. Remove
+  // their URL rules before using the verified binary faces, so offline previews
+  // never request an alternate copy. Stylesheets are same-origin under our CSP.
+  const families = new Set(manifest.fonts.map((font) => font.family));
+  for (const sheet of document.styleSheets) {
+    for (let index = sheet.cssRules.length - 1; index >= 0; index--) {
+      const rule = sheet.cssRules[index];
+      if (rule instanceof CSSFontFaceRule
+          && families.has(rule.style.fontFamily.replaceAll('"', '').replaceAll("'", ''))) sheet.deleteRule(index);
+    }
+  }
+  const missing = new Set(status.missingFontIds);
+  const fonts = new Map(manifest.fonts.map((font) => [font.id, font]));
+  return loadFontCatalog(manifest, {
+    onProgress: reportFontProgress,
+    registerFont: async (id, bytes) => {
+      if (!status.ready && missing.has(id)) register_font(id, bytes);
+      await loadPreviewFace(fonts.get(id)!, bytes);
+    },
+    finalizeRegistration: () => {
+      if (!status.ready) finalize_font_catalog();
+      if (!(JSON.parse(font_catalog_status()) as { ready: boolean }).ready) {
+        throw new Error('The required verified font catalog is incomplete. Please retry.');
+      }
+    },
+  });
+}
 
 /** A structured engine failure; failed commands preserve the current session. */
 export class EngineError extends Error {
@@ -23,6 +94,7 @@ export class EngineError extends Error {
 
 function failure(error: unknown): EngineError {
   if (error instanceof EngineError) return error;
+  if (error instanceof FontLoadError) return new EngineError({ code: `font_${error.code}`, message: error.message });
   if (typeof error === 'string') {
     try {
       const decoded = JSON.parse(error) as EngineFailure;
@@ -41,21 +113,35 @@ export class EngineClient {
   private disposed = false;
   private readonly imageUrls = new Map<string, string>();
   private imageSession = '';
+  readonly startupWarnings: readonly string[];
 
-  private constructor(handle: WriterEngine) {
+  private constructor(handle: WriterEngine, warnings: readonly string[]) {
     this.handle = handle;
+    this.startupWarnings = warnings;
     this.current = JSON.parse(handle.snapshot()) as WriterView;
   }
 
-  static async create(): Promise<EngineClient> {
-    try {
-      initialization ??= initialize({ module_or_path: wasmUrl });
-      await initialization;
-      return new EngineClient(new WriterEngine(crypto.randomUUID()));
-    } catch (error) {
-      initialization = undefined;
-      throw failure(error);
+  static async create(onFontProgress?: (progress: FontLoadProgress) => void): Promise<EngineClient> {
+    if (onFontProgress) {
+      fontListeners.add(onFontProgress);
+      if (fontProgress) onFontProgress(fontProgress);
     }
+    try {
+      initialization ??= initialize({ module_or_path: wasmUrl }).catch((error: unknown) => {
+        initialization = undefined;
+        throw error;
+      });
+      await initialization;
+      fontInitialization ??= initializeFonts().catch((error: unknown) => {
+        fontInitialization = undefined;
+        fontProgress = undefined;
+        throw error;
+      });
+      const fonts = await fontInitialization;
+      return new EngineClient(new WriterEngine(crypto.randomUUID()), fonts.warnings);
+    } catch (error) {
+      throw failure(error);
+    } finally { if (onFontProgress) fontListeners.delete(onFontProgress); }
   }
 
   get view(): WriterView { return this.current; }

@@ -152,3 +152,7 @@ objects, arbitrary inline images, cropping, cell images and additional codecs
 remain future work. See [IMAGES.md](IMAGES.md) and the
 [verification report](IMAGES_VERIFICATION.md) for actual results and limits.
 No merge, deployment or next milestone is implied.
+
+External browser font delivery retains all42 fonts while moving their original
+bytes to versioned static assets. Native embedding and layout semantics remain.
+See EXTERNAL_FONTS.md for implementation, tests, offline limits and size results.

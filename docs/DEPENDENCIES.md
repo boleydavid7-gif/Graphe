@@ -284,3 +284,12 @@ lint and tests when updating. This finding is separate from the fixed EXIF issue
 zero findings; the production tree contains React, React DOM and scheduler.
 No document-input-to-glob runtime path was found. That narrower result does not
 waive the full development-tool audit failure.
+
+## External font verification
+
+RustCrypto sha2 0.11.1 (default features disabled) supplies SHA-256. New resolved
+transitives are digest, block-buffer, crypto-common, cpufeatures, hybrid-array and
+typenum. Full upstream license texts are retained in
+`crates/office-layout/THIRD_PARTY_NOTICES.txt` and linked by About. Browser hashing
+uses WebCrypto, with no new npm dependency. See EXTERNAL_FONTS_RESEARCH.md for
+version/security review. Canonical font licenses and provenance remain unchanged.

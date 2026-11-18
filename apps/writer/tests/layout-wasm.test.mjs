@@ -5,11 +5,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath, URL } from 'node:url';
 import { TextEncoder } from 'node:util';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
 // Exercise the release engine and generated target-web ABI directly. The layout
 // and font catalog in these tests are Rust implementations, not JS substitutes.
-await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
+await initializeWithFonts();
 const encoder = new TextEncoder();
 
 function engine(context) {

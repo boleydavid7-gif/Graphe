@@ -1,8 +1,9 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { writerFontAssets } from './scripts/font-assets.mjs';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [writerFontAssets(), react()],
   build: { target: 'es2022' },
   preview: {
     headers: {

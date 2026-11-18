@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use office_core::{
     Alignment, Block, CharacterFormat, Document, GraphemeOffset, ImageAlignment, LineSpacing,
@@ -8,7 +8,7 @@ use office_core::{
 use parley::{
     AlignmentOptions, FontContext, FontFamily, FontStyle, FontWeight, LayoutContext,
     PositionedLayoutItem, StyleProperty,
-    fontique::{Blob, Collection, CollectionOptions},
+    fontique::{Collection, CollectionOptions},
 };
 use skrifa::{
     FontRef, MetadataProvider,
@@ -33,12 +33,6 @@ const MAX_LABEL_BYTES: usize = 1024;
 const MAX_FAMILY_BYTES: usize = 256;
 const MAX_TWIPS: i32 = 144_000;
 const MAX_HALF_POINTS: u32 = 1024;
-const CATALOG_ID: &str = "writer-fonts-v6";
-
-struct PinnedFont {
-    id: &'static str,
-    blob: Blob<u8>,
-}
 
 struct ShapeSink<'a> {
     output: &'a mut DocumentLayout,
@@ -56,189 +50,31 @@ struct TablePlacement<'a> {
     line_count: &'a mut usize,
 }
 
-const FONT_FILES: &[(&str, &[u8])] = &[
-    (
-        "Arimo-Regular.ttf",
-        include_bytes!("../fonts/Arimo-Regular.ttf"),
-    ),
-    (
-        "Arimo-Italic.ttf",
-        include_bytes!("../fonts/Arimo-Italic.ttf"),
-    ),
-    (
-        "Tinos-Regular.ttf",
-        include_bytes!("../fonts/Tinos-Regular.ttf"),
-    ),
-    (
-        "Tinos-Italic.ttf",
-        include_bytes!("../fonts/Tinos-Italic.ttf"),
-    ),
-    ("Tinos-Bold.ttf", include_bytes!("../fonts/Tinos-Bold.ttf")),
-    (
-        "Tinos-BoldItalic.ttf",
-        include_bytes!("../fonts/Tinos-BoldItalic.ttf"),
-    ),
-    (
-        "NotoSansArabic.ttf",
-        include_bytes!("../fonts/NotoSansArabic.ttf"),
-    ),
-    (
-        "NotoSansDevanagari.ttf",
-        include_bytes!("../fonts/NotoSansDevanagari.ttf"),
-    ),
-    (
-        "NotoSansHebrew.ttf",
-        include_bytes!("../fonts/NotoSansHebrew.ttf"),
-    ),
-    ("NotoEmoji.ttf", include_bytes!("../fonts/NotoEmoji.ttf")),
-    // Full original OFL faces. Static Caladea/Carlito have actual
-    // bold/italic faces; Source Sans 3 and JetBrains Mono use wght axes.
-    (
-        "Caladea-Regular.ttf",
-        include_bytes!("../fonts/Caladea-Regular.ttf"),
-    ),
-    (
-        "Caladea-Bold.ttf",
-        include_bytes!("../fonts/Caladea-Bold.ttf"),
-    ),
-    (
-        "Caladea-Italic.ttf",
-        include_bytes!("../fonts/Caladea-Italic.ttf"),
-    ),
-    (
-        "Caladea-BoldItalic.ttf",
-        include_bytes!("../fonts/Caladea-BoldItalic.ttf"),
-    ),
-    (
-        "Carlito-Regular.ttf",
-        include_bytes!("../fonts/Carlito-Regular.ttf"),
-    ),
-    (
-        "Carlito-Bold.ttf",
-        include_bytes!("../fonts/Carlito-Bold.ttf"),
-    ),
-    (
-        "Carlito-Italic.ttf",
-        include_bytes!("../fonts/Carlito-Italic.ttf"),
-    ),
-    (
-        "Carlito-BoldItalic.ttf",
-        include_bytes!("../fonts/Carlito-BoldItalic.ttf"),
-    ),
-    (
-        "SourceSans3-Regular.ttf",
-        include_bytes!("../fonts/SourceSans3-Regular.ttf"),
-    ),
-    (
-        "SourceSans3-Italic.ttf",
-        include_bytes!("../fonts/SourceSans3-Italic.ttf"),
-    ),
-    (
-        "JetBrainsMono-Regular.ttf",
-        include_bytes!("../fonts/JetBrainsMono-Regular.ttf"),
-    ),
-    (
-        "JetBrainsMono-Italic.ttf",
-        include_bytes!("../fonts/JetBrainsMono-Italic.ttf"),
-    ),
-    (
-        "EBGaramond-Regular.ttf",
-        include_bytes!("../fonts/EBGaramond-Regular.ttf"),
-    ),
-    (
-        "EBGaramond-Italic.ttf",
-        include_bytes!("../fonts/EBGaramond-Italic.ttf"),
-    ),
-    // Opt-in Open Font License additions, preserving the original fallback chain.
-    (
-        "Inter-Regular.ttf",
-        include_bytes!("../fonts/Inter-Regular.ttf"),
-    ),
-    (
-        "Inter-Italic.ttf",
-        include_bytes!("../fonts/Inter-Italic.ttf"),
-    ),
-    (
-        "LibreBaskerville-Regular.ttf",
-        include_bytes!("../fonts/LibreBaskerville-Regular.ttf"),
-    ),
-    (
-        "LibreBaskerville-Italic.ttf",
-        include_bytes!("../fonts/LibreBaskerville-Italic.ttf"),
-    ),
-    (
-        "PlayfairDisplay-Regular.ttf",
-        include_bytes!("../fonts/PlayfairDisplay-Regular.ttf"),
-    ),
-    (
-        "PlayfairDisplay-Italic.ttf",
-        include_bytes!("../fonts/PlayfairDisplay-Italic.ttf"),
-    ),
-    (
-        "SpaceGrotesk-Regular.ttf",
-        include_bytes!("../fonts/SpaceGrotesk-Regular.ttf"),
-    ),
-    // v4: opt-in families with separate original upright/italic variable fonts.
-    (
-        "Lora-Regular.ttf",
-        include_bytes!("../fonts/Lora-Regular.ttf"),
-    ),
-    (
-        "Lora-Italic.ttf",
-        include_bytes!("../fonts/Lora-Italic.ttf"),
-    ),
-    (
-        "Montserrat-Regular.ttf",
-        include_bytes!("../fonts/Montserrat-Regular.ttf"),
-    ),
-    (
-        "Montserrat-Italic.ttf",
-        include_bytes!("../fonts/Montserrat-Italic.ttf"),
-    ),
-    (
-        "DMSans-Regular.ttf",
-        include_bytes!("../fonts/DMSans-Regular.ttf"),
-    ),
-    (
-        "DMSans-Italic.ttf",
-        include_bytes!("../fonts/DMSans-Italic.ttf"),
-    ),
-    // v5: opt-in official OFL faces, preserving existing fallback order.
-    (
-        "WorkSans-Regular.ttf",
-        include_bytes!("../fonts/WorkSans-Regular.ttf"),
-    ),
-    (
-        "WorkSans-Italic.ttf",
-        include_bytes!("../fonts/WorkSans-Italic.ttf"),
-    ),
-    (
-        "RobotoMono-Regular.ttf",
-        include_bytes!("../fonts/RobotoMono-Regular.ttf"),
-    ),
-    (
-        "RobotoMono-Italic.ttf",
-        include_bytes!("../fonts/RobotoMono-Italic.ttf"),
-    ),
-    (
-        "Oswald-Regular.ttf",
-        include_bytes!("../fonts/Oswald-Regular.ttf"),
-    ),
-];
-
 /// A reusable native/WASM shaping context with an immutable pinned font catalog.
 ///
 /// No host fonts or browser measurements are consulted. Requests have fixed
 /// resource budgets; failures leave the source model and editing session intact.
 pub struct LayoutEngine {
-    fonts: Vec<PinnedFont>,
+    fonts: Vec<crate::font_catalog::PinnedFont>,
     font_context: FontContext,
     layout_context: LayoutContext<usize>,
 }
 
 impl LayoutEngine {
-    /// Loads and validates the bundled catalog without filesystem or network I/O.
+    /// Uses the complete pinned catalog without filesystem or network I/O.
+    ///
+    /// Native targets retain their bundled catalog. WebAssembly requires the
+    /// verified external catalog to be atomically installed first; no partial
+    /// fonts or host fallback are used while initialization is incomplete.
     pub fn new() -> Result<Self, LayoutError> {
+        Self::with_font_catalog(crate::font_catalog::default_catalog()?)
+    }
+
+    /// Creates the same shaping context from a complete verified external catalog.
+    ///
+    /// Font registration order, catalog identity and fallback remain identical
+    /// to the native bundled constructor, regardless of arrival order.
+    pub fn with_font_catalog(catalog: &crate::VerifiedFontCatalog) -> Result<Self, LayoutError> {
         let mut font_context = FontContext {
             collection: Collection::new(CollectionOptions {
                 system_fonts: false,
@@ -246,19 +82,17 @@ impl LayoutEngine {
             }),
             source_cache: Default::default(),
         };
-        let mut fonts = Vec::new();
-        for &(id, bytes) in FONT_FILES {
-            let font = FontRef::from_index(bytes, 0).map_err(|error| font_error(id, error))?;
-            if font
-                .metrics(Size::unscaled(), LocationRef::default())
-                .units_per_em
-                == 0
-            {
-                return Err(font_error(id, "zero units per em"));
+        let fonts = catalog.fonts.clone();
+        for entry in &fonts {
+            let registered = font_context
+                .collection
+                .register_fonts(entry.blob.clone(), None);
+            if registered.is_empty() {
+                return Err(font_error(
+                    entry.id,
+                    "font registration produced no usable family",
+                ));
             }
-            let blob = Blob::new(Arc::new(bytes));
-            font_context.collection.register_fonts(blob.clone(), None);
-            fonts.push(PinnedFont { id, blob });
         }
         Ok(Self {
             fonts,
@@ -276,7 +110,7 @@ impl LayoutEngine {
         preflight(document, options)?;
         let mut output = DocumentLayout {
             document_id: document.id().as_str().into(),
-            font_catalog_id: CATALOG_ID.into(),
+            font_catalog_id: crate::font_catalog_id().into(),
             units_per_point: UNITS_PER_POINT,
             pages: Vec::new(),
             outlines: Vec::new(),
@@ -1592,7 +1426,7 @@ impl OutlineCache {
     fn outline(
         &mut self,
         output: &mut DocumentLayout,
-        pinned: &PinnedFont,
+        pinned: &crate::font_catalog::PinnedFont,
         face: u32,
         glyph: u32,
         coordinates: &[i16],

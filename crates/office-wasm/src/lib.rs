@@ -6,6 +6,8 @@
 //! grapheme boundaries; scalar-invalid surrogate positions are rejected.
 
 mod find;
+#[cfg(target_arch = "wasm32")]
+mod fonts;
 mod formats;
 mod images;
 mod layout;
@@ -904,6 +906,30 @@ fn character_patch(
 mod wasm {
     use super::BrowserEngine;
     use wasm_bindgen::prelude::*;
+
+    /// Returns the exact Rust-owned catalog required before browser typography.
+    #[wasm_bindgen]
+    pub fn font_catalog_manifest() -> String {
+        super::fonts::manifest()
+    }
+
+    /// Returns readiness and missing IDs without changing any font or document.
+    #[wasm_bindgen]
+    pub fn font_catalog_status() -> String {
+        super::fonts::status()
+    }
+
+    /// Stages one pinned font after Rust verifies its ID, length, digest and data.
+    #[wasm_bindgen]
+    pub fn register_font(font_id: &str, bytes: &[u8]) -> Result<String, JsValue> {
+        super::fonts::register(font_id, bytes).map_err(js_error)
+    }
+
+    /// Publishes the complete immutable catalog shared by layout and PDF export.
+    #[wasm_bindgen]
+    pub fn finalize_font_catalog() -> Result<String, JsValue> {
+        super::fonts::finalize().map_err(js_error)
+    }
 
     /// Minimal owning JavaScript handle to a Rust Writer session.
     #[wasm_bindgen]

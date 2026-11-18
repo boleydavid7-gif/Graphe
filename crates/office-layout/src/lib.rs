@@ -7,6 +7,7 @@
 mod dto;
 mod engine;
 mod error;
+mod font_catalog;
 mod interaction;
 mod options;
 mod style;
@@ -17,6 +18,10 @@ pub use dto::{
 };
 pub use engine::{LayoutEngine, layout_document};
 pub use error::LayoutError;
+pub use font_catalog::{
+    FontAssetDescriptor, FontCatalogBuilder, VerifiedFontCatalog, font_catalog_assets,
+    font_catalog_id, font_catalog_manifest_sha256, font_catalog_ready, install_font_catalog,
+};
 pub use interaction::{
     CaretGeometry, LayoutPosition, NavigationDirection, NavigationResult, SelectionGeometry,
     SelectionRectangle, VisualPosition,

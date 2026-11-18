@@ -1274,3 +1274,15 @@ PDF paints the same normalized pixels/geometry with alpha. TXT requires meaningf
 loss disclosure and RTF images are refused until represented safely. Ordinary
 PNG/JPEG bytes can be retained externally; orientation/color normalization uses
 canonical PNG and reports its limits. See IMAGES.md and IMAGES_RESEARCH.md.
+
+## 2026-11-18 — External pinned font bytes for browser WASM
+
+Keep the canonical licensed catalog and native embedding; exclude font binaries
+from WASM with target configuration. Compile trusted manifest descriptors and
+preserve the existing registration order rather than manifest entry order.
+Use RustCrypto sha2 0.11.1 for independent Rust verification and WebCrypto for
+browser cache integrity. Only a complete catalog can activate layout/PDF.
+Serve original fonts through existing static assets with manifest-digest paths,
+reuse verified bytes for CSS FontFace previews and retain versioned partial caches.
+No lazy partial fallback, host font discovery, R2, service worker, document schema
+change or deployment-setting change is needed. See EXTERNAL_FONTS_RESEARCH.md.

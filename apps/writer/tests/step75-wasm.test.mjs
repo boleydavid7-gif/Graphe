@@ -7,9 +7,10 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, URL } from 'node:url';
 import { TextDecoder, TextEncoder } from 'node:util';
-import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { WriterEngine } from '../src/wasm/office_wasm.js';
+import { initializeWithFonts } from './font-catalog-helper.mjs';
 
-await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
+await initializeWithFonts();
 const encode = new TextEncoder();
 const decode = new TextDecoder();
 const initialText = 'Writer format — Café e\u0301 👩🏽‍💻\nSecond paragraph العربية नमस्ते שלום';

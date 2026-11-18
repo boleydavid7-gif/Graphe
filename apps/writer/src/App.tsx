@@ -12,6 +12,7 @@ import type { Alignment, CompatibilityReport, DocumentFormat, ExportAssessment, 
 import './styles.css';
 import fontLicensesUrl from '../../../crates/office-layout/fonts/NOTICE.txt?url';
 import formatLicensesUrl from '../../../crates/office-formats/THIRD_PARTY_NOTICES.txt?url';
+import fontLoadingLicensesUrl from '../../../crates/office-layout/THIRD_PARTY_NOTICES.txt?url';
 import imageLicensesUrl from '../../../crates/office-core/THIRD_PARTY_NOTICES.txt?url';
 import grapheLicenseUrl from '../../../LICENSE?url';
 
@@ -277,6 +278,8 @@ export default function App() {
   const [preparedExport, setPreparedExport] = useState<{ url: string; filename: string; automaticFailed: boolean } | null>(null);
   const [view, setView] = useState<WriterView | null>(null);
   const [startupError, setStartupError] = useState('');
+  const [startupAttempt, setStartupAttempt] = useState(0);
+  const [fontProgress, setFontProgress] = useState<import('./font-loader').FontLoadProgress | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [dirty, setDirtyState] = useState(false);
@@ -509,12 +512,13 @@ export default function App() {
       },
     });
     saveController.current = saver;
-    void EngineClient.create().then((created) => {
+    void EngineClient.create((progress) => { if (!canceled) setFontProgress(progress); }).then((created) => {
       client = created;
       if (canceled) { created.dispose(); return; }
       engine.current = created;
       viewRef.current = created.view;
       setView(created.view);
+      if (created.startupWarnings.length) setNotice(created.startupWarnings.join(' '));
       saver.reset(null);
     }).catch((failure: unknown) => {
       if (!canceled) setStartupError(message(failure));
@@ -528,7 +532,7 @@ export default function App() {
       engine.current = null;
       localStore.close();
     };
-  }, []);
+  }, [startupAttempt]);
 
   useEffect(() => {
     function beforeUnload(event: BeforeUnloadEvent) {
@@ -1394,8 +1398,13 @@ export default function App() {
       </details>
     </aside>}
     <div className="writer-work-area"><main className="workspace" aria-label="Document workspace">
-      {startupError ? <div className="startup-message" role="alert"><h1>Graphe could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
-        : !view ? <p className="startup-message" role="status">Opening Writer…</p>
+      {startupError ? <div className="startup-message" role="alert"><h1>Graphe could not start</h1><p>{startupError}</p><button onClick={() => {
+        setStartupError(''); setFontProgress(null); setStartupAttempt((attempt) => attempt + 1);
+      }}>Try again</button></div>
+        : !view ? <div className="startup-message" role="status"><p>{fontProgress
+          ? fontProgress.phase === 'loading' ? `Loading verified fonts (${fontProgress.loaded}/${fontProgress.total})…`
+            : 'Preparing the verified font catalog…'
+          : 'Opening Graphe…'}</p>{fontProgress?.warning && <p>{fontProgress.warning}</p>}</div>
         : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command} imageUrls={imageUrls}
           getCurrentView={currentEngineView}
           onError={setError} onCompositionChange={compositionChanged} disabled={opening || pagePreview}
@@ -1684,6 +1693,7 @@ export default function App() {
         <a href={grapheLicenseUrl} target="_blank" rel="noopener noreferrer">Graphe software license</a>
         <a href={fontLicensesUrl} target="_blank" rel="noopener noreferrer">Bundled font licenses</a>
         <a href={formatLicensesUrl} target="_blank" rel="noopener noreferrer">Third-party format library notices</a>
+        <a href={fontLoadingLicensesUrl} target="_blank" rel="noopener noreferrer">Font loading library notices</a>
         <a href={imageLicensesUrl} target="_blank" rel="noopener noreferrer">Image library notices</a>
         <p>Third-party components retain their respective licenses.</p>
       </section>
