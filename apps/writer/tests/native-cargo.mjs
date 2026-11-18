@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import process from 'node:process';
+import { fileURLToPath, URL } from 'node:url';
 
 const writerDirectory = fileURLToPath(new URL('../', import.meta.url));
 const toolchainDirectory = join(writerDirectory, '.cache', 'rust-toolchain');
