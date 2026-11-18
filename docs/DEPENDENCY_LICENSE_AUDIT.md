@@ -6,6 +6,13 @@
 **Status:** **OPEN — not commercially or publicly cleared.**  
 **Change policy:** No dependency was added, upgraded, removed, or relicensed by this report.
 
+## Follow-up verification
+
+The initial-pass limitations below are historical. See
+[Codex evidence pass 2](DEPENDENCY_CODEX_VERIFICATION.md) for executed Cargo
+graphs, checksum-verified archive/license evidence, fresh advisory scans, and
+remaining release blockers. Neither pass grants publication clearance.
+
 ## Summary
 
 | Category | Checked evidence | Assessment |

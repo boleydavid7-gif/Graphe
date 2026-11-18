@@ -11,6 +11,7 @@
  * It never changes source or lockfiles.
  */
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 
@@ -63,7 +64,7 @@ function normalGraph(metadata) {
   const visited = new Set(), queue = [];
   for (const id of metadata.workspace_members ?? []) {
     const pack = metadata.packages.find((entry) => entry.id === id);
-    if (pack?.name?.startsWith('office-')) queue.push(id);
+    if (pack) queue.push(id);
   }
   while (queue.length) {
     const id = queue.pop();
@@ -86,9 +87,25 @@ const metadata = targets.filter((target) => target.data);
 for (const target of targets) if (target.error)
   errors.push(target.triple + ': ' + target.error);
 const runtime = Object.fromEntries(metadata.map((target) => [target.triple, normalGraph(target.data)]));
+// The release browser target is office-wasm, not every workspace/test root.
+// Procedural macros execute on the build host and are not WASM runtime code.
+function wasmGraph(edges) {
+  const result = spawnSync('cargo', ['tree', '--locked', '--target', 'wasm32-unknown-unknown',
+    '-p', 'office-wasm', '--edges', edges, '--prefix', 'none', '--format', '{p}'],
+    { cwd: root, encoding: 'utf8', timeout: 180000, maxBuffer: 60 * 1024 * 1024 });
+  if (result.error || result.status !== 0) {
+    errors.push('WASM tree: ' + String(result.error?.message ?? result.stderr).slice(0,1600));
+    return null;
+  }
+  return new Set([...result.stdout.matchAll(/^(\S+) v(\S+)/gm)].map((match) => match[1] + '@' + match[2]));
+}
+const wasmBuild = staticOnly ? null : wasmGraph('normal');
+const wasmRuntime = staticOnly ? null : wasmGraph('normal,no-proc-macro');
+if (wasmRuntime) runtime['wasm32-unknown-unknown'] = wasmRuntime;
+
 const metaPackages = new Map(metadata.flatMap((target) => target.data.packages
   .map((pack) => [pack.name + '@' + pack.version, pack])));
-const ext = crates.filter((item) => !item.name.startsWith('office-'))
+const ext = crates.filter((item) => item.source !== null)
   .map((item) => {
     const pack = metaPackages.get(item.identity);
     return { ...item, license: pack?.license ?? null, licenseFile: pack?.license_file ?? null,
@@ -105,7 +122,13 @@ const potential = ext.filter((item) => /(?:^|[\s(])(A?GPL|LGPL|SSPL|CDDL|EUPL|MP
 const prod = js.filter((p) => !p.dev);
 const summary = {
   source: 'Committed Cargo.lock and apps/writer/package-lock.json',
-  metadataComplete: metadata.length === 2,
+  cargoLockSha256: createHash('sha256').update(read('Cargo.lock')).digest('hex'),
+  npmLockSha256: createHash('sha256').update(read('apps/writer/package-lock.json')).digest('hex'),
+  metadataComplete: metadata.length === 2 && !errors.length,
+  graphScope: 'normal source dependencies; optimized binary contribution is not established',
+  wasmRoot: 'office-wasm',
+  wasmRuntimeExternalRecords: wasmRuntime ? crates.filter((p) => p.source && wasmRuntime.has(p.identity)).length : null,
+  wasmNormalWithHostMacrosExternalRecords: wasmBuild ? crates.filter((p) => p.source && wasmBuild.has(p.identity)).length : null,
   rustPackageRecords: crates.length, externalRustPackageRecords: ext.length,
   npmPackageRecords: js.length, npmProductionRecords: prod.length,
   missingCargoLicenseMetadataRecords: standalone.length,
