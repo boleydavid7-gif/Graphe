@@ -1640,7 +1640,7 @@ export default function App() {
             onClose={togglePagePreview} />}</>
           : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
-    {(outlineOpen || inspectorOpen) && <button type="button" className="writer-mobile-sheet-scrim"
+    {(outlineOpen || (inspectorOpen && !selectedImage)) && <button type="button" className="writer-mobile-sheet-scrim"
       aria-label="Close document tools" onClick={() => { setOutlineOpen(false); setInspectorOpen(false); }} />}
     {outlineOpen && <aside id="graphe-mobile-outline" className="writer-mobile-outline" aria-label="Document outline"
       onKeyDown={(event) => { if (event.key === 'Escape') setOutlineOpen(false); }}>
@@ -1658,7 +1658,7 @@ export default function App() {
     </aside>}
     {inspectorOpen && !selectedImage && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector"
       onPointerDownCapture={(event) => { mobileFormattingPointer.current = event.pointerType === 'touch' || event.pointerType === 'pen'; }}
-      onKeyDownCapture={() => { mobileFormattingPointer.current = false; }}>
+      onKeyDownCapture={(event) => { mobileFormattingPointer.current = false; if (event.key === 'Escape') setInspectorOpen(false); }}>
       <div className="writer-mobile-sheet-handle" aria-hidden="true" />
       <div className="writer-inspector-heading">
         <div><span className="writer-inspector-eyebrow">Graphe</span><h2>Formatting</h2></div>
