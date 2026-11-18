@@ -502,7 +502,7 @@ test('desktop resize handles and dragging use one Rust image edit each, retainin
   const resized = images(await nativeFile(page))[0]!;
   expect(resized.width).toBeGreaterThan(baseline.width);
   expect(resized.height).toBeGreaterThan(baseline.height);
-  expect(resized.width * baseline.height).toBeCloseTo(resized.height * baseline.width, -1);
+  expect(Math.abs(resized.width / resized.height - baseline.width / baseline.height)).toBeLessThan(0.01);
   expect(Buffer.from(resized.asset.bytes_base64, 'base64')).toEqual(bytes);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   expect(images(await nativeFile(page))).toEqual([baseline]);
@@ -525,4 +525,36 @@ test('desktop resize handles and dragging use one Rust image edit each, retainin
   expect(moved.asset).toEqual(resized.asset);
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   expect(images(await nativeFile(page))).toEqual([resized]);
+});
+
+
+test.describe('real browser touch image gestures', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test('two-finger pinch on an image resizes it through Rust without changing its original pixels', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Requires Chromium CDP multi-touch input');
+    await start(page);
+    const { bytes } = await insertPng(page);
+    const before = images(await nativeFile(page))[0]!;
+    const imageBox = await renderedImages(page).boundingBox();
+    if (!imageBox) throw new Error('No image visible for multi-touch');
+    const x = imageBox.x + imageBox.width / 2;
+    const y = imageBox.y + imageBox.height / 2;
+    const separation = Math.max(14, imageBox.width / 7);
+    const client = await page.context().newCDPSession(page);
+    const points = (delta: number) => [
+      { x: x - separation - delta, y, id: 0 },
+      { x: x + separation + delta, y, id: 1 },
+    ];
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(0) });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(12) });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: points(22) });
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await readyPages(page);
+    const after = images(await nativeFile(page))[0]!;
+    expect(after.width).toBeGreaterThan(before.width);
+    expect(after.height).toBeGreaterThan(before.height);
+    expect(Buffer.from(after.asset.bytes_base64, 'base64')).toEqual(bytes);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(images(await nativeFile(page))).toEqual([before]);
+  });
 });

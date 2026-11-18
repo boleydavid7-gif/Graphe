@@ -47,7 +47,11 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
   const [preview, setPreview] = useState<{ id: string; rect: LayoutRect } | null>(null);
   const [dragging, setDragging] = useState(false);
   const editable = !!onSelect && !!onResize && !!onMove;
-  const hitSize = Math.max(9, Math.min(15, page.width / unitsPerPoint / 48)) * unitsPerPoint;
+  const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+  const handleSize = Math.max(8, Math.min(10, page.width / unitsPerPoint / 72)) * unitsPerPoint;
+  const hitSize = (coarse ? Math.max(28, Math.min(46, page.width / unitsPerPoint / 14))
+    : Math.max(12, Math.min(17, page.width / unitsPerPoint / 44))) * unitsPerPoint;
+  const activeHandles = coarse ? handles.filter((handle) => handle.length === 2) : handles;
   const lineWidth = Math.max(1, page.width / unitsPerPoint / 650) * unitsPerPoint;
 
   function point(event: ReactPointerEvent<SVGGElement>): Point | null {
@@ -182,6 +186,13 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
       onPointerMove={editable ? move : undefined}
       onPointerUp={editable ? (event) => finish(event, true) : undefined}
       onPointerCancel={editable ? (event) => finish(event, false) : undefined}
+      onLostPointerCapture={editable ? (event) => {
+        if (active.current?.pointers.has(event.pointerId)) {
+          active.current = null;
+          setPreview(null);
+          setDragging(false);
+        }
+      } : undefined}
       onClick={editable ? (event) => event.stopPropagation() : undefined}>
       <title>{image.altText || 'Document image'}</title>
       {url ? <image {...rect} href={url} preserveAspectRatio="none" style={{ pointerEvents: editable ? 'all' : 'none' }}
@@ -190,16 +201,22 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
       {canEdit && <>
         <rect {...rect} fill="none" stroke="var(--writer-accent, #b78e37)" strokeWidth={lineWidth}
           pointerEvents="none" data-image-selected="true" />
-        {handles.map((handle) => {
+        {activeHandles.map((handle) => {
           const x = rect.x + (handle.includes('w') ? 0 : handle.includes('e') ? rect.width : rect.width / 2);
           const y = rect.y + (handle.includes('n') ? 0 : handle.includes('s') ? rect.height : rect.height / 2);
-          return <rect key={handle} x={x - hitSize / 2} y={y - hitSize / 2}
-            width={hitSize} height={hitSize} rx={hitSize / 5}
-            fill="#fff" stroke="var(--writer-accent, #b78e37)" strokeWidth={lineWidth}
-            data-image-resize-handle={handle} style={{ touchAction: 'none',
-              cursor: handle === 'n' || handle === 's' ? 'ns-resize'
-                : handle === 'w' || handle === 'e' ? 'ew-resize'
-                  : handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize' }} />;
+          return <g key={handle}>
+            <rect x={x - hitSize / 2} y={y - hitSize / 2}
+              width={hitSize} height={hitSize} rx={hitSize / 5}
+              fill="transparent" stroke="none" data-image-resize-handle={handle}
+              style={{ touchAction: 'none',
+                cursor: handle === 'n' || handle === 's' ? 'ns-resize'
+                  : handle === 'w' || handle === 'e' ? 'ew-resize'
+                    : handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize' }} />
+            <rect x={x - handleSize / 2} y={y - handleSize / 2} width={handleSize}
+              height={handleSize} rx={handleSize / 5}
+              fill="#fff" stroke="var(--writer-accent, #b78e37)" strokeWidth={lineWidth}
+              pointerEvents="none" />
+          </g>;
         })}
       </>}
     </g>;
