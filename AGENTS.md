@@ -12,8 +12,10 @@ and explicit approvals govern the task's scope.
 4. Evaluate mature low-level libraries before implementing specialized algorithms.
    Do not embed another complete editor or Office engine.
 5. Check dependency licensing, maintenance, security advisories, target support,
-   and compatibility. Pin resolved dependencies and keep lockfiles. Dependency
-   licensing does not decide this project's pending software license.
+   and compatibility. Pin resolved dependencies and keep lockfiles. Graphe's proprietary license is recorded in the repository-root
+   LICENSE; third-party dependency licensing remains separate and must be
+   respected. Review docs/COMMERCIAL_LICENSING_AUDIT.md before expanding
+   dependencies, bundled assets, or production distribution.
 6. Review existing relevant code against the new research, including public API
    assumptions and test gaps. Passing tests alone do not establish correctness.
 7. Classify weaknesses as critical, important, or optional and explain their
