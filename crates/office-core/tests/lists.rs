@@ -28,8 +28,8 @@ fn example() -> Document {
 
 #[test]
 fn native_round_trip_keeps_lists_separate_from_text() {
-    assert_eq!(SCHEMA_VERSION, 6);
-    assert_eq!(WRITER_FORMAT_VERSION, 6);
+    assert_eq!(SCHEMA_VERSION, 7);
+    assert_eq!(WRITER_FORMAT_VERSION, 7);
     let document = example();
     let bytes = serialize_document(&document).unwrap();
     let parsed = deserialize_document(&bytes).unwrap();

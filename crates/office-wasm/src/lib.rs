@@ -427,6 +427,9 @@ impl BrowserEngine {
             Command::SetPageBreakBefore { enabled, selection, .. } => {
                 self.set_page_break_before(enabled, selection)
             }
+            Command::SetParagraphPagination { keep_together, keep_with_next, selection, .. } => {
+                self.set_paragraph_pagination(keep_together, keep_with_next, selection)
+            },
             Command::SetParagraphMetrics {
                 spacing_before_pt,
                 spacing_after_pt,

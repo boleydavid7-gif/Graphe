@@ -397,8 +397,8 @@ fn native_roundtrip_retains_ids_unicode_originals_and_only_persists_original_ass
     let bytes = serialize_writer_file(&file).unwrap();
     assert_eq!(deserialize_writer_file(&bytes).unwrap(), file);
     let value: Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(value["format_version"], 6);
-    assert_eq!(value["document"]["schema_version"], 6);
+    assert_eq!(value["format_version"], 7);
+    assert_eq!(value["document"]["schema_version"], 7);
     assert_eq!(
         value["document"]["sections"][0]["blocks"][1]["content"]["asset"]
             .as_object()

@@ -5,7 +5,8 @@ use super::{
     Block, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, Section,
     SectionProperties, TextRun,
 };
-use crate::{CharacterFormat, DocumentError, HalfPoints, ParagraphFormat, TextColor, Underline};
+use crate::{CharacterFormat, DocumentError, HalfPoints, TextColor, Underline};
+use super::v6::V6ParagraphFormat;
 use serde::Deserialize;
 
 #[derive(Default, Deserialize)]
@@ -55,7 +56,7 @@ pub(super) struct V3NamedStyle {
     id: Id,
     name: String,
     based_on: Option<Id>,
-    paragraph_format: ParagraphFormat,
+    paragraph_format: V6ParagraphFormat,
     character_format: V3CharacterFormat,
 }
 
@@ -65,7 +66,7 @@ impl From<V3NamedStyle> for NamedStyle {
             id: old.id,
             name: old.name,
             based_on: old.based_on,
-            paragraph_format: old.paragraph_format,
+            paragraph_format: old.paragraph_format.into(),
             character_format: old.character_format.into(),
         }
     }
@@ -106,7 +107,7 @@ struct V3Paragraph {
     id: Id,
     runs: Vec<V3TextRun>,
     style: Option<Id>,
-    format: ParagraphFormat,
+    format: V6ParagraphFormat,
     #[serde(default)]
     list: Option<ListKind>,
 }
@@ -126,7 +127,7 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
                     V3Block::Paragraph(old) => {
                         let mut paragraph =
                             Paragraph::new(old.id, old.runs.into_iter().map(Into::into).collect())
-                                .with_format(old.format)
+                                .with_format(old.format.into())
                                 .with_list(old.list);
                         if let Some(style) = old.style {
                             paragraph = paragraph.with_style(style);

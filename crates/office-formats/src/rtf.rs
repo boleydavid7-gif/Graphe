@@ -685,6 +685,8 @@ impl<'a> Parser<'a> {
                 state.sl_multiple = value == 1;
             }
             "pagebb" => state.paragraph.page_break_before = Some(param != Some(0)),
+            "keep" => state.paragraph.keep_together = Some(param != Some(0)),
+            "keepn" => state.paragraph.keep_with_next = Some(param != Some(0)),
             _ => return Ok(false),
         }
         Ok(true)

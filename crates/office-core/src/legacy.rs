@@ -84,6 +84,8 @@ impl From<LegacyParagraphFormat> for ParagraphFormat {
             line_spacing: value.line_spacing,
             indentation: value.indentation,
             page_break_before: None,
+            keep_together: None,
+            keep_with_next: None,
         }
     }
 }

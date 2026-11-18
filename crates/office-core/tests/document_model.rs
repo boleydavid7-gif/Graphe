@@ -127,6 +127,7 @@ fn all_character_and_paragraph_properties_round_trip_without_resolving_defaults(
             first_line: Some(Twips(-360)),
         }),
         page_break_before: Some(false),
+        ..Default::default()
     };
     let paragraph = Paragraph::new(
         id("paragraph"),

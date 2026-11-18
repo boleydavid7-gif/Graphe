@@ -17,7 +17,7 @@ use crate::{
 /// Identifier of the provisional native Writer envelope.
 pub const WRITER_FORMAT_NAME: &str = "office-writer";
 /// Current native envelope version, independent of engine and model versions.
-pub const WRITER_FORMAT_VERSION: u32 = 6;
+pub const WRITER_FORMAT_VERSION: u32 = 7;
 /// Maximum serialized native file accepted or emitted, including retained source.
 pub const MAX_WRITER_FILE_BYTES: usize = 32 * 1024 * 1024;
 /// Provisional filename extension; serialization never changes supplied paths.
@@ -218,7 +218,7 @@ fn check_format(format: &str, version: u64) -> Result<(), PersistenceError> {
             found: format.into(),
         });
     }
-    if !matches!(version, 1..=6) {
+    if !matches!(version, 1..=7) {
         return Err(PersistenceError::UnsupportedFormatVersion {
             found: version,
             supported: WRITER_FORMAT_VERSION,
@@ -231,7 +231,7 @@ fn load_model(raw: &RawValue, format_version: u32) -> Result<Document, Persisten
     let header: ModelHeader = serde_json::from_str(raw.get()).map_err(DocumentError::Json)?;
     let expected = format_version;
     if header.schema_version != u64::from(expected) {
-        if !matches!(header.schema_version, 1..=6) {
+        if !matches!(header.schema_version, 1..=7) {
             return Err(DocumentError::UnsupportedSchemaVersion {
                 found: header.schema_version,
                 supported: SCHEMA_VERSION,
@@ -250,7 +250,7 @@ fn load_model(raw: &RawValue, format_version: u32) -> Result<Document, Persisten
 
 /// Validates and serializes a complete Writer file, including its exact original.
 ///
-/// Current output is UTF-8 JSON format 6, fixed field order, two-space indentation
+/// Current output is UTF-8 JSON format 7, fixed field order, two-space indentation
 /// and one trailing LF. The retained source uses strict standard padded base64.
 /// Output is capped during serialization, not after an unbounded allocation.
 /// No history, session revisions, engine version or timestamps are added.
@@ -321,8 +321,8 @@ fn serialize_parts(
 
 /// Decodes a complete Writer file without dropping retained original-source data.
 ///
-/// Formats 1–5 accept their corresponding schemas via explicit migrations.
-/// Current format 6 accepts schema 6. Envelope/model
+/// Formats 1–6 accept their corresponding schemas via explicit migrations.
+/// Current format 7 accepts schema 7. Envelope/model
 /// versions remain separate checks. Future versions, unknown/duplicate fields,
 /// malformed base64 and exceeded budgets are errors; nothing is repaired.
 /// Generic source identification does not validate a particular external format.

@@ -142,6 +142,12 @@ pub(crate) enum Command {
         selection: Option<BrowserSelection>,
         expected_revision: Option<String>,
     },
+    SetParagraphPagination {
+        keep_together: Option<bool>,
+        keep_with_next: Option<bool>,
+        selection: Option<BrowserSelection>,
+        expected_revision: Option<String>,
+    },
     SetPageBreakBefore {
         enabled: bool,
         selection: Option<BrowserSelection>,
@@ -283,6 +289,9 @@ impl Command {
                 expected_revision, ..
             }
             | Self::SetPageBreakBefore {
+                expected_revision, ..
+            }
+            | Self::SetParagraphPagination {
                 expected_revision, ..
             }
             | Self::SetParagraphMetrics {
@@ -444,6 +453,8 @@ pub(crate) struct ParagraphFormatView {
     pub indent_right_pt: f64,
     pub first_line_pt: f64,
     pub page_break_before: bool,
+    pub keep_together: bool,
+    pub keep_with_next: bool,
 }
 
 #[derive(Debug, Serialize)]

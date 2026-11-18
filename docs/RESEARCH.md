@@ -1382,3 +1382,34 @@ must fail without changing documents, history or storage. Native reopening,
 WASM layout and browser workflows are covered by regression tests, but full
 DOCX/ODT parity, cold-start mobile editing and hosted CI remain unverified until
 those checks actually run.
+
+## November 2026 — 8C.3 keeping paragraphs and headings on pages
+
+**Question:** Prevent split paragraphs and orphaned headings while preserving
+Graphe's independent Rust layout, format-neutral paragraph model, and native
+document history.
+
+**Alternatives:** Browser CSS `break-inside` / `break-after` would disagree
+with Rust/PDF pagination (rejected). Forcing entire over-page paragraphs to
+fit would produce blank or unrenderable documents (rejected). A new table-aware
+multi-paragraph pagination solver is premature (deferred). Chosen: two optional
+format-neutral paragraph properties, existing style inheritance, and a bounded
+Rust one-neighbor lookahead.
+
+**Code evidence:** `office-layout/src/engine.rs` shapes each paragraph before
+page placement; `office-core/src/format_patch.rs` already offers atomic
+paragraph property changes; `office-wasm/src/view.rs` exposes resolved
+formatting. `office-docx/src/properties.rs` formerly normalized
+`w:keepLines`/`w:keepNext`; ODF paragraph properties and RTF control words
+have direct representations, mapped in their adapters. Historic native schema
+6 contains images/tables and must be decoded strictly before enabling new
+schema-7 fields. Refer to LAYOUT.md and DOCX_NORMALIZATION.md.
+
+**Risks/limits:** Exact Word/LibreOffice page breaks differ because Graphe
+uses pinned fonts, fixed point measurements, no chained keeps, and no
+widow/orphan line policy. First profile keeps only a next paragraph's *first*
+line, and only when the pair fits a page. Long paragraphs fall back with a
+diagnostic; table-cell placement remains row-based. Empty/mixed multi-paragraph
+selections require further device testing. Validate native migration from v1–6,
+compiled WASM, DOCX/ODT/RTF round trips, TXT loss assessment and browser actions
+before release; a Cloudflare compilation alone does not establish these claims.

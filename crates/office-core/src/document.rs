@@ -18,11 +18,13 @@ mod v3;
 mod v4;
 #[path = "v5.rs"]
 mod v5;
+#[path = "v6.rs"]
+mod v6;
 
 /// Current document JSON schema, independent of crate and native-file versions.
 ///
-/// Schemas 1 through 5 migrate strictly into the image-aware schema 6.
-pub const SCHEMA_VERSION: u32 = 6;
+/// Schemas 1 through 6 migrate strictly into the pagination-aware schema 7.
+pub const SCHEMA_VERSION: u32 = 7;
 
 /// An opaque, caller-assigned identifier preserved across copies and serialization.
 ///
@@ -478,7 +480,7 @@ impl<'de> Deserialize<'de> for Document {
 }
 
 fn check_schema(found: u64) -> Result<(), DocumentError> {
-    if !matches!(found, 1..=6) {
+    if !matches!(found, 1..=7) {
         return Err(DocumentError::UnsupportedSchemaVersion {
             found,
             supported: SCHEMA_VERSION,
@@ -767,7 +769,7 @@ impl Document {
     ///
     /// The version is checked before decoding model fields, so a future schema
     /// with a different payload still returns an explicit unsupported-version
-    /// error. Schemas 1–5 are decoded using exact former field definitions and
+    /// error. Schemas 1–6 are decoded using exact former field definitions and
     /// migrated to the current schema with new properties unspecified. Missing fields,
     /// fields introduced only in newer schemas, and duplicate keys are rejected.
     pub fn from_json(json: &str) -> Result<Self, DocumentError> {
@@ -783,6 +785,7 @@ impl Document {
             3 => v3::from_json(json),
             4 => v4::from_json(json),
             5 => v5::from_json(json),
+            6 => v6::from_json(json),
             _ => {
                 crate::image::preflight_document(json)?;
                 serde_json::from_str::<DocumentInput>(json)?.into_document()

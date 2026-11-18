@@ -1206,6 +1206,7 @@ mod tests {
                     first_line: Some(Twips(-360)),
                 }),
                 page_break_before: Some(true),
+                ..Default::default()
             },
         );
         let xml = part(

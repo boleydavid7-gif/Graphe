@@ -151,7 +151,10 @@ impl LayoutEngine {
             let mut cursor = area.y;
             let mut previous_after = 0;
             let mut numbering = 0_usize;
-            for block in section.blocks() {
+            // Only a neighboring paragraph may be prefetched, so its shaping,
+            // outlines and diagnostic budget are charged exactly once.
+            let mut prefetched: Option<(String, Vec<LineLayout>)> = None;
+            for (block_index, block) in section.blocks().iter().enumerate() {
                 let paragraph = match block {
                     Block::Paragraph(paragraph) => paragraph,
                     Block::Image(image) => {
@@ -282,19 +285,65 @@ impl LayoutEngine {
                     cursor = area.y;
                     previous_after = 0;
                 }
-                let gap = previous_after.max(before);
-                let lines = self.shape_paragraph(
-                    document,
-                    paragraph,
-                    options,
-                    area.width,
-                    marker.as_deref(),
-                    ShapeSink {
-                        output: &mut output,
-                        cache: &mut cache,
-                        glyph_count: &mut glyph_count,
-                    },
-                )?;
+                let mut gap = previous_after.max(before);
+                let lines = match prefetched.take() {
+                    Some((id, lines)) if id == paragraph.id().as_str() => lines,
+                    _ => self.shape_paragraph(
+                        document, paragraph, options, area.width, marker.as_deref(),
+                        ShapeSink { output: &mut output, cache: &mut cache, glyph_count: &mut glyph_count },
+                    )?,
+                };
+                let total_height = lines.iter().map(|line| line.height).sum::<i64>();
+                // "Keep lines together" is best-effort: paragraphs taller than
+                // a whole page follow the existing split-by-line policy.
+                let keep_whole = resolved.paragraph.keep_together == Some(true);
+                if keep_whole && total_height > area.height {
+                    diagnostic(&mut output, "keep_together_too_tall", paragraph,
+                        "Paragraph is taller than a usable page; its lines must split.".into());
+                }
+                let mut required = if keep_whole && total_height <= area.height {
+                    total_height
+                } else {
+                    0
+                };
+                if resolved.paragraph.keep_with_next == Some(true)
+                    && total_height <= area.height
+                    && let Some(Block::Paragraph(next)) = section.blocks().get(block_index + 1)
+                {
+                    let next_resolved = resolve_paragraph_style(document, next);
+                    if next_resolved.paragraph.page_break_before != Some(true) {
+                        let next_marker = match next.list() {
+                            Some(ListKind::Bullet) => Some("•".to_owned()),
+                            Some(ListKind::Numbered) => Some(format!("{}.", numbering + 1)),
+                            None => None,
+                        };
+                        let next_lines = self.shape_paragraph(
+                            document, next, options, area.width, next_marker.as_deref(),
+                            ShapeSink { output: &mut output, cache: &mut cache, glyph_count: &mut glyph_count },
+                        )?;
+                        if let Some(next_first) = next_lines.first() {
+                            let next_before = twips(next_resolved.paragraph.spacing_before.unwrap_or(Twips(0)))?;
+                            let next_gap = after.max(next_before);
+                            let needed = total_height + next_gap + next_first.height;
+                            if needed <= area.height {
+                                required = required.max(needed);
+                            } else {
+                                diagnostic(&mut output, "keep_with_next_too_tall", paragraph,
+                                    "This paragraph and the next cannot fit together on one page.".into());
+                            }
+                        }
+                        prefetched = Some((next.id().as_str().to_owned(), next_lines));
+                    }
+                }
+                // Apply forced moves before emitting any of the lines. Suppress
+                // leading paragraph spacing at the new page top.
+                if required > 0 && cursor + gap + required > area.y + area.height
+                    && output.pages.last().is_some_and(page_has_content)
+                {
+                    push_page(&mut output.pages, section.id().as_str(), page_width, page_height, area)?;
+                    cursor = area.y;
+                    gap = 0;
+                }
                 for (index, mut line) in lines.into_iter().enumerate() {
                     line_count += 1;
                     budget("lines", MAX_LINES, line_count)?;

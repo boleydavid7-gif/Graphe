@@ -50,8 +50,8 @@ fn links_need_bounded_web_addresses_only() {
 #[test]
 fn schema_four_links_round_trip_and_schema_three_remains_strict() {
     let current = document();
-    assert_eq!(SCHEMA_VERSION, 6);
-    assert_eq!(WRITER_FORMAT_VERSION, 6);
+    assert_eq!(SCHEMA_VERSION, 7);
+    assert_eq!(WRITER_FORMAT_VERSION, 7);
     let encoded = current.to_json().unwrap();
     let value: Value = serde_json::from_str(&encoded).unwrap();
     assert_eq!(

@@ -1010,6 +1010,32 @@ impl BrowserEngine {
         Ok(())
     }
 
+    /// Set native paragraph pagination flags using the same revision-guarded
+    /// edit transaction and selection validation as existing paragraph format.
+    pub(super) fn set_paragraph_pagination(
+        &mut self,
+        keep_together: Option<bool>,
+        keep_with_next: Option<bool>,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        if keep_together.is_none() && keep_with_next.is_none() {
+            return Ok(());
+        }
+        let selection = self.current_selection(supplied)?.ok_or_else(|| {
+            EngineError::new("missing_selection", "Choose a paragraph before changing pagination.")
+        })?;
+        let mut transaction = self.session.begin_transaction();
+        let range = edit_selection(&transaction, &selection)?;
+        transaction.apply_paragraph_format(&range, &ParagraphFormatPatch {
+            keep_together: keep_together.map_or(PropertyChange::Keep, PropertyChange::Set),
+            keep_with_next: keep_with_next.map_or(PropertyChange::Keep, PropertyChange::Set),
+            ..Default::default()
+        })?;
+        self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
+        self.typing = None;
+        Ok(())
+    }
+
     pub(super) fn format_paragraph(
         &mut self,
         alignment: Alignment,

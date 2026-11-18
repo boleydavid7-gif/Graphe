@@ -266,6 +266,12 @@ pub(crate) fn parse_paragraph(
             "pageBreakBefore" => {
                 result.format.page_break_before = Some(on_off(property, namespace, part, report)?);
             }
+            "keepNext" => {
+                result.format.keep_with_next = Some(on_off(property, namespace, part, report)?);
+            }
+            "keepLines" => {
+                result.format.keep_together = Some(on_off(property, namespace, part, report)?);
+            }
             "sectPr" => {
                 result.section = Some(parse_section(property, namespace, part, report)?);
             }
@@ -280,9 +286,7 @@ pub(crate) fn parse_paragraph(
                     "Paragraph-mark formatting uses Writer's current paragraph defaults.",
                 );
             }
-            "keepNext"
-            | "keepLines"
-            | "widowControl"
+            "widowControl"
             | "contextualSpacing"
             | "suppressAutoHyphens"
             | "suppressLineNumbers"

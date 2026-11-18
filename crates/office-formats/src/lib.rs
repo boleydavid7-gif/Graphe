@@ -649,6 +649,8 @@ fn text_loses_formatting(document: &Document) -> bool {
                     .unwrap_or(defaults.line_spacing)
                     != defaults.line_spacing
                 || paragraph_format.page_break_before == Some(true)
+                || paragraph_format.keep_together == Some(true)
+                || paragraph_format.keep_with_next == Some(true)
                 || paragraph_format.indentation.is_some_and(|indentation| {
                     [indentation.left, indentation.right, indentation.first_line]
                         .into_iter()

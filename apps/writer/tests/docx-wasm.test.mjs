@@ -46,8 +46,8 @@ test('actual WASM imports formatting and page geometry and preserves original ow
   assert.equal(view.originalSource.byteLength, formatted.length);
   assert.deepEqual(instance.export_original(), new Uint8Array(formatted));
   const file = native(instance);
-  assert.equal(file.format_version, 6);
-  assert.equal(file.document.schema_version, 6);
+  assert.equal(file.format_version, 7);
+  assert.equal(file.document.schema_version, 7);
   assert.equal(file.document.sections.length, 2);
   assert.equal(file.document.sections[0].properties.page_size.width, 12240);
   assert.equal(file.document.sections[1].properties.page_size.width, 11906);
