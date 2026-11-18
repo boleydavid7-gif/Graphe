@@ -295,8 +295,10 @@ pub struct ParagraphFormat {
     /// Request or explicitly disable a page break before this paragraph.
     pub page_break_before: Option<bool>,
     /// Keep all paragraph lines on one page if they fit.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_together: Option<bool>,
     /// Keep this paragraph together with the next body paragraph when possible.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub keep_with_next: Option<bool>,
 }
 

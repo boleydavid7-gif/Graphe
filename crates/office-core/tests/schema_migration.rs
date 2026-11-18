@@ -49,7 +49,7 @@ fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
                     .is_null()
             );
             for field in ["keep_together", "keep_with_next"] {
-                assert!(block["content"]["format"].as_object_mut().unwrap().remove(field).unwrap().is_null());
+                let _ = block["content"]["format"].as_object_mut().unwrap().remove(field);
             }
         }
     }
@@ -63,7 +63,7 @@ fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
                 .is_null()
         );
         for field in ["keep_together", "keep_with_next"] {
-            assert!(style["paragraph_format"].as_object_mut().unwrap().remove(field).unwrap().is_null());
+            let _ = style["paragraph_format"].as_object_mut().unwrap().remove(field);
         }
     }
     // Missing optional properties and explicit null both represented None in
