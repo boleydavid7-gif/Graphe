@@ -101,7 +101,7 @@ const ext = crates.filter((item) => !item.name.startsWith('office-'))
         : 'MISSING_METADATA_OR_NOT_RESOLVED' };
   });
 const standalone = ext.filter((item) => !item.license && !item.licenseFile);
-const potential = ext.filter((item) => /(?:^|[\s(])(A?GPL|LGPL|SSPL|CDDL|EUPL)(?:[-\s)]|$)/i.test(item.license ?? ''));
+const potential = ext.filter((item) => /(?:^|[\s(])(A?GPL|LGPL|SSPL|CDDL|EUPL|MPL|EPL)(?:[-\s)]|$)/i.test(item.license ?? ''));
 const prod = js.filter((p) => !p.dev);
 const summary = {
   source: 'Committed Cargo.lock and apps/writer/package-lock.json',
