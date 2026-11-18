@@ -21,3 +21,6 @@
 *.pfx
 *.key
 .DS_Store
+
+# Generated local dependency audit files
+/artifacts/dependency-audit/
