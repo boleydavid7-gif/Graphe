@@ -143,6 +143,13 @@ function pageFields(page: NonNullable<WriterView['pageSetup']>): PageSetupFields
   };
 }
 
+type RemoveSectionDialogState = {
+  sectionId: string;
+  sectionNumber: number;
+  origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
+  error: string;
+};
+
 interface ImageDialogState {
   readonly image: ImageView;
   readonly origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
@@ -344,6 +351,7 @@ export default function App() {
   const [hyperlinkDialog, setHyperlinkDialog] = useState<HyperlinkDialogState | null>(null);
   const [paragraphDialog, setParagraphDialog] = useState<ParagraphDialogState | null>(null);
   const [pageSetupDialog, setPageSetupDialog] = useState<PageSetupDialogState | null>(null);
+  const [removeSectionDialog, setRemoveSectionDialog] = useState<RemoveSectionDialogState | null>(null);
   const [tableDialog, setTableDialog] = useState<{ rows: number; columns: number; revision: string } | null>(null);
   const [imageDialog, setImageDialog] = useState<ImageDialogState | null>(null);
   const [imagePresentation, setImagePresentation] = useState<{
@@ -840,6 +848,35 @@ export default function App() {
     else setPageSetupDialog({ ...state, error: 'Page setup was not applied. Check the document error.' });
   }
 
+  function openRemoveSectionBreak() {
+    const current = viewRef.current;
+    const page = current?.pageSetup;
+    if (!current || !page || page.sectionIndex === 0 || !documentOpenRef.current || busy || composing) return;
+    setRemoveSectionDialog({
+      sectionId: page.sectionId,
+      sectionNumber: page.sectionIndex + 1,
+      origin: { sessionId: current.sessionId, documentId: current.documentId, revision: current.revision },
+      error: '',
+    });
+  }
+
+  function confirmRemoveSectionBreak() {
+    const state = removeSectionDialog;
+    const current = viewRef.current;
+    if (!state || !current || busy || composing) return;
+    if (current.sessionId !== state.origin.sessionId ||
+      current.documentId !== state.origin.documentId ||
+      current.revision !== state.origin.revision ||
+      current.pageSetup?.sectionId !== state.sectionId) {
+      setRemoveSectionDialog({ ...state, error: 'The active section changed. Close and reopen this dialog.' });
+      return;
+    }
+    const result = command({ type: 'remove_section_break', sectionId: state.sectionId,
+      confirmLayoutChange: true, expectedRevision: state.origin.revision });
+    if (result) setRemoveSectionDialog(null);
+    else setRemoveSectionDialog({ ...state, error: 'The section break was not removed. Review the error above.' });
+  }
+
   function openFind() {
     if (findOpen && !pagePreview) {
       findPanel.current?.querySelector('input')?.focus({ preventScroll: true });
@@ -1290,6 +1327,11 @@ export default function App() {
   const canInsertPageBreak = !unavailable && !selectedImage && !view?.table && !!selectionForBreak
     && selectionForBreak.anchor.paragraphId === selectionForBreak.focus.paragraphId
     && selectionForBreak.anchor.utf16 === selectionForBreak.focus.utf16;
+  const currentBodyBlockIndex = view?.bodyBlocks?.findIndex((block) =>
+    block.id === selectionForBreak?.focus.paragraphId) ?? -1;
+  const canInsertSectionBreak = canInsertPageBreak &&
+    ((selectionForBreak?.focus.utf16 ?? 0) > 0 ||
+      (currentBodyBlockIndex > 0 && view?.bodyBlocks?.[currentBodyBlockIndex - 1]?.sectionId === view?.pageSetup?.sectionId));
   const importWarnings = view?.importWarnings;
   const importWarningCount = (importWarnings?.diagnostics.length ?? 0)
     + (importWarnings?.omittedDiagnostics ?? 0);
@@ -1306,7 +1348,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app" onKeyDownCapture={(event) => {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
-      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !pageSetupDialog && !tableDialog && !imageDialog) {
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !pageSetupDialog && !removeSectionDialog && !tableDialog && !imageDialog) {
       event.preventDefault();
       event.stopPropagation();
       openHyperlink();
@@ -1474,7 +1516,9 @@ export default function App() {
           onClick={() => { if (view) { setError(''); setTableDialog({ rows: 2, columns: 2, revision: view.revision }); } }}>
           <WriterIcon name="table" /> Table…</button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_paragraph' })}>Paragraph <kbd>Enter</kbd></button>
-        <button disabled={canInsertPageBreak === false} onMouseDown={(event) => event.preventDefault()}
+        <button disabled={!canInsertSectionBreak} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => format({ type: 'insert_section_break' })}>Section break</button>
+        <button disabled={!canInsertPageBreak} onMouseDown={(event) => event.preventDefault()}
           onClick={() => format({ type: 'insert_page_break' })}>Page break</button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_line_break' })}>Line break <kbd>Shift Enter</kbd></button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
@@ -1483,7 +1527,14 @@ export default function App() {
       {activeTab === 'layout' && <div className="format-group paragraph-metrics-controls page-setup-controls">
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
           onClick={openPageSetup}>Page setup…</button>
+        {view?.pageSetup && <span className="section-position">
+          Section {view.pageSetup.sectionIndex + 1} of {view.pageSetup.sectionCount}
+        </span>}
         {!selectedImage && <>
+          <button disabled={unavailable || !view?.pageSetup || view.pageSetup.sectionIndex === 0}
+            onMouseDown={(event) => event.preventDefault()} onClick={openRemoveSectionBreak}>
+            Remove section break…
+          </button>
           <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
             onClick={openParagraphDialog}>Paragraph spacing &amp; indents…</button>
           <button disabled={unavailable || !view?.selection || !!view?.table}
@@ -1711,7 +1762,10 @@ export default function App() {
     {pageSetupDialog && <Dialog title="Page setup" onClose={() => setPageSetupDialog(null)}
       className="save-copy-dialog page-setup-dialog" busy={busy}>
       <form className="paragraph-metrics-form" onSubmit={(event) => { event.preventDefault(); submitPageSetup(); }}>
-        <p className="paragraph-metrics-hint">Applies to the current section. Existing text, tables and images remain in place.</p>
+        <p className="paragraph-metrics-hint">
+          Section {pageSetupDialog.section.sectionIndex + 1} of {pageSetupDialog.section.sectionCount}.
+          Applies only to this section. Text, tables and images stay in place.
+        </p>
         <fieldset>
           <legend>Paper</legend>
           <div className="page-setup-choice-grid">
@@ -1755,6 +1809,19 @@ export default function App() {
           <button type="submit" className="primary-button">Apply page setup</button>
         </div>
       </form>
+    </Dialog>}
+    {removeSectionDialog && <Dialog title="Remove section break"
+      onClose={() => setRemoveSectionDialog(null)} busy={busy} className="save-copy-dialog">
+      <p className="dialog-description">
+        Join section {removeSectionDialog.sectionNumber} with the preceding section.
+        All text, images and tables stay. The preceding section's page size, orientation
+        and margins will apply to the joined content.
+      </p>
+      {removeSectionDialog.error && <p className="dialog-error" role="alert">{removeSectionDialog.error}</p>}
+      <div className="dialog-actions">
+        <button onClick={() => setRemoveSectionDialog(null)}>Cancel</button>
+        <button className="primary-button" onClick={confirmRemoveSectionBreak}>Remove break</button>
+      </div>
     </Dialog>}
     <input ref={imageInput} type="file" className="visually-hidden" tabIndex={-1} aria-label="Insert image file"
       accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => {

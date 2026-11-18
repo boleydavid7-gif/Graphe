@@ -107,6 +107,8 @@ export interface WriterView {
   readonly table?: TableCellContext | null;
   readonly pageSetup?: {
     readonly sectionId: string;
+    readonly sectionIndex: number;
+    readonly sectionCount: number;
     readonly pageSize: { readonly width: number; readonly height: number; readonly orientation: 'portrait' | 'landscape' | null };
     readonly pageMargins: { readonly top: number; readonly right: number; readonly bottom: number;
       readonly left: number; readonly header: number; readonly footer: number; readonly gutter: number };
@@ -182,6 +184,9 @@ export type WriterCommand =
       readonly pageMargins: NonNullable<WriterView['pageSetup']>['pageMargins'];
       readonly expectedRevision?: string }
   | ({ readonly type: 'insert_page_break' } & EditOrigin)
+  | ({ readonly type: 'insert_section_break' } & EditOrigin)
+  | { readonly type: 'remove_section_break'; readonly sectionId: string;
+      readonly confirmLayoutChange: boolean; readonly expectedRevision?: string }
   | ({ readonly type: 'set_page_break_before'; readonly enabled: boolean } & EditOrigin)
   | ({ readonly type: 'set_paragraph_metrics';
        readonly spacingBeforePt?: number; readonly spacingAfterPt?: number;

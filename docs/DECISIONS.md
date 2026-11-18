@@ -1286,3 +1286,18 @@ Serve original fonts through existing static assets with manifest-digest paths,
 reuse verified bytes for CSS FontFace previews and retain versioned partial caches.
 No lazy partial fallback, host font discovery, R2, service worker, document schema
 change or deployment-setting change is needed. See EXTERNAL_FONTS_RESEARCH.md.
+
+## 2026-11-18 — Step 8C.2 section boundaries use existing sections
+
+Keep `Section` and `SectionProperties` as the sole format-neutral source for
+next-page breaks and independent page geometry. Structural editing is one
+detached Rust transaction: split a body paragraph only when necessary, retain
+existing block and paragraph identities, inherit exact section properties, and
+give the new section a new ID. The pinned layout engine already starts each
+section on a new page; React cannot decide pagination or construct section
+records. Joining sections preserves all blocks but applies the preceding
+section's geometry; require an explicit confirmation when geometry differs
+and show that consequence before every UI removal. Existing native model and
+file-format versions remain unchanged. Continuous/odd/even section break types,
+table-cell break insertion and full Word section semantics are deferred.
+See SECTION_BREAKS_8C2.md for tests and limitations.

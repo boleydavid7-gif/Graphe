@@ -813,6 +813,143 @@ impl BrowserEngine {
         self.commit(transaction, self.selection.clone())
     }
 
+
+    /// Split a body paragraph into two consecutive pages/sections without
+    /// rewriting unrelated blocks, table cells, paragraph IDs or run formats.
+    /// A new section inherits the original section's exact explicit properties.
+    pub(super) fn insert_section_break(
+        &mut self,
+        supplied: Option<BrowserSelection>,
+    ) -> Result<(), EngineError> {
+        let selection = self.current_selection(supplied)?.ok_or_else(|| {
+            EngineError::new("missing_selection", "Place the cursor where the next section begins.")
+        })?;
+        if selection.anchor != selection.focus {
+            return Err(EngineError::new(
+                "invalid_section_break",
+                "Place a single cursor before inserting a section break.",
+            ));
+        }
+        let document = self.session.document();
+        let section_index = document
+            .sections()
+            .iter()
+            .position(|section| {
+                section.blocks().iter().any(|block| {
+                    matches!(block, Block::Paragraph(value)
+                        if value.id().as_str() == selection.focus.paragraph_id)
+                })
+            })
+            .ok_or_else(|| {
+                EngineError::new(
+                    "invalid_section_break",
+                    "Section breaks can only be inserted in a body paragraph, not a table cell.",
+                )
+            })?;
+        let block_index = document.sections()[section_index]
+            .blocks()
+            .iter()
+            .position(|block| {
+                matches!(block, Block::Paragraph(value)
+                    if value.id().as_str() == selection.focus.paragraph_id)
+            })
+            .ok_or_else(|| EngineError::new("invalid_section_break", "Paragraph is not in the body."))?;
+        let at_start = selection.focus.utf16 == 0;
+        if at_start && block_index == 0 {
+            return Err(EngineError::new(
+                "invalid_section_break",
+                "Place the cursor after content to start a new section.",
+            ));
+        }
+        if !at_start && document.paragraphs().count() >= crate::MAX_PARAGRAPHS {
+            return Err(crate::limit_error());
+        }
+        // The paginated layout profile supports at most 512 physical pages.
+        // Each new section consumes at least one page; do not create a document
+        // that can never be laid out due solely to its section count.
+        if document.sections().len() >= 512 {
+            return Err(crate::limit_error());
+        }
+
+        let new_section_id = self.allocate_id()?;
+        let mut transaction = self.session.begin_transaction();
+        let (split_index, target_id) = if at_start {
+            (block_index, selection.focus.paragraph_id.clone())
+        } else {
+            let new_paragraph_id = self.allocate_id()?;
+            let range = edit_selection(&transaction, &selection)?;
+            transaction.insert_paragraph_break(&range, new_paragraph_id.clone())?;
+            (block_index + 1, new_paragraph_id.as_str().to_owned())
+        };
+        let original = transaction.draft().sections[section_index].clone();
+        let blocks = original.blocks();
+        let mut previous = Section::new(original.id().clone(), blocks[..split_index].to_vec());
+        let mut next = Section::new(new_section_id, blocks[split_index..].to_vec());
+        if let Some(properties) = original.properties() {
+            previous = previous.with_properties(properties.clone());
+            next = next.with_properties(properties.clone());
+        }
+        let sections = &mut transaction.draft_mut().sections;
+        sections[section_index] = previous;
+        sections.insert(section_index + 1, next);
+
+        let after = caret(Point { paragraph_id: target_id, utf16: 0 });
+        self.commit_from(transaction, Some(selection), Some(after))?;
+        self.typing = None;
+        Ok(())
+    }
+
+    /// Join a section with its predecessor, keeping every body block and
+    /// retaining the predecessor's page setup. Changed effective geometry
+    /// requires an explicit acknowledgement from the user.
+    pub(super) fn remove_section_break(
+        &mut self,
+        section_id: &str,
+        confirm_layout_change: bool,
+    ) -> Result<(), EngineError> {
+        if self
+            .page_setup_view()
+            .is_none_or(|active| active.section_id != section_id)
+        {
+            return Err(EngineError::new(
+                "invalid_section_break",
+                "The active section changed. Select the section and try again.",
+            ));
+        }
+        let document = self.session.document();
+        let index = document.sections().iter().position(|section| section.id().as_str() == section_id)
+            .ok_or_else(|| EngineError::new("invalid_section_break", "Section not found."))?;
+        if index == 0 {
+            return Err(EngineError::new("invalid_section_break", "The first section has no preceding break."));
+        }
+        let defaults = office_layout::LayoutOptions::default();
+        let geometry = |section: &Section| (
+            section.properties().and_then(|props| props.page_size).unwrap_or(defaults.page_size),
+            section.properties().and_then(|props| props.page_margins).unwrap_or(defaults.page_margins),
+        );
+        if !confirm_layout_change && geometry(&document.sections()[index - 1]) != geometry(&document.sections()[index]) {
+            return Err(EngineError::new(
+                "section_layout_confirmation_required",
+                "Removing this break applies the preceding section's page settings to this section's content.",
+            ));
+        }
+
+        let mut transaction = self.session.begin_transaction();
+        let preceding = transaction.draft().sections[index - 1].clone();
+        let current = &transaction.draft().sections[index];
+        let blocks = preceding.blocks().iter().cloned().chain(current.blocks().iter().cloned()).collect();
+        let mut joined = Section::new(preceding.id().clone(), blocks);
+        if let Some(props) = preceding.properties() {
+            joined = joined.with_properties(props.clone());
+        }
+        let sections = &mut transaction.draft_mut().sections;
+        sections[index - 1] = joined;
+        sections.remove(index);
+        self.commit(transaction, self.selection.clone())?;
+        self.typing = None;
+        Ok(())
+    }
+
     /// Insert a true manual break at the caret as one structural paragraph split
     /// and one paragraph page-break override in a single atomic undo step.
     pub(super) fn insert_page_break(

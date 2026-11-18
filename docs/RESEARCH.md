@@ -1353,3 +1353,32 @@ engine would duplicate document authority. First profile excludes spans/nesting
 and keeps intact-row pagination; unsupported structure stays preserved read-only.
 The existing paragraph-only traversal/splicing assumptions were corrected at
 core, layout, WASM and adapter boundaries, with schema-version regression tests.
+
+## November 2026 — Step 8C.2 next-page sections
+
+**Question:** Add independently configured page sections without duplicating
+the Rust document model or risking silent loss of text/images/tables.
+
+**Existing evidence:** `office-core::Section` already carries optional physical
+geometry, `office-layout` already starts each section on a new page and emits
+section IDs, the native writer envelope stores multiple sections, and
+`office-wasm` already uses revision-bound atomic transactions for page setup.
+DOCX and ODT adapters already inspect/export section properties with their
+documented limited profiles. See LAYOUT.md, PAGE_SETUP_8C1.md, DOCX_CONVERSION.md.
+
+**Alternatives:** A browser-owned section array would split document authority
+(rejected). Introducing a new persistent section-break-type schema would require
+file-format migrations and unsupported pagination policies (deferred). Reusing
+the existing section boundary and mandatory page transition is the least invasive
+first profile (chosen).
+
+**Risks and verification:** Breaking inside a body paragraph must keep prefix,
+suffix, Unicode grapheme positions, IDs, styles and adjacent table/image blocks;
+an offset-zero break moves the paragraph without splitting it. Removing a
+boundary cannot preserve both sections' distinct geometry, so the operator must
+be shown the adoption of the preceding page setup and the engine must demand
+confirmation when effective geometry differs. Invalid cursor/table selections
+must fail without changing documents, history or storage. Native reopening,
+WASM layout and browser workflows are covered by regression tests, but full
+DOCX/ODT parity, cold-start mobile editing and hosted CI remain unverified until
+those checks actually run.
