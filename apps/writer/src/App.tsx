@@ -105,6 +105,44 @@ type ParagraphDialogState = {
   error: string;
 };
 
+
+type PaperKind = 'letter' | 'a4' | 'legal' | 'custom';
+type PageOrientation = 'portrait' | 'landscape';
+type PageSetupFields = {
+  paper: PaperKind; orientation: PageOrientation;
+  widthIn: string; heightIn: string;
+  topIn: string; rightIn: string; bottomIn: string; leftIn: string;
+};
+type PageSetupDialogState = {
+  section: NonNullable<WriterView['pageSetup']>;
+  origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
+  values: PageSetupFields;
+  original: PageSetupFields;
+  error: string;
+};
+const PAPERS = [
+  { key: 'letter', label: 'US Letter', width: 12240, height: 15840 },
+  { key: 'a4', label: 'A4', width: 11906, height: 16838 },
+  { key: 'legal', label: 'US Legal', width: 12240, height: 20160 },
+] as const;
+function inches(twips: number): string { return String(Number((twips / 1440).toFixed(3))); }
+function paperFor(width: number, height: number): PaperKind {
+  const short = Math.min(width, height), long = Math.max(width, height);
+  return PAPERS.find((paper) => Math.abs(paper.width - short) <= 2
+    && Math.abs(paper.height - long) <= 2)?.key ?? 'custom';
+}
+function pageFields(page: NonNullable<WriterView['pageSetup']>): PageSetupFields {
+  const { width, height, orientation } = page.pageSize;
+  const margins = page.pageMargins;
+  return {
+    paper: paperFor(width, height),
+    orientation: orientation ?? (width > height ? 'landscape' : 'portrait'),
+    widthIn: inches(width), heightIn: inches(height),
+    topIn: inches(margins.top), rightIn: inches(margins.right),
+    bottomIn: inches(margins.bottom), leftIn: inches(margins.left),
+  };
+}
+
 interface ImageDialogState {
   readonly image: ImageView;
   readonly origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
@@ -305,6 +343,7 @@ export default function App() {
   const [findOpen, setFindOpen] = useState(false);
   const [hyperlinkDialog, setHyperlinkDialog] = useState<HyperlinkDialogState | null>(null);
   const [paragraphDialog, setParagraphDialog] = useState<ParagraphDialogState | null>(null);
+  const [pageSetupDialog, setPageSetupDialog] = useState<PageSetupDialogState | null>(null);
   const [tableDialog, setTableDialog] = useState<{ rows: number; columns: number; revision: string } | null>(null);
   const [imageDialog, setImageDialog] = useState<ImageDialogState | null>(null);
   const [imagePresentation, setImagePresentation] = useState<{
@@ -722,6 +761,83 @@ export default function App() {
     } else {
       setParagraphDialog({ ...state, error: 'The paragraph change was not applied. Check the document error and try again.' });
     }
+  }
+
+
+  function openPageSetup() {
+    const current = viewRef.current;
+    if (!current?.pageSetup || !documentOpenRef.current || busy || composing) return;
+    const fields = pageFields(current.pageSetup);
+    setPageSetupDialog({
+      section: current.pageSetup,
+      origin: { sessionId: current.sessionId, documentId: current.documentId, revision: current.revision },
+      values: fields, original: fields, error: '',
+    });
+  }
+
+  function changePaper(paper: PaperKind) {
+    setPageSetupDialog((state) => {
+      if (!state) return state;
+      const chosen = PAPERS.find((entry) => entry.key === paper);
+      const portrait = state.values.orientation !== 'landscape';
+      return { ...state, error: '', values: { ...state.values, paper,
+        ...(chosen ? {
+          widthIn: inches(portrait ? chosen.width : chosen.height),
+          heightIn: inches(portrait ? chosen.height : chosen.width),
+        } : {}),
+      } };
+    });
+  }
+
+  function changeOrientation(orientation: PageOrientation) {
+    setPageSetupDialog((state) => {
+      if (!state || state.values.orientation === orientation) return state;
+      return { ...state, error: '', values: { ...state.values, orientation,
+        widthIn: state.values.heightIn, heightIn: state.values.widthIn,
+      } };
+    });
+  }
+
+  function submitPageSetup() {
+    const state = pageSetupDialog;
+    const current = viewRef.current;
+    if (!state || !current || busy || composing) return;
+    if (current.sessionId !== state.origin.sessionId || current.documentId !== state.origin.documentId
+      || current.revision !== state.origin.revision || current.pageSetup?.sectionId !== state.section.sectionId) {
+      setPageSetupDialog({ ...state, error: 'The document or active section changed. Reopen Page setup.' });
+      return;
+    }
+    if (JSON.stringify(state.values) === JSON.stringify(state.original)) {
+      setPageSetupDialog(null);
+      return;
+    }
+    const value = state.values;
+    const parseInches = (entry: string) => entry.trim() ? Number(entry) : NaN;
+    const width = parseInches(value.widthIn);
+    const height = parseInches(value.heightIn);
+    const top = parseInches(value.topIn);
+    const right = parseInches(value.rightIn);
+    const bottom = parseInches(value.bottomIn);
+    const left = parseInches(value.leftIn);
+    const numbers = [width, height, top, right, bottom, left];
+    if (!numbers.every(Number.isFinite) || width < 3 || width > 22 || height < 3 || height > 22
+      || [top, right, bottom, left].some((margin) => margin < 0 || margin > 4)) {
+      setPageSetupDialog({ ...state, error: 'Paper dimensions must be 3–22 inches; margins must be 0–4 inches.' });
+      return;
+    }
+    const twips = (number: number) => Math.round(number * 1440);
+    const pageSize = { width: twips(width), height: twips(height), orientation: value.orientation };
+    const pageMargins = { ...state.section.pageMargins,
+      top: twips(top), right: twips(right), bottom: twips(bottom), left: twips(left) };
+    if (pageSize.width <= pageMargins.left + pageMargins.right + pageMargins.gutter
+      || pageSize.height <= pageMargins.top + pageMargins.bottom) {
+      setPageSetupDialog({ ...state, error: 'Margins must leave room for text on the selected paper.' });
+      return;
+    }
+    const next = command({ type: 'set_page_setup',
+      sectionId: state.section.sectionId, pageSize, pageMargins, expectedRevision: state.origin.revision });
+    if (next) setPageSetupDialog(null);
+    else setPageSetupDialog({ ...state, error: 'Page setup was not applied. Check the document error.' });
   }
 
   function openFind() {
@@ -1168,6 +1284,12 @@ export default function App() {
   const selectedImage = view?.images?.find((image) => image.id === view.selectedImageId);
   const imageUrls = imagePresentation.sessionId === view?.sessionId ? imagePresentation.urls : EMPTY_IMAGE_URLS;
   const formatState = view?.format;
+  const selectionForBreak = view?.selection;
+  const currentParagraph = view?.paragraphs.find((paragraph) => paragraph.id === selectionForBreak?.focus.paragraphId);
+  const hasPageBreakBefore = currentParagraph?.format.pageBreakBefore === true;
+  const canInsertPageBreak = !unavailable && !selectedImage && !view?.table && !!selectionForBreak
+    && selectionForBreak.anchor.paragraphId === selectionForBreak.focus.paragraphId
+    && selectionForBreak.anchor.utf16 === selectionForBreak.focus.utf16;
   const importWarnings = view?.importWarnings;
   const importWarningCount = (importWarnings?.diagnostics.length ?? 0)
     + (importWarnings?.omittedDiagnostics ?? 0);
@@ -1184,7 +1306,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app" onKeyDownCapture={(event) => {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
-      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !tableDialog && !imageDialog) {
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !pageSetupDialog && !tableDialog && !imageDialog) {
       event.preventDefault();
       event.stopPropagation();
       openHyperlink();
@@ -1352,14 +1474,24 @@ export default function App() {
           onClick={() => { if (view) { setError(''); setTableDialog({ rows: 2, columns: 2, revision: view.revision }); } }}>
           <WriterIcon name="table" /> Table…</button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_paragraph' })}>Paragraph <kbd>Enter</kbd></button>
+        <button disabled={canInsertPageBreak === false} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => format({ type: 'insert_page_break' })}>Page break</button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'insert_line_break' })}>Line break <kbd>Shift Enter</kbd></button>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
           onClick={openHyperlink}><WriterIcon name="link" /> Link <kbd>Ctrl K</kbd></button>
       </div>}
-      {activeTab === 'layout' && !selectedImage && <div className="format-group paragraph-metrics-controls">
+      {activeTab === 'layout' && <div className="format-group paragraph-metrics-controls page-setup-controls">
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
-          onClick={openParagraphDialog}>Paragraph spacing &amp; indents…</button>
-        <span className="formatting-note">Page sizes and margins follow the document.</span>
+          onClick={openPageSetup}>Page setup…</button>
+        {!selectedImage && <>
+          <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
+            onClick={openParagraphDialog}>Paragraph spacing &amp; indents…</button>
+          <button disabled={unavailable || !view?.selection || !!view?.table}
+            aria-pressed={hasPageBreakBefore} onMouseDown={(event) => event.preventDefault()}
+            onClick={() => format({ type: 'set_page_break_before', enabled: !hasPageBreakBefore })}>
+            {hasPageBreakBefore ? 'Remove page break' : 'Start on new page'}
+          </button>
+        </>}
       </div>}
       {activeTab === 'review' && <div className="format-group review-controls" role="group" aria-label="Review document">
         <button disabled={unavailable} onClick={openFind}><WriterIcon name="search" />Find</button>
@@ -1572,6 +1704,55 @@ export default function App() {
         <div className="dialog-actions">
           <button type="button" onClick={() => setParagraphDialog(null)}>Cancel</button>
           <button type="submit" className="primary-button">Apply</button>
+        </div>
+      </form>
+    </Dialog>}
+
+    {pageSetupDialog && <Dialog title="Page setup" onClose={() => setPageSetupDialog(null)}
+      className="save-copy-dialog page-setup-dialog" busy={busy}>
+      <form className="paragraph-metrics-form" onSubmit={(event) => { event.preventDefault(); submitPageSetup(); }}>
+        <p className="paragraph-metrics-hint">Applies to the current section. Existing text, tables and images remain in place.</p>
+        <fieldset>
+          <legend>Paper</legend>
+          <div className="page-setup-choice-grid">
+            <label><span>Size</span><select aria-label="Paper size" value={pageSetupDialog.values.paper}
+              onChange={(event) => changePaper(event.target.value as PaperKind)}>
+              {PAPERS.map((paper) => <option key={paper.key} value={paper.key}>{paper.label}</option>)}
+              <option value="custom">Custom size</option>
+            </select></label>
+            <label><span>Orientation</span><select aria-label="Page orientation" value={pageSetupDialog.values.orientation}
+              onChange={(event) => changeOrientation(event.target.value as PageOrientation)}>
+              <option value="portrait">Portrait</option><option value="landscape">Landscape</option>
+            </select></label>
+          </div>
+          <div className="page-setup-choice-grid">
+            {(['widthIn', 'heightIn'] as const).map((key) => <label key={key}>
+              <span>{key === 'widthIn' ? 'Width (in)' : 'Height (in)'}</span>
+              <input type="number" inputMode="decimal" step="any" min="3" max="22" required
+                value={pageSetupDialog.values[key]} onChange={(event) => setPageSetupDialog({
+                  ...pageSetupDialog, error: '', values: { ...pageSetupDialog.values,
+                    [key]: event.target.value, paper: 'custom' },
+                })} /></label>)}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Margins (inches)</legend>
+          <div className="page-setup-margins">
+            {([
+              ['topIn', 'Top'], ['bottomIn', 'Bottom'], ['leftIn', 'Left'], ['rightIn', 'Right'],
+            ] as const).map(([key, label]) => <label key={key}><span>{label}</span>
+              <input type="number" inputMode="decimal" step="any" min="0" max="4" required
+                value={pageSetupDialog.values[key]} onChange={(event) => setPageSetupDialog({
+                  ...pageSetupDialog, error: '', values: { ...pageSetupDialog.values,
+                    [key]: event.target.value },
+                })} /></label>)}
+          </div>
+        </fieldset>
+        <p className="paragraph-metrics-hint">Header, footer and gutter offsets are preserved. Changes are undoable.</p>
+        {pageSetupDialog.error && <p className="dialog-error" role="alert">{pageSetupDialog.error}</p>}
+        <div className="dialog-actions">
+          <button type="button" onClick={() => setPageSetupDialog(null)}>Cancel</button>
+          <button type="submit" className="primary-button">Apply page setup</button>
         </div>
       </form>
     </Dialog>}

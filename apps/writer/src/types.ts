@@ -91,6 +91,7 @@ export interface ParagraphView {
     readonly indentLeftPt: number;
     readonly indentRightPt: number;
     readonly firstLinePt: number;
+    readonly pageBreakBefore: boolean;
   };
 }
 
@@ -104,6 +105,12 @@ export interface WriterView {
   readonly styles: readonly { readonly id: string; readonly name: string }[];
   readonly selection: WriterSelection | null;
   readonly table?: TableCellContext | null;
+  readonly pageSetup?: {
+    readonly sectionId: string;
+    readonly pageSize: { readonly width: number; readonly height: number; readonly orientation: 'portrait' | 'landscape' | null };
+    readonly pageMargins: { readonly top: number; readonly right: number; readonly bottom: number;
+      readonly left: number; readonly header: number; readonly footer: number; readonly gutter: number };
+  } | null;
   readonly images?: readonly ImageView[];
   readonly selectedImageId?: string | null;
   readonly bodyBlocks?: readonly BodyBlockView[];
@@ -170,6 +177,12 @@ export type WriterCommand =
   | ({ readonly type: 'format_character'; readonly bold?: boolean; readonly italic?: boolean;
        readonly underline?: boolean; readonly fontFamily?: string; readonly fontSizePt?: number } & EditOrigin)
   | ({ readonly type: 'format_paragraph'; readonly alignment: Alignment } & EditOrigin)
+  | { readonly type: 'set_page_setup'; readonly sectionId: string;
+      readonly pageSize: NonNullable<WriterView['pageSetup']>['pageSize'];
+      readonly pageMargins: NonNullable<WriterView['pageSetup']>['pageMargins'];
+      readonly expectedRevision?: string }
+  | ({ readonly type: 'insert_page_break' } & EditOrigin)
+  | ({ readonly type: 'set_page_break_before'; readonly enabled: boolean } & EditOrigin)
   | ({ readonly type: 'set_paragraph_metrics';
        readonly spacingBeforePt?: number; readonly spacingAfterPt?: number;
        readonly lineSpacingMultiple?: number;

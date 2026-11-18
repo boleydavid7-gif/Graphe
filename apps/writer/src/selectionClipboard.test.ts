@@ -8,7 +8,7 @@ function paragraph(id: string, text: string): ParagraphView {
   return { id, sectionId: 'section', styleId: null, list: null,
     runs: [{ text, format: { bold: false, italic: false, underline: 'none', fontFamily: 'Arimo', fontSizePt: 12, color: '#000000', hyperlink: null } }],
     format: { alignment: 'left', spacingBeforePt: 0, spacingAfterPt: 0, lineHeight: 'normal',
-      indentLeftPt: 0, indentRightPt: 0, firstLinePt: 0 } };
+      indentLeftPt: 0, indentRightPt: 0, firstLinePt: 0, pageBreakBefore: false } };
 }
 
 function view(): WriterView {
