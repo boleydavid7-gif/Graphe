@@ -34,16 +34,16 @@ fn pages_for(layout: &DocumentLayout, id: &str) -> Vec<usize> {
 #[test]
 fn keep_together_moves_a_fitting_paragraph_before_any_lines_are_emitted() {
     let normal = layout(vec![
-        para("first", "A\nB\nC", false, false),
-        para("second", "D\nE\nF", false, false),
+        para("first", "A\nB", false, false),
+        para("second", "D\nE\nF\nG", false, false),
     ]);
     let kept = layout(vec![
-        para("first", "A\nB\nC", false, false),
-        para("second", "D\nE\nF", true, false),
+        para("first", "A\nB", false, false),
+        para("second", "D\nE\nF\nG", true, false),
     ]);
     assert!(pages_for(&normal, "second").len() > 1, "baseline must split: {:?}", normal.pages);
     assert_eq!(pages_for(&kept, "second"), vec![1]);
-    assert_eq!(kept.pages[1].lines.iter().filter(|line| line.paragraph_id == "second").count(), 3);
+    assert_eq!(kept.pages[1].lines.iter().filter(|line| line.paragraph_id == "second").count(), 4);
 }
 
 #[test]
@@ -72,4 +72,53 @@ fn impossible_keep_together_preserves_all_lines_and_reports_fallback() {
     assert!(tall.pages.len() > 1);
     assert_eq!(tall.pages.iter().flat_map(|page| &page.lines).count(), 7);
     assert!(tall.diagnostics.iter().any(|diag| diag.kind == "keep_together_too_tall"));
+}
+
+
+#[test]
+fn default_widow_control_moves_the_first_two_lines_from_a_nearly_full_page() {
+    let output = layout(vec![
+        para("first", "A\nB\nC\nD", false, false),
+        para("second", "D\nE\nF\nG", false, false),
+    ]);
+    assert_eq!(pages_for(&output, "first"), vec![0]);
+    // Four lines plus spacing leave room for only one subsequent line.
+    // The second paragraph begins on a new page with at least two lines.
+    assert_eq!(pages_for(&output, "second"), vec![1]);
+    assert_eq!(output.pages[1].lines.iter().filter(|line| line.paragraph_id == "second").count(), 4);
+}
+
+#[test]
+fn last_two_lines_move_together_instead_of_orphaning_a_final_line() {
+    let output = layout(vec![
+        para("first", "A\nB", false, false),
+        para("second", "D\nE\nF\nG", false, false),
+    ]);
+    assert_eq!(pages_for(&output, "second"), vec![0, 1]);
+    let fragments: Vec<_> = output.pages.iter().map(|page| page.lines.iter()
+        .filter(|line| line.paragraph_id == "second").count()).collect();
+    assert_eq!(fragments, vec![2, 2]);
+    assert_eq!(output.pages.iter().flat_map(|page| &page.lines)
+        .filter(|line| line.paragraph_id == "second").count(), 4);
+}
+
+#[test]
+fn two_or_three_line_paragraphs_that_fit_page_are_never_split() {
+    for lines in ["D\nE", "D\nE\nF"] {
+        let output = layout(vec![
+            para("first", "A\nB\nC\nD", false, false),
+            para("short", lines, false, false),
+        ]);
+        assert_eq!(pages_for(&output, "short"), vec![1], "{lines:?}");
+    }
+}
+
+#[test]
+fn overlong_paragraph_uses_bounded_fallback_without_losing_source_lines() {
+    let text = "1\n2\n3\n4\n5\n6\n7\n8\n9";
+    let output = layout(vec![para("long", text, false, false)]);
+    let lines: Vec<_> = output.pages.iter().flat_map(|page| &page.lines).collect();
+    assert_eq!(lines.len(), 9);
+    assert_eq!(lines.iter().map(|line| line.text.as_str()).collect::<String>(), text);
+    assert!(output.pages.len() > 1);
 }

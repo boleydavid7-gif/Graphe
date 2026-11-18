@@ -1322,3 +1322,7 @@ widow/orphan control. DOCX/ODT/RTF import/export use the corresponding known
 paragraph properties; TXT export declares pagination loss, PDF renders the
 already authoritative Rust layout. No new dependencies or browser text
 measurement. See PARAGRAPH_PAGINATION_8C3.md.
+
+## 2026-11-18 — Step 8C.4 widow/orphan control defaults
+
+Enforce a bounded two-line widow/orphan minimum in the authoritative Rust body paragraph pagination, without changing the native schema or introducing frontend text measurement. Two- and three-line paragraphs move whole when they fit a blank page; longer paragraphs reserve their first two lines and keep the final pair on the same page if at least two lines of the paragraph are already placed there. A forced Keep with next also reserves the following two lines when possible. Unavoidable tall-line and small-page cases fall back to the established pagination rather than silently dropping content or looping. Table-row pagination and explicit source-level widow-control toggles are deferred.
