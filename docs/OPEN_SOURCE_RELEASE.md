@@ -46,6 +46,10 @@ open-source release, or deploy the staging branch before the gates below pass.
       newly MPL-covered source file, or to an appropriate directory-level
       LICENSE/notice location where recipients would expect it, in accordance with
       Mozilla's guidance. Preserve historical third-party notices.
+- [ ] **Run the metadata preflight:** after cloning or creating the snapshot, execute
+      `node scripts/check-public-release.mjs`. It checks current license metadata,
+      font notice links, obvious key patterns and suspicious paths. It is a
+      **supplement**, not a credential audit or publication clearance.
 - [ ] **Privacy/secrets in entire Git history:** inspect all commits, tags,
       unusual GitHub assets, binary metadata, GitHub Actions logs and **all 512
       tracked files in the examined baseline**. Do not rely on a filename scan or
