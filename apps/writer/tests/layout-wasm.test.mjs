@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath, URL } from 'node:url';
 import { TextEncoder } from 'node:util';
 import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { execCargo } from './native-cargo.mjs';
 
 // Exercise the release engine and generated target-web ABI directly. The layout
 // and font catalog in these tests are Rust implementations, not JS substitutes.
@@ -407,7 +407,7 @@ test('compiled WASM layout matches the complete native snapshot golden', async (
   assert.equal(response.ok, true, JSON.stringify(response));
   const result = layout(instance, expected.options);
   const compact = JSON.stringify(result.layout);
-  const native = execFileSync('cargo', ['run', '--offline', '--locked', '--quiet', '-p', 'office-layout',
+  const native = execCargo( ['run', '--offline', '--locked', '--quiet', '-p', 'office-layout',
     '--example', 'layout_snapshot', '--', fileURLToPath(new URL(expected.input, fixtureRoot))], {
     cwd: fileURLToPath(new URL('../../../', import.meta.url)), encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
   }).trim();

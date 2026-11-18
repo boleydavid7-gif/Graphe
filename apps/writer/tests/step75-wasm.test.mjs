@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +7,7 @@ import test from 'node:test';
 import { fileURLToPath, URL } from 'node:url';
 import { TextDecoder, TextEncoder } from 'node:util';
 import initialize, { WriterEngine } from '../src/wasm/office_wasm.js';
+import { execCargo } from './native-cargo.mjs';
 
 await initialize({ module_or_path: await readFile(new URL('../src/wasm/office_wasm_bg.wasm', import.meta.url)) });
 const encode = new TextEncoder();
@@ -248,7 +248,7 @@ test('actual WASM PDF export uses existing Rust pages, matches native bytes and 
   try {
     const fixture = fileURLToPath(new URL('../../../tests/fixtures/layout/layout-v1.writer', import.meta.url));
     const output = join(temporary, 'native.pdf');
-    execFileSync('cargo', ['run', '--offline', '--locked', '--quiet', '-p', 'office-formats',
+    execCargo( ['run', '--offline', '--locked', '--quiet', '-p', 'office-formats',
       '--example', 'export_pdf', '--', fixture, output], {
       cwd: fileURLToPath(new URL('../../../', import.meta.url)), stdio: 'pipe',
     });
