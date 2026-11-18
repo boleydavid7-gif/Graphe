@@ -2,6 +2,8 @@
 
 Reviewed 2026-11-18 on `chore/graphe-open-source-prep`.
 **Technical evidence assembled; author confirmation and release approval are not obtained.**
+The owner authorized the upstream inquiry on 2026-11-18. Submission was blocked
+by GitHub integration permissions; no issue was created.
 This supplements the earlier missing-text finding; it does not relabel a missing
 upstream file as present or grant commercial/public release clearance.
 
@@ -118,3 +120,15 @@ not been sent.** It discloses no Graphe/private-repository information:
 > identify any additional third-party notices applicable to those versions.
 > Adding LICENSE-MIT and LICENSE-APACHE to the repository and future package
 > archives would make automated attribution checks easier. Thank you.
+
+
+### Authorized submission attempt — 2026-11-18
+
+The owner explicitly approved posting the inquiry above. A duplicate search for
+`repo:fschutt/rich-clipboard is:issue license` returned no issues. GitHub issue
+creation returned HTTP 403, `Resource not accessible by integration`. The local
+GitHub CLI also reports invalid configured credentials. No upstream issue or
+message was sent, and no author response has been received. Submit the prepared
+text at https://github.com/fschutt/rich-clipboard/issues/new using an account
+allowed to create issues there. This is an access limitation, not a rejection
+of the licensing inquiry by the maintainer.
