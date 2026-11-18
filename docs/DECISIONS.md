@@ -1301,3 +1301,24 @@ and show that consequence before every UI removal. Existing native model and
 file-format versions remain unchanged. Continuous/odd/even section break types,
 table-cell break insertion and full Word section semantics are deferred.
 See SECTION_BREAKS_8C2.md for tests and limitations.
+
+## 2026-11-18 — Step 8C.3 paragraph pagination rules
+
+Add optional, style-inheritable `keep_together` and `keep_with_next` to the
+shared `ParagraphFormat` with exact-snapshot undo, atomic Rust format patches,
+and a strict native schema/envelope version 7. A frozen schema-6 reader covers
+body and table-cell paragraphs, named styles, table geometry, and images; older
+schema readers reuse that exact former formatting shape to reject pagination
+flags under historical version labels. Absent flags are omitted from saved JSON,
+preserving historical payload shapes until an explicit choice is made.
+
+Rust lays out kept paragraphs before placing any lines. If a paragraph is too
+large for a page, it falls back to normal line splitting with an explicit
+diagnostic. `keep_with_next` keeps a body paragraph with the following body's
+first line when that pair fits a page. A one-entry shaped-line cache avoids
+repeated font shaping/glyph budgets. This is a bounded first profile, not
+Word-compatible grouping across long heading chains or tables, and not
+widow/orphan control. DOCX/ODT/RTF import/export use the corresponding known
+paragraph properties; TXT export declares pagination loss, PDF renders the
+already authoritative Rust layout. No new dependencies or browser text
+measurement. See PARAGRAPH_PAGINATION_8C3.md.

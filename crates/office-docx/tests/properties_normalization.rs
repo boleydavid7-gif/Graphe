@@ -181,7 +181,8 @@ fn ordinary_word_and_libreoffice_paragraph_preferences_keep_explicit_geometry() 
     };
     assert_eq!(paragraph.format().spacing_before, Some(Twips(240)));
     assert_eq!(paragraph.format().spacing_after, Some(Twips(120)));
-    assert!(imported.report().normalizations.len() >= 5);
+    assert_eq!(paragraph.format().keep_with_next, Some(true));
+    assert!(imported.report().normalizations.len() >= 4);
 }
 
 #[test]
