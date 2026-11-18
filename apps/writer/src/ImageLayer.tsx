@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { ImageView, LayoutPage, LayoutRect } from './types';
 
 type Alignment = ImageView['alignment'];
@@ -44,10 +44,25 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
   readonly unitsPerPoint?: number;
   readonly disabled?: boolean;
 }) {
+  const group = useRef<SVGGElement>(null);
   const active = useRef<Gesture | null>(null);
   const [preview, setPreview] = useState<{ id: string; rect: LayoutRect } | null>(null);
   const [dragging, setDragging] = useState(false);
   const editable = !disabled && !!onSelect && !!onResize && !!onMove;
+  useEffect(() => {
+    const element = group.current;
+    if (!element || !editable) return;
+    // SVG descendants do not consistently establish a touch-action region in
+    // Safari/Chromium. Cancel native magnification only on image touches, using
+    // a non-passive listener; pointercancel still discards unfinished edits.
+    const preventNativeGesture = (event: TouchEvent) => { if (event.cancelable) event.preventDefault(); };
+    element.addEventListener('touchstart', preventNativeGesture, { passive: false });
+    element.addEventListener('touchmove', preventNativeGesture, { passive: false });
+    return () => {
+      element.removeEventListener('touchstart', preventNativeGesture);
+      element.removeEventListener('touchmove', preventNativeGesture);
+    };
+  }, [editable]);
   const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   const handleSize = Math.max(8, Math.min(10, page.width / unitsPerPoint / 72)) * unitsPerPoint;
   const hitSize = (coarse ? Math.max(28, Math.min(46, page.width / unitsPerPoint / 14))
@@ -86,7 +101,9 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
     if (existing) return;
     const handle = (event.target as Element).closest?.('[data-image-resize-handle]')
       ?.getAttribute('data-image-resize-handle') as Handle | null;
-    if (selectedId !== image.id) onSelect?.(image.id);
+    // Reassert Rust selection and command focus even when the image was
+    // already selected; toolbar/export actions may have moved browser focus.
+    onSelect?.(image.id);
     active.current = {
       id: image.id, start: rect, image, initial: here, pointers: new Map([[event.pointerId, here]]),
       kind: handle && selectedId === image.id ? 'resize' : 'move',
@@ -105,7 +122,7 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
     event.stopPropagation();
     gesture.pointers.set(event.pointerId, here);
     const { start: original, initial, handle } = gesture;
-    let next: LayoutRect = original;
+    let next: LayoutRect;
     const minLength = unitsPerPoint * 8;
     const maxWidth = page.contentRect.width;
     const maxHeight = page.contentRect.height;
@@ -173,7 +190,7 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
     }
   }
 
-  return <g className="document-images">{page.images?.map((placement) => {
+  return <g ref={group} className="document-images">{page.images?.map((placement) => {
     const image = images.find((item) => item.id === placement.imageId);
     if (!image) return null;
     const selected = selectedId === image.id;
@@ -196,7 +213,7 @@ export function ImageLayer({ page, images, urls, selectedId, onSelect, onResize,
       } : undefined}
       onClick={editable ? (event) => event.stopPropagation() : undefined}>
       <title>{image.altText || 'Document image'}</title>
-      {url ? <image {...rect} href={url} preserveAspectRatio="none" style={{ pointerEvents: editable ? 'all' : 'none' }}
+      {url ? <image {...rect} href={url} preserveAspectRatio="none" style={{ pointerEvents: editable ? 'all' : 'none', touchAction: editable ? 'none' : 'auto' }}
         data-document-image-id={image.id} />
         : <rect {...rect} fill="#eee9e1" data-image-loading={image.id} />}
       {canEdit && <>

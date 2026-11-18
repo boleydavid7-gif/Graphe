@@ -289,8 +289,16 @@ impl LayoutEngine {
                 let lines = match prefetched.take() {
                     Some((id, lines)) if id == paragraph.id().as_str() => lines,
                     _ => self.shape_paragraph(
-                        document, paragraph, options, area.width, marker.as_deref(),
-                        ShapeSink { output: &mut output, cache: &mut cache, glyph_count: &mut glyph_count },
+                        document,
+                        paragraph,
+                        options,
+                        area.width,
+                        marker.as_deref(),
+                        ShapeSink {
+                            output: &mut output,
+                            cache: &mut cache,
+                            glyph_count: &mut glyph_count,
+                        },
                     )?,
                 };
                 let total_height = lines.iter().map(|line| line.height).sum::<i64>();
@@ -298,8 +306,12 @@ impl LayoutEngine {
                 // a whole page follow the existing split-by-line policy.
                 let keep_whole = resolved.paragraph.keep_together == Some(true);
                 if keep_whole && total_height > area.height {
-                    diagnostic(&mut output, "keep_together_too_tall", paragraph,
-                        "Paragraph is taller than a usable page; its lines must split.".into());
+                    diagnostic(
+                        &mut output,
+                        "keep_together_too_tall",
+                        paragraph,
+                        "Paragraph is taller than a usable page; its lines must split.".into(),
+                    );
                 }
                 // Default two-line widow/orphan protection applies to ordinary
                 // body paragraphs. A two- or three-line paragraph that fits a
@@ -309,7 +321,12 @@ impl LayoutEngine {
                 // are handled below when a continuation boundary is reached.
                 let count = lines.len();
                 let first_pair = lines.iter().take(2).map(|line| line.height).sum::<i64>();
-                let last_pair = lines.iter().rev().take(2).map(|line| line.height).sum::<i64>();
+                let last_pair = lines
+                    .iter()
+                    .rev()
+                    .take(2)
+                    .map(|line| line.height)
+                    .sum::<i64>();
                 let keep_short = (2..=3).contains(&count) && total_height <= area.height;
                 let mut required = if (keep_whole || keep_short) && total_height <= area.height {
                     total_height
@@ -330,18 +347,31 @@ impl LayoutEngine {
                             None => None,
                         };
                         let next_lines = self.shape_paragraph(
-                            document, next, options, area.width, next_marker.as_deref(),
-                            ShapeSink { output: &mut output, cache: &mut cache, glyph_count: &mut glyph_count },
+                            document,
+                            next,
+                            options,
+                            area.width,
+                            next_marker.as_deref(),
+                            ShapeSink {
+                                output: &mut output,
+                                cache: &mut cache,
+                                glyph_count: &mut glyph_count,
+                            },
                         )?;
                         if let Some(next_first) = next_lines.first() {
-                            let next_before = twips(next_resolved.paragraph.spacing_before.unwrap_or(Twips(0)))?;
+                            let next_before =
+                                twips(next_resolved.paragraph.spacing_before.unwrap_or(Twips(0)))?;
                             let next_gap = after.max(next_before);
                             // A heading's "keep with next" must not put only
                             // one line of a multi-line body paragraph on its
                             // page. Reserve two following lines whenever that
                             // group can fit; single-line paragraphs need one.
                             let next_head = if next_lines.len() >= 2 {
-                                next_lines.iter().take(2).map(|line| line.height).sum::<i64>()
+                                next_lines
+                                    .iter()
+                                    .take(2)
+                                    .map(|line| line.height)
+                                    .sum::<i64>()
                             } else {
                                 next_first.height
                             };
@@ -349,8 +379,13 @@ impl LayoutEngine {
                             if needed <= area.height {
                                 required = required.max(needed);
                             } else {
-                                diagnostic(&mut output, "keep_with_next_too_tall", paragraph,
-                                    "This paragraph and the next cannot fit together on one page.".into());
+                                diagnostic(
+                                    &mut output,
+                                    "keep_with_next_too_tall",
+                                    paragraph,
+                                    "This paragraph and the next cannot fit together on one page."
+                                        .into(),
+                                );
                             }
                         }
                         prefetched = Some((next.id().as_str().to_owned(), next_lines));
@@ -358,10 +393,17 @@ impl LayoutEngine {
                 }
                 // Apply forced moves before emitting any of the lines. Suppress
                 // leading paragraph spacing at the new page top.
-                if required > 0 && cursor + gap + required > area.y + area.height
+                if required > 0
+                    && cursor + gap + required > area.y + area.height
                     && output.pages.last().is_some_and(page_has_content)
                 {
-                    push_page(&mut output.pages, section.id().as_str(), page_width, page_height, area)?;
+                    push_page(
+                        &mut output.pages,
+                        section.id().as_str(),
+                        page_width,
+                        page_height,
+                        area,
+                    )?;
                     cursor = area.y;
                     gap = 0;
                 }
@@ -380,12 +422,20 @@ impl LayoutEngine {
                     // not in the current space, move them together. Earlier
                     // lines must already occupy this page; a short or very
                     // tall paragraph may not admit any legal 2+2 split.
-                    if count >= 4 && index + 2 == count && placed_on_page >= 2
+                    if count >= 4
+                        && index + 2 == count
+                        && placed_on_page >= 2
                         && last_pair <= area.height
                         && cursor + line_gap + last_pair > area.y + area.height
                         && output.pages.last().is_some_and(page_has_content)
                     {
-                        push_page(&mut output.pages, section.id().as_str(), page_width, page_height, area)?;
+                        push_page(
+                            &mut output.pages,
+                            section.id().as_str(),
+                            page_width,
+                            page_height,
+                            area,
+                        )?;
                         cursor = area.y;
                         placed_on_page = 0;
                     }

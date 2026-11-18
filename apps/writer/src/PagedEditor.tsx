@@ -797,7 +797,7 @@ export const PagedEditor = forwardRef<EditorSurfaceHandle, PagedEditorProps>(fun
   }
 
 
-  function commitImageEdit(imageId: string, action: WriterCommand): void {
+  function commitImageEdit(imageId: string, action: Extract<WriterCommand, { type: 'resize_image' | 'move_image' }>): void {
     const live = latest.current.getCurrentView();
     const displayed = current.current;
     if (!live || latest.current.disabled || composingRef.current

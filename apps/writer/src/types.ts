@@ -54,7 +54,7 @@ export interface TableCellContext {
 }
 
 export type TableAction = 'insert_row_above' | 'insert_row_below' | 'delete_row'
-  | 'insert_column_before' | 'insert_column_after' | 'delete_column' | 'delete_table';
+  | 'insert_column_before' | 'insert_column_after' | 'delete_column' | 'delete_table' | 'widen_column' | 'narrow_column' | 'equalize_columns';
 
 /** Read-only image metadata. Original raster bytes and sizing rules live in Rust. */
 export interface ImageView {

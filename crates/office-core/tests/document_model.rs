@@ -419,7 +419,7 @@ fn unicode_is_preserved_without_normalization_or_byte_position_assumptions() {
 
 #[test]
 fn future_and_unsupported_old_schema_versions_are_rejected_before_reading_model_shape() {
-    for version in [0, 7, u64::MAX] {
+    for version in [0, u64::from(SCHEMA_VERSION) + 1, u64::MAX] {
         let error =
             load_json(json!({ "schema_version": version, "future_payload": true })).unwrap_err();
         assert!(

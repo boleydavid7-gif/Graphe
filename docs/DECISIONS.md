@@ -1341,3 +1341,13 @@ coordinates, paragraph wrap-around or cross-section moves. The browser may
 render a transient gesture preview but never persists viewport coordinates.
 Image bytes, native IDs, precise Image Properties and PDF page layout continue
 to be Rust-owned. See IMAGE_DIRECT_MANIPULATION.md for UX and limitations.
+
+## 2026-11-18 — Step 8 audit corrections on main
+
+The owner explicitly authorized direct-main commits without branches/PRs.
+Preserve the current rectangular table schema while adding validated column-width
+transfers that keep total width and stable IDs. DOCX must export supported keep
+flags rather than silently omit them. Custom pinch suppression is scoped to image
+touches; cancellation never commits an unfinished edit. Advanced merged cells,
+cell appearance and split-row layout remain unimplemented, not silently flattened.
+See STEP8_AUDIT.md for corrections, actual results and remaining work.

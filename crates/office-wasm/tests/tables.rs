@@ -220,3 +220,53 @@ fn enter_splits_inside_cell_and_tab_leaves_last_cell_without_adding_rows() {
         office_core::serialize_writer_file(&file).unwrap()
     );
 }
+
+#[test]
+fn physical_column_resizing_preserves_total_and_reopens_with_exact_history() {
+    let mut engine = BrowserEngine::new("column-resize").unwrap();
+    command(
+        &mut engine,
+        json!({"type":"insert_table","rows":2,"columns":2}),
+    );
+    command(
+        &mut engine,
+        json!({"type":"table_action","action":"widen_column"}),
+    );
+    let bytes = engine.export_document().unwrap();
+    let file = deserialize_writer_file(&bytes).unwrap();
+    let Block::Table(table) = &file.document().sections()[0].blocks()[1] else {
+        panic!("table missing")
+    };
+    let widths = table.column_widths().unwrap();
+    assert_eq!(widths[0].0 - widths[1].0, 480);
+    let total: i32 = widths.iter().map(|w| w.0).sum();
+    command(
+        &mut engine,
+        json!({"type":"table_action","action":"equalize_columns"}),
+    );
+    let equal = engine.export_document().unwrap();
+    let file = deserialize_writer_file(&equal).unwrap();
+    let Block::Table(table) = &file.document().sections()[0].blocks()[1] else {
+        panic!("table missing")
+    };
+    assert_eq!(
+        table
+            .column_widths()
+            .unwrap()
+            .iter()
+            .map(|w| w.0)
+            .sum::<i32>(),
+        total
+    );
+    command(&mut engine, json!({"type":"undo"}));
+    assert_eq!(engine.export_document().unwrap(), bytes);
+    command(&mut engine, json!({"type":"redo"}));
+    assert_eq!(engine.export_document().unwrap(), equal);
+    let mut reopened = BrowserEngine::new("resize-reopened").unwrap();
+    assert!(
+        serde_json::from_str::<Value>(&reopened.open_document(&equal)).unwrap()["ok"]
+            .as_bool()
+            .unwrap()
+    );
+    assert_eq!(reopened.export_document().unwrap(), equal);
+}

@@ -1,12 +1,12 @@
 //! Strict schema-3 migration. Older files cannot contain hyperlink metadata
 //! even if a future schema adds more optional character properties.
 
+use super::v6::V6ParagraphFormat;
 use super::{
     Block, Document, DocumentMetadata, Id, ListKind, NamedStyle, Paragraph, Section,
     SectionProperties, TextRun,
 };
 use crate::{CharacterFormat, DocumentError, HalfPoints, TextColor, Underline};
-use super::v6::V6ParagraphFormat;
 use serde::Deserialize;
 
 #[derive(Default, Deserialize)]

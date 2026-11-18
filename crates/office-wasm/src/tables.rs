@@ -183,6 +183,72 @@ impl BrowserEngine {
                 transaction.remove_table_column(table.id(), column)?;
                 target_column = column.min(table.rows()[0].cells().len().saturating_sub(2));
             }
+            TableAction::WidenColumn | TableAction::NarrowColumn | TableAction::EqualizeColumns => {
+                let section = self.session.document().sections().iter().find(|section|
+                    section.blocks().iter().any(|block| matches!(block, Block::Table(value) if value.id() == table.id())))
+                    .ok_or_else(|| EngineError::new("invalid_table", "Table section is unavailable."))?;
+                let defaults = office_layout::LayoutOptions::default();
+                let size = section
+                    .properties()
+                    .and_then(|p| p.page_size)
+                    .unwrap_or(defaults.page_size);
+                let margins = section
+                    .properties()
+                    .and_then(|p| p.page_margins)
+                    .unwrap_or(defaults.page_margins);
+                let usable = size.width.0 - margins.left.0 - margins.right.0 - margins.gutter.0;
+                let columns = table.rows()[0].cells().len();
+                let mut widths = table
+                    .column_widths()
+                    .map(|v| v.to_vec())
+                    .unwrap_or_else(|| {
+                        (0..columns)
+                            .map(|index| {
+                                office_core::Twips(
+                                    usable / columns as i32
+                                        + i32::from(index < (usable % columns as i32) as usize),
+                                )
+                            })
+                            .collect()
+                    });
+                let total: i32 = widths.iter().map(|width| width.0).sum();
+                if matches!(action, TableAction::EqualizeColumns) {
+                    widths = (0..columns)
+                        .map(|index| {
+                            office_core::Twips(
+                                total / columns as i32
+                                    + i32::from(index < (total % columns as i32) as usize),
+                            )
+                        })
+                        .collect();
+                } else {
+                    if columns < 2 {
+                        return Err(EngineError::new(
+                            "invalid_table",
+                            "A second column is required to transfer width.",
+                        ));
+                    }
+                    let neighbor = if column + 1 < columns {
+                        column + 1
+                    } else {
+                        column - 1
+                    };
+                    let delta = if matches!(action, TableAction::WidenColumn) {
+                        240
+                    } else {
+                        -240
+                    };
+                    widths[column].0 += delta;
+                    widths[neighbor].0 -= delta;
+                }
+                if usable <= 0 || total > usable || widths.iter().any(|width| width.0 < 200) {
+                    return Err(EngineError::new(
+                        "invalid_table",
+                        "Columns must fit the page and leave space for cell text.",
+                    ));
+                }
+                transaction.set_table_column_widths(table.id(), widths)?;
+            }
             TableAction::DeleteTable => {
                 transaction.remove_table(table.id())?;
             }

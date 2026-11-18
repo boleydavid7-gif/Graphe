@@ -346,9 +346,11 @@ impl BrowserEngine {
                 Ok(())
             }
             Command::SelectImage { image_id, .. } => self.select_image(image_id),
-            Command::MoveImage { before_block_id, alignment, .. } => {
-                self.move_selected_image(before_block_id, alignment)
-            }
+            Command::MoveImage {
+                before_block_id,
+                alignment,
+                ..
+            } => self.move_selected_image(before_block_id, alignment),
             Command::ResizeImage {
                 width_pt,
                 height_pt,
@@ -421,19 +423,27 @@ impl BrowserEngine {
                 ..
             } => self.format_paragraph(alignment, selection),
             Command::SetPageSetup {
-                section_id, page_size, page_margins, ..
+                section_id,
+                page_size,
+                page_margins,
+                ..
             } => self.set_page_setup(&section_id, page_size, page_margins),
             Command::InsertPageBreak { selection, .. } => self.insert_page_break(selection),
             Command::InsertSectionBreak { selection, .. } => self.insert_section_break(selection),
-            Command::RemoveSectionBreak { section_id, confirm_layout_change, .. } => {
-                self.remove_section_break(&section_id, confirm_layout_change)
-            },
-            Command::SetPageBreakBefore { enabled, selection, .. } => {
-                self.set_page_break_before(enabled, selection)
-            }
-            Command::SetParagraphPagination { keep_together, keep_with_next, selection, .. } => {
-                self.set_paragraph_pagination(keep_together, keep_with_next, selection)
-            },
+            Command::RemoveSectionBreak {
+                section_id,
+                confirm_layout_change,
+                ..
+            } => self.remove_section_break(&section_id, confirm_layout_change),
+            Command::SetPageBreakBefore {
+                enabled, selection, ..
+            } => self.set_page_break_before(enabled, selection),
+            Command::SetParagraphPagination {
+                keep_together,
+                keep_with_next,
+                selection,
+                ..
+            } => self.set_paragraph_pagination(keep_together, keep_with_next, selection),
             Command::SetParagraphMetrics {
                 spacing_before_pt,
                 spacing_after_pt,
@@ -717,28 +727,48 @@ impl BrowserEngine {
         }
     }
 
-
     /// Effective page settings for the focused section (or the first section).
     /// This is presentation only; the document retains explicit/absent overrides.
     fn page_setup_view(&self) -> Option<wire::PageSetupView> {
         let document = self.session.document();
-        let section = self.selected_image.as_ref().and_then(|id| {
-            document.sections().iter().find(|section| section.blocks().iter().any(|block| {
-                matches!(block, Block::Image(image) if image.id() == id)
-            }))
-        }).or_else(|| self.selection.as_ref().and_then(|selection| {
-            document.sections().iter().find(|section| {
-                section.paragraphs().any(|paragraph| paragraph.id().as_str() == selection.focus.paragraph_id)
+        let section = self
+            .selected_image
+            .as_ref()
+            .and_then(|id| {
+                document.sections().iter().find(|section| {
+                    section
+                        .blocks()
+                        .iter()
+                        .any(|block| matches!(block, Block::Image(image) if image.id() == id))
+                })
             })
-        })).or_else(|| document.sections().first())?;
+            .or_else(|| {
+                self.selection.as_ref().and_then(|selection| {
+                    document.sections().iter().find(|section| {
+                        section.paragraphs().any(|paragraph| {
+                            paragraph.id().as_str() == selection.focus.paragraph_id
+                        })
+                    })
+                })
+            })
+            .or_else(|| document.sections().first())?;
         let defaults = office_layout::LayoutOptions::default();
         Some(wire::PageSetupView {
             section_id: section.id().as_str().into(),
-            section_index: document.sections().iter()
-                .position(|candidate| candidate.id() == section.id()).unwrap_or(0),
+            section_index: document
+                .sections()
+                .iter()
+                .position(|candidate| candidate.id() == section.id())
+                .unwrap_or(0),
             section_count: document.sections().len(),
-            page_size: section.properties().and_then(|value| value.page_size).unwrap_or(defaults.page_size),
-            page_margins: section.properties().and_then(|value| value.page_margins).unwrap_or(defaults.page_margins),
+            page_size: section
+                .properties()
+                .and_then(|value| value.page_size)
+                .unwrap_or(defaults.page_size),
+            page_margins: section
+                .properties()
+                .and_then(|value| value.page_margins)
+                .unwrap_or(defaults.page_margins),
         })
     }
 

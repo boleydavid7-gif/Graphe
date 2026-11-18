@@ -1,9 +1,7 @@
 //! Exact schema-5 table model; images cannot be smuggled under an older label.
-use super::{
-    Block, Document, DocumentMetadata, Id, Section, SectionProperties,
-};
+use super::v6::{V6NamedStyle, V6Paragraph, V6Table};
+use super::{Block, Document, DocumentMetadata, Id, Section, SectionProperties};
 use crate::DocumentError;
-use super::v6::{V6Paragraph, V6NamedStyle, V6Table};
 use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -54,5 +52,11 @@ pub(super) fn from_json(json: &str) -> Result<Document, DocumentError> {
             }
         })
         .collect();
-    Document::from_parts(old.id, old.metadata, sections, old.styles.into_iter().map(Into::into).collect()).map_err(Into::into)
+    Document::from_parts(
+        old.id,
+        old.metadata,
+        sections,
+        old.styles.into_iter().map(Into::into).collect(),
+    )
+    .map_err(Into::into)
 }

@@ -500,7 +500,7 @@ fn images_cannot_be_smuggled_under_earlier_schema_or_envelope_labels() {
         Document::from_json(&plain.to_string())
             .unwrap()
             .schema_version(),
-        6
+        office_core::SCHEMA_VERSION
     );
 }
 
@@ -701,26 +701,38 @@ fn an_image_only_document_can_gain_a_paragraph_without_replacing_the_image() {
     );
 }
 
-
 #[test]
 fn drag_reordering_changes_image_flow_without_changing_pixels_and_is_atomic() {
     let original = document(vec![
-        paragraph("before", "Before"), Block::Image(image()),
+        paragraph("before", "Before"),
+        Block::Image(image()),
         paragraph("after", "After"),
     ]);
     let initial = original.images().next().unwrap().asset().rgba().as_ptr();
     let mut session = DocumentSession::new(original.clone());
     let mut tx = session.begin_transaction();
-    assert!(tx.move_image_before(&id("image"), None, ImageAlignment::Right).unwrap());
+    assert!(
+        tx.move_image_before(&id("image"), None, ImageAlignment::Right)
+            .unwrap()
+    );
     session.commit(tx).unwrap();
     let moved = session.document().clone();
-    assert!(matches!(&moved.sections()[0].blocks()[2], Block::Image(i) if i.alignment() == ImageAlignment::Right));
-    assert_eq!(moved.images().next().unwrap().asset().rgba().as_ptr(), initial);
+    assert!(
+        matches!(&moved.sections()[0].blocks()[2], Block::Image(i) if i.alignment() == ImageAlignment::Right)
+    );
+    assert_eq!(
+        moved.images().next().unwrap().asset().rgba().as_ptr(),
+        initial
+    );
     session.undo().unwrap();
     assert_eq!(session.document(), &original);
     session.redo().unwrap();
     assert_eq!(session.document(), &moved);
     let mut rejected = session.begin_transaction();
-    assert!(rejected.move_image_before(&id("image"), Some(&id("missing")), ImageAlignment::Left).is_err());
+    assert!(
+        rejected
+            .move_image_before(&id("image"), Some(&id("missing")), ImageAlignment::Left)
+            .is_err()
+    );
     assert_eq!(session.document(), &moved);
 }

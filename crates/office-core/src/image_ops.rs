@@ -103,19 +103,32 @@ impl Transaction {
         let before = self.candidate()?;
         let mut sections = before.sections().to_vec();
         for section in &mut sections {
-            let Some(index) = section.blocks().iter().position(|block|
-                matches!(block, Block::Image(image) if image.id() == image_id))
-            else { continue };
+            let Some(index) = section
+                .blocks()
+                .iter()
+                .position(|block| matches!(block, Block::Image(image) if image.id() == image_id))
+            else {
+                continue;
+            };
             if let Some(target) = before_block_id
-                && !section.blocks().iter().any(|block| body_block_id(block) == target)
+                && !section
+                    .blocks()
+                    .iter()
+                    .any(|block| body_block_id(block) == target)
             {
-                return Err(invalid("image position target must be a block in the same section"));
+                return Err(invalid(
+                    "image position target must be a block in the same section",
+                ));
             }
             let mut blocks = section.blocks().to_vec();
-            let Block::Image(image) = blocks.remove(index) else { unreachable!() };
+            let Block::Image(image) = blocks.remove(index) else {
+                unreachable!()
+            };
             let target_index = match before_block_id {
                 Some(target) if target == image_id => index,
-                Some(target) => blocks.iter().position(|block| body_block_id(block) == target)
+                Some(target) => blocks
+                    .iter()
+                    .position(|block| body_block_id(block) == target)
                     .ok_or_else(|| invalid("image position target is no longer available"))?,
                 None => blocks.len(),
             };

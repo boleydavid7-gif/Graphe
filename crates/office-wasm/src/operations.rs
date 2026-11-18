@@ -5,8 +5,8 @@ use crate::{
 use office_core::{
     Alignment, Block, CharacterFormat, CharacterFormatPatch, GraphemeOffset, Id, LineSpacing,
     ListKind, PageMargins, PageSize, Paragraph, ParagraphFormatPatch, ParagraphMetricsPatch,
-    PropertyChange, Section, SectionProperties, TextCoordinates, Transaction, Twips,
-    Utf16Offset, valid_hyperlink,
+    PropertyChange, Section, SectionProperties, TextCoordinates, Transaction, Twips, Utf16Offset,
+    valid_hyperlink,
 };
 
 /// Browser units grouped at the private command adapter boundary.
@@ -779,7 +779,6 @@ impl BrowserEngine {
         self.replace_text("\n", supplied)
     }
 
-
     /// Commit page setup as one Rust-owned section edit, preserving every block,
     /// section ID, header/footer offset, style and revision-guarded undo record.
     pub(super) fn set_page_setup(
@@ -792,19 +791,37 @@ impl BrowserEngine {
         // values remain preserved until the user explicitly changes page setup.
         if !(4_320..=31_680).contains(&page_size.width.0)
             || !(4_320..=31_680).contains(&page_size.height.0)
-            || [page_margins.top, page_margins.right, page_margins.bottom,
-                page_margins.left].iter().any(|value| !(0..=5_760).contains(&value.0))
+            || [
+                page_margins.top,
+                page_margins.right,
+                page_margins.bottom,
+                page_margins.left,
+            ]
+            .iter()
+            .any(|value| !(0..=5_760).contains(&value.0))
         {
             return Err(EngineError::new(
-                "invalid_page_setup", "Paper must be 3–22 inches and body margins 0–4 inches.",
+                "invalid_page_setup",
+                "Paper must be 3–22 inches and body margins 0–4 inches.",
             ));
         }
         let mut transaction = self.session.begin_transaction();
-        let index = transaction.draft().sections.iter()
+        let index = transaction
+            .draft()
+            .sections
+            .iter()
             .position(|section| section.id().as_str() == section_id)
-            .ok_or_else(|| EngineError::new("invalid_page_setup", "The selected section no longer exists."))?;
+            .ok_or_else(|| {
+                EngineError::new(
+                    "invalid_page_setup",
+                    "The selected section no longer exists.",
+                )
+            })?;
         let current = &transaction.draft().sections[index];
-        let mut properties = current.properties().cloned().unwrap_or_else(SectionProperties::default);
+        let mut properties = current
+            .properties()
+            .cloned()
+            .unwrap_or_else(SectionProperties::default);
         properties.page_size = Some(page_size);
         properties.page_margins = Some(page_margins);
         let replacement = Section::new(current.id().clone(), current.blocks().to_vec())
@@ -812,7 +829,6 @@ impl BrowserEngine {
         transaction.draft_mut().sections[index] = replacement;
         self.commit(transaction, self.selection.clone())
     }
-
 
     /// Split a body paragraph into two consecutive pages/sections without
     /// rewriting unrelated blocks, table cells, paragraph IDs or run formats.
@@ -822,7 +838,10 @@ impl BrowserEngine {
         supplied: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
         let selection = self.current_selection(supplied)?.ok_or_else(|| {
-            EngineError::new("missing_selection", "Place the cursor where the next section begins.")
+            EngineError::new(
+                "missing_selection",
+                "Place the cursor where the next section begins.",
+            )
         })?;
         if selection.anchor != selection.focus {
             return Err(EngineError::new(
@@ -853,7 +872,9 @@ impl BrowserEngine {
                 matches!(block, Block::Paragraph(value)
                     if value.id().as_str() == selection.focus.paragraph_id)
             })
-            .ok_or_else(|| EngineError::new("invalid_section_break", "Paragraph is not in the body."))?;
+            .ok_or_else(|| {
+                EngineError::new("invalid_section_break", "Paragraph is not in the body.")
+            })?;
         let at_start = selection.focus.utf16 == 0;
         if at_start && block_index == 0 {
             return Err(EngineError::new(
@@ -893,7 +914,10 @@ impl BrowserEngine {
         sections[section_index] = previous;
         sections.insert(section_index + 1, next);
 
-        let after = caret(Point { paragraph_id: target_id, utf16: 0 });
+        let after = caret(Point {
+            paragraph_id: target_id,
+            utf16: 0,
+        });
         self.commit_from(transaction, Some(selection), Some(after))?;
         self.typing = None;
         Ok(())
@@ -917,17 +941,33 @@ impl BrowserEngine {
             ));
         }
         let document = self.session.document();
-        let index = document.sections().iter().position(|section| section.id().as_str() == section_id)
+        let index = document
+            .sections()
+            .iter()
+            .position(|section| section.id().as_str() == section_id)
             .ok_or_else(|| EngineError::new("invalid_section_break", "Section not found."))?;
         if index == 0 {
-            return Err(EngineError::new("invalid_section_break", "The first section has no preceding break."));
+            return Err(EngineError::new(
+                "invalid_section_break",
+                "The first section has no preceding break.",
+            ));
         }
         let defaults = office_layout::LayoutOptions::default();
-        let geometry = |section: &Section| (
-            section.properties().and_then(|props| props.page_size).unwrap_or(defaults.page_size),
-            section.properties().and_then(|props| props.page_margins).unwrap_or(defaults.page_margins),
-        );
-        if !confirm_layout_change && geometry(&document.sections()[index - 1]) != geometry(&document.sections()[index]) {
+        let geometry = |section: &Section| {
+            (
+                section
+                    .properties()
+                    .and_then(|props| props.page_size)
+                    .unwrap_or(defaults.page_size),
+                section
+                    .properties()
+                    .and_then(|props| props.page_margins)
+                    .unwrap_or(defaults.page_margins),
+            )
+        };
+        if !confirm_layout_change
+            && geometry(&document.sections()[index - 1]) != geometry(&document.sections()[index])
+        {
             return Err(EngineError::new(
                 "section_layout_confirmation_required",
                 "Removing this break applies the preceding section's page settings to this section's content.",
@@ -937,7 +977,12 @@ impl BrowserEngine {
         let mut transaction = self.session.begin_transaction();
         let preceding = transaction.draft().sections[index - 1].clone();
         let current = &transaction.draft().sections[index];
-        let blocks = preceding.blocks().iter().cloned().chain(current.blocks().iter().cloned()).collect();
+        let blocks = preceding
+            .blocks()
+            .iter()
+            .cloned()
+            .chain(current.blocks().iter().cloned())
+            .collect();
         let mut joined = Section::new(preceding.id().clone(), blocks);
         if let Some(props) = preceding.properties() {
             joined = joined.with_properties(props.clone());
@@ -957,18 +1002,23 @@ impl BrowserEngine {
         supplied: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
         let selection = self.current_selection(supplied)?.ok_or_else(|| {
-            EngineError::new("missing_selection", "Place the cursor where the page should begin.")
+            EngineError::new(
+                "missing_selection",
+                "Place the cursor where the page should begin.",
+            )
         })?;
         if selection.anchor != selection.focus {
             return Err(EngineError::new(
-                "invalid_page_break", "Place a single cursor before inserting a page break.",
+                "invalid_page_break",
+                "Place a single cursor before inserting a page break.",
             ));
         }
         let document = self.session.document();
         let paragraph_id = Id::new(&selection.focus.paragraph_id)?;
         if document.table_for_paragraph(&paragraph_id).is_some() {
             return Err(EngineError::new(
-                "invalid_page_break", "Page breaks cannot be inserted inside a table cell.",
+                "invalid_page_break",
+                "Page breaks cannot be inserted inside a table cell.",
             ));
         }
         if document.paragraphs().count() >= crate::MAX_PARAGRAPHS {
@@ -980,11 +1030,17 @@ impl BrowserEngine {
         transaction.insert_paragraph_break(&range, new_id.clone())?;
         let at = transaction.position(&new_id, GraphemeOffset::new(0))?;
         let range = transaction.selection(at.clone(), at)?;
-        transaction.apply_paragraph_format(&range, &ParagraphFormatPatch {
-            page_break_before: PropertyChange::Set(true),
-            ..Default::default()
-        })?;
-        let after = caret(Point { paragraph_id: new_id.as_str().into(), utf16: 0 });
+        transaction.apply_paragraph_format(
+            &range,
+            &ParagraphFormatPatch {
+                page_break_before: PropertyChange::Set(true),
+                ..Default::default()
+            },
+        )?;
+        let after = caret(Point {
+            paragraph_id: new_id.as_str().into(),
+            utf16: 0,
+        });
         self.commit_from(transaction, Some(selection), Some(after))?;
         self.typing = None;
         Ok(())
@@ -997,14 +1053,20 @@ impl BrowserEngine {
         supplied: Option<BrowserSelection>,
     ) -> Result<(), EngineError> {
         let selection = self.current_selection(supplied)?.ok_or_else(|| {
-            EngineError::new("missing_selection", "Choose a paragraph before changing page breaks.")
+            EngineError::new(
+                "missing_selection",
+                "Choose a paragraph before changing page breaks.",
+            )
         })?;
         let mut transaction = self.session.begin_transaction();
         let range = edit_selection(&transaction, &selection)?;
-        transaction.apply_paragraph_format(&range, &ParagraphFormatPatch {
-            page_break_before: PropertyChange::Set(enabled),
-            ..Default::default()
-        })?;
+        transaction.apply_paragraph_format(
+            &range,
+            &ParagraphFormatPatch {
+                page_break_before: PropertyChange::Set(enabled),
+                ..Default::default()
+            },
+        )?;
         self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
         self.typing = None;
         Ok(())
@@ -1022,15 +1084,21 @@ impl BrowserEngine {
             return Ok(());
         }
         let selection = self.current_selection(supplied)?.ok_or_else(|| {
-            EngineError::new("missing_selection", "Choose a paragraph before changing pagination.")
+            EngineError::new(
+                "missing_selection",
+                "Choose a paragraph before changing pagination.",
+            )
         })?;
         let mut transaction = self.session.begin_transaction();
         let range = edit_selection(&transaction, &selection)?;
-        transaction.apply_paragraph_format(&range, &ParagraphFormatPatch {
-            keep_together: keep_together.map_or(PropertyChange::Keep, PropertyChange::Set),
-            keep_with_next: keep_with_next.map_or(PropertyChange::Keep, PropertyChange::Set),
-            ..Default::default()
-        })?;
+        transaction.apply_paragraph_format(
+            &range,
+            &ParagraphFormatPatch {
+                keep_together: keep_together.map_or(PropertyChange::Keep, PropertyChange::Set),
+                keep_with_next: keep_with_next.map_or(PropertyChange::Keep, PropertyChange::Set),
+                ..Default::default()
+            },
+        )?;
         self.commit_from(transaction, Some(selection.clone()), Some(selection))?;
         self.typing = None;
         Ok(())

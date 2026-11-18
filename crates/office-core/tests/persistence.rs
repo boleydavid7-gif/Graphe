@@ -362,7 +362,7 @@ fn unknown_format_names_are_distinct_from_unsupported_versions() {
 
 #[test]
 fn unsupported_native_versions_are_checked_before_current_payload_shape() {
-    for version in [0, 7, u64::MAX] {
+    for version in [0, u64::from(WRITER_FORMAT_VERSION) + 1, u64::MAX] {
         let error = load(
             json!({"format":"office-writer", "format_version":version, "future_payload":true}),
         )
@@ -376,7 +376,7 @@ fn unsupported_native_versions_are_checked_before_current_payload_shape() {
 
 #[test]
 fn unsupported_model_schema_versions_retain_the_existing_structured_error() {
-    for version in [0, 7, u64::MAX] {
+    for version in [0, u64::from(WRITER_FORMAT_VERSION) + 1, u64::MAX] {
         let error = load(json!({"format":"office-writer", "format_version":1,
             "document":{"schema_version":version,"future_payload":true}}))
         .unwrap_err();

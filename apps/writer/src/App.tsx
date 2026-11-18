@@ -1507,6 +1507,9 @@ export default function App() {
             <button disabled={unavailable} onClick={() => format({ type: 'table_action', action: 'insert_column_before' })}>Add column before</button>
             <button disabled={unavailable || view.table.rowCount <= 1} onClick={() => format({ type: 'table_action', action: 'delete_row' })}>Delete row</button>
             <button disabled={unavailable || view.table.columnCount <= 1} onClick={() => format({ type: 'table_action', action: 'delete_column' })}>Delete column</button>
+            <button disabled={unavailable || view.table.columnCount < 2} onClick={() => format({ type: 'table_action', action: 'widen_column' })}>Widen column (12 pt)</button>
+            <button disabled={unavailable || view.table.columnCount < 2} onClick={() => format({ type: 'table_action', action: 'narrow_column' })}>Narrow column (12 pt)</button>
+            <button disabled={unavailable} onClick={() => format({ type: 'table_action', action: 'equalize_columns' })}>Equal column widths</button>
             <button disabled={unavailable} onClick={() => format({ type: 'table_action', action: 'delete_table' })}>Delete table</button>
           </div>
         </details>

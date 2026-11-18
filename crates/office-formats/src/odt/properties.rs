@@ -267,14 +267,20 @@ pub(super) fn paragraph(
                 result.keep_together = match value {
                     "always" => Some(true),
                     "auto" => Some(false),
-                    _ => { unsupported(report, part, node, attribute.name()); None }
+                    _ => {
+                        unsupported(report, part, node, attribute.name());
+                        None
+                    }
                 }
             }
             (Some(FO), "keep-with-next") => {
                 result.keep_with_next = match value {
                     "always" => Some(true),
                     "auto" => Some(false),
-                    _ => { unsupported(report, part, node, attribute.name()); None }
+                    _ => {
+                        unsupported(report, part, node, attribute.name());
+                        None
+                    }
                 }
             }
             _ if super::compatibility::property(node, attribute, notices, part) => {}
@@ -584,10 +590,18 @@ pub(super) fn paragraph_xml(format: &ParagraphFormat) -> String {
         ));
     }
     if let Some(v) = format.keep_together {
-        attributes.push_str(if v { " fo:keep-together=\"always\"" } else { " fo:keep-together=\"auto\"" });
+        attributes.push_str(if v {
+            " fo:keep-together=\"always\""
+        } else {
+            " fo:keep-together=\"auto\""
+        });
     }
     if let Some(v) = format.keep_with_next {
-        attributes.push_str(if v { " fo:keep-with-next=\"always\"" } else { " fo:keep-with-next=\"auto\"" });
+        attributes.push_str(if v {
+            " fo:keep-with-next=\"always\""
+        } else {
+            " fo:keep-with-next=\"auto\""
+        });
     }
     format!("<style:paragraph-properties{attributes}/>")
 }

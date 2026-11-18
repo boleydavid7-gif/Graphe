@@ -464,6 +464,8 @@ fn text_warning_tracks_visible_paragraph_formatting_and_breaks() {
         spacing_after: Some(Twips(160)),
         line_spacing: Some(LineSpacing::Multiple { value: 360 }),
         page_break_before: Some(false),
+        keep_together: None,
+        keep_with_next: None,
         indentation: Some(Indentation {
             left: Some(Twips(0)),
             right: Some(Twips(0)),

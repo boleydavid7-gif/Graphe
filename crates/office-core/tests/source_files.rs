@@ -140,9 +140,9 @@ fn envelope_and_model_versions_cannot_be_mixed_or_reinterpreted() {
         decode(&current),
         Err(PersistenceError::IncompatibleModelSchema {
             format_version: 1,
-            found: 6,
+            found,
             expected: 1
-        })
+        }) if found == u64::from(SCHEMA_VERSION)
     ));
     let mut legacy: Value = serde_json::from_slice(LEGACY).unwrap();
     legacy["format_version"] = json!(2);

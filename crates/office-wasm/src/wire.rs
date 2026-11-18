@@ -206,6 +206,9 @@ pub(crate) enum TableAction {
     InsertColumnAfter,
     DeleteColumn,
     DeleteTable,
+    WidenColumn,
+    NarrowColumn,
+    EqualizeColumns,
 }
 
 #[derive(Deserialize)]

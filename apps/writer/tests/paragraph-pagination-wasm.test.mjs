@@ -1,3 +1,4 @@
+import { TextDecoder } from 'node:util';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { WriterEngine } from '../src/wasm/office_wasm.js';

@@ -8,7 +8,7 @@ interface NativeRun { readonly text: string; readonly format: Record<string, unk
 interface NativeParagraph { readonly id: string; readonly runs: readonly NativeRun[] }
 interface NativeCell { readonly id: string; readonly paragraphs: readonly NativeParagraph[] }
 interface NativeRow { readonly id: string; readonly cells: readonly NativeCell[] }
-interface NativeTable { readonly id: string; readonly rows: readonly NativeRow[] }
+interface NativeTable { readonly column_widths?: readonly number[]; readonly id: string; readonly rows: readonly NativeRow[] }
 interface NativeFile {
   readonly document: {
     readonly id: string;
@@ -502,4 +502,33 @@ test.describe('mobile table editing', () => {
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: '../../docs/images/graphe-tables-mobile.png', fullPage: true });
   });
+});
+
+
+test('column resize controls preserve total width, undo, redo and saved identity', async ({ page }) => {
+  await start(page);
+  await insertTable(page, 2, 2, unicode);
+  await structuralAction(page, 'Widen column (12 pt)');
+  const resized = nativeTable(await nativeFile(page));
+  expect(resized.column_widths).toBeDefined();
+  const widths = resized.column_widths!;
+  expect(widths[0]! - widths[1]!).toBe(480);
+  await structuralAction(page, 'Equal column widths');
+  const equal = nativeTable(await nativeFile(page));
+  expect(equal.column_widths!.reduce((sum, value) => sum + value, 0)).toBe(widths.reduce((sum, value) => sum + value, 0));
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  expect(nativeTable(await nativeFile(page))).toEqual(resized);
+  await page.getByRole('button', { name: 'Redo', exact: true }).click();
+  expect(nativeTable(await nativeFile(page))).toEqual(equal);
+  const title = 'Resized table persistence';
+  await page.getByRole('textbox', { name: 'Document title', exact: true }).fill(title);
+  await saveLocal(page);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+  await documentAction(page, 'Open document');
+  const library = page.getByRole('dialog', { name: 'Open document', exact: true });
+  await library.getByRole('button', { name: new RegExp(title) }).click();
+  await expect(library).toHaveCount(0);
+  await readyPages(page);
+  expect(nativeTable(await nativeFile(page))).toEqual(equal);
 });

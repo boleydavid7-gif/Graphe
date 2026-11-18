@@ -502,3 +502,35 @@ fn one_twip_columns_cannot_lose_width_or_be_split_to_zero() {
         [Twips(1), Twips(1), Twips(2)]
     );
 }
+
+#[test]
+fn column_width_changes_preserve_cells_and_validate_before_publication() {
+    let mut session = DocumentSession::new(document());
+    let before = session.document().clone();
+    let mut tx = session.begin_transaction();
+    assert!(
+        tx.set_table_column_widths(&id("table"), vec![Twips(3000), Twips(2000)])
+            .unwrap()
+    );
+    session.commit(tx).unwrap();
+    let after = session.document().clone();
+    let widths = after
+        .table_for_paragraph(&id("a1-p"))
+        .unwrap()
+        .0
+        .column_widths()
+        .unwrap();
+    assert_eq!(widths, &[Twips(3000), Twips(2000)]);
+    assert_eq!(text(&after, "a1-p"), text(&before, "a1-p"));
+    let mut invalid = session.begin_transaction();
+    assert!(
+        invalid
+            .set_table_column_widths(&id("table"), vec![Twips(0), Twips(2000)])
+            .is_err()
+    );
+    assert_eq!(session.document(), &after);
+    session.undo().unwrap();
+    assert_eq!(session.document(), &before);
+    session.redo().unwrap();
+    assert_eq!(session.document(), &after);
+}

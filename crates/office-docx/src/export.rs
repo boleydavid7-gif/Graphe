@@ -789,6 +789,12 @@ fn write_paragraph_properties(
         xml.empty("w:numId", &[("w:val", &list_id.to_string())])?;
         xml.end("w:numPr")?;
     }
+    if let Some(value) = format.keep_with_next {
+        write_on_off(xml, "w:keepNext", value)?;
+    }
+    if let Some(value) = format.keep_together {
+        write_on_off(xml, "w:keepLines", value)?;
+    }
     if let Some(value) = format.page_break_before {
         write_on_off(xml, "w:pageBreakBefore", value)?;
     }

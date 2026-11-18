@@ -169,6 +169,19 @@ impl Transaction {
         })
     }
 
+    /// Sets validated physical column widths without replacing cells or paragraphs.
+    pub fn set_table_column_widths(
+        &mut self,
+        table_id: &Id,
+        widths: Vec<crate::Twips>,
+    ) -> Result<bool, EditError> {
+        self.update_table(table_id, |table| {
+            Ok(Some(
+                Table::new(table.id().clone(), table.rows().to_vec()).with_column_widths(widths),
+            ))
+        })
+    }
+
     /// Removes the complete table as one undoable edit, preserving other blocks.
     pub fn remove_table(&mut self, table_id: &Id) -> Result<bool, EditError> {
         self.update_table(table_id, |_| Ok(None))

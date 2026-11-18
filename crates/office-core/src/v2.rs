@@ -4,11 +4,11 @@
 use serde::Deserialize;
 
 use super::v3::{V3NamedStyle, V3TextRun};
+use super::v6::V6ParagraphFormat;
 use super::{
     Block, Document, DocumentMetadata, Id, ListKind, Paragraph, Section, SectionProperties,
 };
 use crate::DocumentError;
-use super::v6::V6ParagraphFormat;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

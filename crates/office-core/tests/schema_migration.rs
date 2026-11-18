@@ -49,7 +49,10 @@ fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
                     .is_null()
             );
             for field in ["keep_together", "keep_with_next"] {
-                let _ = block["content"]["format"].as_object_mut().unwrap().remove(field);
+                let _ = block["content"]["format"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove(field);
             }
         }
     }
@@ -63,7 +66,10 @@ fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
                 .is_null()
         );
         for field in ["keep_together", "keep_with_next"] {
-            let _ = style["paragraph_format"].as_object_mut().unwrap().remove(field);
+            let _ = style["paragraph_format"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
         }
     }
     // Missing optional properties and explicit null both represented None in
@@ -175,7 +181,7 @@ fn invalid_legacy_references_and_formatting_are_not_repaired_by_migration() {
 
 #[test]
 fn old_and_future_unsupported_versions_are_rejected_before_payload_interpretation() {
-    for version in [0, 7, u64::MAX] {
+    for version in [0, u64::from(SCHEMA_VERSION) + 1, u64::MAX] {
         let source = json!({"schema_version":version,"incompatible_future_payload":true});
         assert!(
             matches!(load(&source), Err(DocumentError::UnsupportedSchemaVersion {found,supported}) if found==version && supported == SCHEMA_VERSION)
