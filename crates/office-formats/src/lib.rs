@@ -355,6 +355,41 @@ pub fn assess_export(
         .iter()
         .flat_map(|section| section.blocks())
         .any(|block| matches!(block, Block::Table(_)));
+    let images = document
+        .sections()
+        .iter()
+        .flat_map(|section| section.blocks())
+        .filter_map(|block| match block {
+            Block::Image(image) => Some(image),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    if !images.is_empty() && format == DocumentFormat::Rtf {
+        return Err(FormatError::new(
+            "unsupported_rtf_export",
+            "RTF image export is not supported yet. Save a native Graphe, DOCX, ODT or PDF copy to preserve pictures.",
+        ));
+    }
+    if !images.is_empty() && format == DocumentFormat::Txt {
+        warnings.push(FormatDiagnostic::new("images_as_text", "txt", "document",
+            "Plain text replaces pictures with their image descriptions. Image content, size and positioning will be lost."));
+    }
+    if matches!(format, DocumentFormat::Docx | DocumentFormat::Odt)
+        && images.iter().any(|image| {
+            image.asset().has_orientation_transform() || image.asset().has_color_approximation()
+        })
+    {
+        warnings.push(FormatDiagnostic::new("image_normalization", format.extension(), "images",
+            "Some pictures are embedded as normalized PNG copies for consistent rotation and display. Original image bytes and metadata remain in the native Graphe file."));
+    }
+    if format == DocumentFormat::Pdf
+        && images
+            .iter()
+            .any(|image| image.asset().has_color_approximation())
+    {
+        warnings.push(FormatDiagnostic::new("image_color_approximation", "pdf", "images",
+            "Some image color profiles or high-precision colors are approximated in this PDF. Keep the native Graphe file to retain the original image bytes."));
+    }
     if has_tables && format == DocumentFormat::Rtf {
         return Err(FormatError::new(
             "unsupported_rtf_export",
@@ -572,7 +607,7 @@ fn text_loses_formatting(document: &Document) -> bool {
             .sections()
             .iter()
             .flat_map(|section| section.blocks())
-            .any(|block| matches!(block, Block::Table(_)))
+            .any(|block| matches!(block, Block::Table(_) | Block::Image(_)))
     {
         return true;
     }

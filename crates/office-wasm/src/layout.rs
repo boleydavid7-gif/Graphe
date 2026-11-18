@@ -275,6 +275,7 @@ impl BrowserEngine {
         let mut anchor = anchor_affinity;
         let mut focus = focus_affinity;
         let mut preferred_x = None;
+        let mut target_found = false;
         match action {
             LayoutAction::Hit {
                 page_number,
@@ -283,6 +284,7 @@ impl BrowserEngine {
                 extend,
             } => {
                 if let Some(target) = layout.hit_test(page_number, x, y).map_err(layout_error)? {
+                    target_found = true;
                     selected = Some(selection_at(initial.as_ref(), &target, extend));
                     focus = target.position.affinity;
                     if !extend || initial.is_none() {
@@ -292,6 +294,7 @@ impl BrowserEngine {
             }
             LayoutAction::SelectWord { page_number, x, y } => {
                 if let Some(target) = layout.hit_test(page_number, x, y).map_err(layout_error)? {
+                    target_found = true;
                     selected = Some(word_selection(self.session.document(), layout, &target, x)?);
                     anchor = CaretAffinity::Leading;
                     focus = CaretAffinity::Trailing;
@@ -303,6 +306,12 @@ impl BrowserEngine {
                 x,
                 y,
             } => {
+                if self.selected_image.is_some() {
+                    return Err(EngineError::new(
+                        "image_selected",
+                        "Select text before dragging a text endpoint.",
+                    ));
+                }
                 let mut selection = self.selection.clone().ok_or_else(|| {
                     EngineError::new(
                         "invalid_selection",
@@ -328,6 +337,13 @@ impl BrowserEngine {
                 }
             }
             LayoutAction::Move { direction, extend } => {
+                if self.selected_image.is_some() {
+                    return Err(EngineError::new(
+                        "image_selected",
+                        "Use the image cursor command to return to text.",
+                    ));
+                }
+                target_found = true;
                 if let Some(current) = &initial {
                     let mut point = endpoint(&current.focus, focus);
                     let collapsed = current.anchor == current.focus;
@@ -363,6 +379,7 @@ impl BrowserEngine {
                 }
             }
             LayoutAction::SelectAll {} => {
+                target_found = true;
                 if let (Some(first), Some(last)) = (
                     layout.pages.iter().flat_map(|page| &page.lines).next(),
                     layout.pages.iter().flat_map(|page| &page.lines).last(),
@@ -382,6 +399,9 @@ impl BrowserEngine {
                 }
             }
         }
+        if self.selected_image.is_some() && !target_found {
+            return self.geometry_response(true);
+        }
         // Check all geometry before committing even a selection-only update.
         if let Some(selection) = &selected {
             layout
@@ -392,6 +412,7 @@ impl BrowserEngine {
                 .map_err(layout_error)?;
         }
         let previous_selection = self.selection.clone();
+        let previous_image = self.selected_image.clone();
         let previous_typing = self.typing.clone();
         let previous_visual = self.layout_state.visual.take();
         let result = self.execute(Command::SetSelection {
@@ -401,6 +422,7 @@ impl BrowserEngine {
         });
         if let Err(error) = result {
             self.selection = previous_selection;
+            self.selected_image = previous_image;
             self.typing = previous_typing;
             self.layout_state.visual = previous_visual;
             return Err(error);
@@ -416,6 +438,7 @@ impl BrowserEngine {
             // A bounded transport failure is still a failed intention. Retain
             // the previous input format, selection, and visual runtime state.
             self.selection = previous_selection;
+            self.selected_image = previous_image;
             self.typing = previous_typing;
             self.layout_state.visual = previous_visual;
         }
@@ -437,6 +460,7 @@ impl BrowserEngine {
         let geometry = self
             .selection
             .as_ref()
+            .filter(|_| self.selected_image.is_none())
             .map(|selection| {
                 layout
                     .selection_geometry(

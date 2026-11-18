@@ -21,6 +21,11 @@ pub enum EditError {
     CrossSectionRange,
     /// Text replacement would join independent table cells or cross a table boundary.
     CrossCellRange,
+    /// The image command targets a missing block or invalid metadata.
+    InvalidImageOperation {
+        /// Stable explanatory category.
+        reason: &'static str,
+    },
     /// The table command targets a missing entity or invalid structural index.
     InvalidTableOperation {
         /// Stable explanatory category, suitable for interface translation.
@@ -32,7 +37,10 @@ impl fmt::Display for EditError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::CrossCellRange => {
-                f.write_str("text replacement cannot cross table or cell boundaries")
+                f.write_str("text replacement cannot cross image, table or cell boundaries")
+            }
+            Self::InvalidImageOperation { reason } => {
+                write!(f, "invalid image operation: {reason}")
             }
             Self::InvalidTableOperation { reason } => {
                 write!(f, "invalid table operation: {reason}")

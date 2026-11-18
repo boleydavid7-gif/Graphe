@@ -137,6 +137,12 @@ impl BrowserEngine {
     /// sections. Literal text, including any CR/LF inside runs, is preserved
     /// exactly. A collapsed or absent selection returns an empty string.
     pub fn selected_text(&self) -> Result<String, EngineError> {
+        if self.selected_image.is_some() {
+            return Err(EngineError::new(
+                "image_clipboard_unsupported",
+                "Copying or cutting an image through the text clipboard is not supported yet. Your document is unchanged.",
+            ));
+        }
         let Some(selection) = self.current_selection(None)? else {
             return Ok(String::new());
         };

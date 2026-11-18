@@ -141,3 +141,14 @@ DOCX/ODT adapters and PDF/TXT export follow the documented supported profile.
 Merged/nested tables, row splitting, repeating headers and visual table styling
 remain future work. Review `TABLES.md` before merging or publishing. This change
 does not authorize unrelated features, ProairetOS changes or deployment.
+
+## Step 8A — embedded images
+
+Implemented on `dev/graphe-step8a-images`, based on verified main `184364a`.
+The first profile is standalone body PNG/JPEG images, atomic image properties
+and history, Rust pagination, native version 6, bounded DOCX/ODT exchange and PDF
+image output. Browser controls reuse the existing Lamplight editor. Floating
+objects, arbitrary inline images, cropping, cell images and additional codecs
+remain future work. See [IMAGES.md](IMAGES.md) and the
+[verification report](IMAGES_VERIFICATION.md) for actual results and limits.
+No merge, deployment or next milestone is implied.

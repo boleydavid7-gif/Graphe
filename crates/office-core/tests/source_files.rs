@@ -140,7 +140,7 @@ fn envelope_and_model_versions_cannot_be_mixed_or_reinterpreted() {
         decode(&current),
         Err(PersistenceError::IncompatibleModelSchema {
             format_version: 1,
-            found: 5,
+            found: 6,
             expected: 1
         })
     ));

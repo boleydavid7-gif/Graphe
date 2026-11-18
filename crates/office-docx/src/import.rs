@@ -20,6 +20,8 @@ use crate::{
     xml::parse_xml,
 };
 
+#[path = "image_import.rs"]
+mod pictures;
 #[path = "table_import.rs"]
 mod tables;
 
@@ -51,6 +53,7 @@ pub(crate) struct PartGraph {
     pub(crate) styles: Option<String>,
     pub(crate) numbering: Option<String>,
     pub(crate) hyperlinks: BTreeMap<String, String>,
+    images: BTreeMap<String, pictures::ImagePart>,
     pub(crate) core_properties: Option<String>,
     pub(crate) ancillary: BTreeMap<AncillaryKind, String>,
 }
@@ -126,6 +129,8 @@ pub(crate) fn import_document(
     let main_part = &original.inspection().main_document_part;
     let sections = parse_main_document(
         &package.parts[main_part],
+        &package,
+        &graph.images,
         ImportContext {
             namespace,
             part: main_part,
@@ -170,6 +175,7 @@ pub(crate) fn inspect_semantic_graph(
         styles: None,
         numbering: None,
         hyperlinks: BTreeMap::new(),
+        images: BTreeMap::new(),
         core_properties: None,
         ancillary: BTreeMap::new(),
     };
@@ -234,6 +240,38 @@ pub(crate) fn inspect_semantic_graph(
                     ));
                 }
                 understood.insert((*target).into());
+            } else if main_source && relation_kind(&relation.relationship_type, "image") {
+                let content_type = original
+                    .inspection()
+                    .parts
+                    .iter()
+                    .find(|part| part.name == *target)
+                    .map(|part| part.content_type.as_str())
+                    .ok_or_else(|| invalid(&part.name, "image target has no package inventory"))?;
+                if content_type.eq_ignore_ascii_case("image/png")
+                    || content_type.eq_ignore_ascii_case("image/jpeg")
+                {
+                    graph.images.insert(
+                        relation.id.clone(),
+                        pictures::ImagePart {
+                            name: (*target).into(),
+                            content_type: content_type.to_ascii_lowercase(),
+                            relationship_description: format!(
+                                "{} → {}",
+                                relation.relationship_type, relation.target
+                            ),
+                            relationship_part: part.name.clone(),
+                        },
+                    );
+                    understood.insert((*target).into());
+                } else {
+                    unsupported_relationship(
+                        &part.name,
+                        &relation,
+                        report,
+                        "Only embedded PNG and JPEG image parts have an editable mapping.",
+                    );
+                }
             } else if source.is_none() && relation.relationship_type == CORE_RELATIONSHIP {
                 if graph.core_properties.replace((*target).into()).is_some() {
                     return Err(invalid(
@@ -1354,6 +1392,8 @@ fn check_metadata_attributes(node: Node<'_, '_>, part: &str, report: &mut Compat
 
 fn parse_main_document(
     bytes: &[u8],
+    package: &Package,
+    images: &BTreeMap<String, pictures::ImagePart>,
     context: ImportContext<'_>,
     report: &mut CompatibilityReport,
 ) -> Result<Vec<Section>, ConversionError> {
@@ -1385,6 +1425,7 @@ fn parse_main_document(
     let mut blocks = Vec::new();
     let mut paragraph_index = 0;
     let mut table_index = 0;
+    let mut image_state = pictures::ImageState::default();
     let mut preceding_numbering: Option<(u32, ListKind)> = None;
     let mut used_numbering = BTreeSet::new();
     let mut final_properties = None;
@@ -1400,7 +1441,22 @@ fn parse_main_document(
         if final_properties.is_some() {
             return Err(invalid(part, "content follows final section properties"));
         }
-        if node.has_tag_name((namespace, "p")) {
+        if node.has_tag_name((namespace, "p")) && pictures::contains_drawing(node, namespace) {
+            if let Some(image) = pictures::parse(
+                node,
+                context,
+                pictures::PictureInput {
+                    package,
+                    parts: images,
+                    state: &mut image_state,
+                },
+                report,
+            )? {
+                blocks.push(Block::Image(image));
+            }
+            preceding_numbering = None;
+            ended_section = false;
+        } else if node.has_tag_name((namespace, "p")) {
             let (paragraph, properties, numbering_id) =
                 parse_paragraph_content(node, context, paragraph_index, report)?;
             paragraph_index += 1;
@@ -1461,6 +1517,12 @@ fn parse_main_document(
                 report,
                 "This block content has no editable native representation.",
             );
+        }
+    }
+    for (id, image) in images {
+        if !image_state.used.contains(id) {
+            report.push(Issue::UnsupportedRelationship, &image.relationship_part, format!("image/{id}"),
+                format!("Image relationship {} is not consumed by a supported body picture. Its exact bytes remain in the original.", image.relationship_description));
         }
     }
     if !blocks.is_empty() || final_properties.is_some() || ended_section {

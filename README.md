@@ -10,6 +10,14 @@ compatibility come first; spreadsheets and presentations will follow later.
 
 ## Current status
 
+Step 8A adds embedded PNG/JPEG images in Graphe (`apps/writer`): **Insert →
+Image…**, select, resize, align, edit alternative text, delete and undo/redo.
+Rust owns image validation, selection and pagination. Native format/model 6
+retains exact image bytes; supported DOCX/ODT exchange and PDF export include
+images. See [scope and limitations](docs/IMAGES.md),
+[research](docs/IMAGES_RESEARCH.md) and [verification](docs/IMAGES_VERIFICATION.md).
+This work does not authorize deployment or imply unrestricted Office fidelity.
+
 Phase 2's [mobile text selection](docs/PHASE2_MOBILE_SELECTION.md) adds Rust word
 selection, draggable endpoints, scrolling/zoom handling and guarded clipboard
 controls on a separate development branch. Browser automation passes; physical
@@ -115,7 +123,8 @@ Unsupported rich content remains read-only rather than silently becoming a
 partial editable document. See [file formats](docs/FILE_FORMATS.md),
 [verification](docs/FILE_FORMATS_VERIFICATION.md) and
 [dependency licensing](docs/DEPENDENCIES.md). The planned comprehensive technical,
-security, DOCX and commercial-licensing audit remains pending; Step 8 is not begun.
+security, DOCX and commercial-licensing audit remains pending. The owner has
+subsequently authorized the bounded Step 8A image milestone described above.
 
 The save/export/mobile reliability correction is documented in
 [the workflow verification report](docs/WRITER_RELIABILITY.md). It repairs local

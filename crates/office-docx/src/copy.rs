@@ -15,7 +15,7 @@ use crate::{
     export::{export_document, write_parts},
     import::{PartGraph, inspect_semantic_graph},
     import_docx,
-    opc::parse_relationships,
+    opc::{parse_relationships, resolve_target},
     package::{Package, read_package},
     xml::parse_xml,
 };
@@ -42,6 +42,13 @@ pub struct DocxCopyAssessment {
     pub has_document_properties: bool,
     /// An opaque source theme cannot be attached under the safe copy profile.
     pub theme_omitted: bool,
+}
+
+struct GeneratedImageRelationship {
+    id: String,
+    target: String,
+    part: String,
+    content_type: String,
 }
 
 struct CopySource {
@@ -169,16 +176,41 @@ pub fn export_docx_with_source(
     let expected = editable_projection(&generated)?;
     let mut parts = read_package(&generated)?.parts;
     let has_numbering = parts.contains_key("word/numbering.xml");
-    let link_rels = parse_relationships(
+    let generated_rels = parse_relationships(
         "word/_rels/document.xml.rels",
         &parts["word/_rels/document.xml.rels"],
-    )?
-    .into_iter()
-    .filter(|relation| {
-        relation.external && relation.relationship_type == format!("{OFFICE_REL}/hyperlink")
-    })
-    .map(|relation| (relation.id, relation.target))
-    .collect::<Vec<_>>();
+    )?;
+    let inventory = crate::inspect_docx(&generated)?;
+    let mut image_rels = Vec::new();
+    for relation in &generated_rels {
+        if !relation.external && relation.relationship_type == format!("{OFFICE_REL}/image") {
+            let part = resolve_target(
+                Some("word/document.xml"),
+                &relation.target,
+                "word/_rels/document.xml.rels",
+            )?;
+            let content_type = inventory
+                .parts
+                .iter()
+                .find(|entry| entry.name == part)
+                .ok_or_else(|| invalid(&part, "generated image is missing"))?
+                .content_type
+                .clone();
+            image_rels.push(GeneratedImageRelationship {
+                id: relation.id.clone(),
+                target: relation.target.clone(),
+                part,
+                content_type,
+            });
+        }
+    }
+    let link_rels = generated_rels
+        .into_iter()
+        .filter(|relation| {
+            relation.external && relation.relationship_type == format!("{OFFICE_REL}/hyperlink")
+        })
+        .map(|relation| (relation.id, relation.target))
+        .collect::<Vec<_>>();
     let mut extra = Vec::new();
     if let Some(part) = &input.graph.core_properties {
         let metadata = metadata(
@@ -227,15 +259,15 @@ pub fn export_docx_with_source(
     }
     parts.insert(
         "_rels/.rels".into(),
-        relationships(true, has_numbering, &link_rels, &extra)?,
+        relationships(true, has_numbering, &link_rels, &image_rels, &extra)?,
     );
     parts.insert(
         "word/_rels/document.xml.rels".into(),
-        relationships(false, has_numbering, &link_rels, &extra)?,
+        relationships(false, has_numbering, &link_rels, &image_rels, &extra)?,
     );
     parts.insert(
         "[Content_Types].xml".into(),
-        content_types(has_numbering, &extra)?,
+        content_types(has_numbering, &image_rels, &extra)?,
     );
     let bytes = write_parts(parts)?;
     // Original styles/defaults and opaque ancillary relationships never enter
@@ -302,6 +334,7 @@ fn relationships(
     root: bool,
     has_numbering: bool,
     links: &[(String, String)],
+    images: &[GeneratedImageRelationship],
     extra: &[(AncillaryKind, &str)],
 ) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Writer::new(Vec::new());
@@ -335,6 +368,16 @@ fn relationships(
             link.push_attribute(("Target", destination.as_str()));
             link.push_attribute(("TargetMode", "External"));
             event(&mut xml, Event::Empty(link))?;
+        }
+    }
+    if !root {
+        for image in images {
+            relation(
+                &mut xml,
+                &image.id,
+                &format!("{OFFICE_REL}/image"),
+                &image.target,
+            )?;
         }
     }
     for (index, &(kind, target)) in extra.iter().enumerate() {
@@ -374,6 +417,7 @@ fn relation(
 
 fn content_types(
     has_numbering: bool,
+    images: &[GeneratedImageRelationship],
     extra: &[(AncillaryKind, &str)],
 ) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Writer::new(Vec::new());
@@ -409,6 +453,9 @@ fn content_types(
     }
     for &(kind, target) in extra {
         types.insert(target, kind.expected_content_type());
+    }
+    for image in images {
+        types.insert(image.part.as_str(), image.content_type.as_str());
     }
     for (part, kind) in types {
         let mut element = BytesStart::new("Override");

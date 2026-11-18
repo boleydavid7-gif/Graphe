@@ -8,10 +8,11 @@ import { WriterIcon } from './WriterIcon';
 import { FindBar } from './FindBar';
 import { StorageError, WriterStorage, type StoredDocument } from './storage';
 import { WriterSaveController, type SaveAssociation, type SaveState } from './autosave';
-import type { Alignment, CompatibilityReport, DocumentFormat, ExportAssessment, LayoutAction, WriterCommand, WriterView } from './types';
+import type { Alignment, CompatibilityReport, DocumentFormat, ExportAssessment, ImageView, LayoutAction, WriterCommand, WriterView } from './types';
 import './styles.css';
 import fontLicensesUrl from '../../../crates/office-layout/fonts/NOTICE.txt?url';
 import formatLicensesUrl from '../../../crates/office-formats/THIRD_PARTY_NOTICES.txt?url';
+import imageLicensesUrl from '../../../crates/office-core/THIRD_PARTY_NOTICES.txt?url';
 import grapheLicenseUrl from '../../../LICENSE?url';
 
 function safeHyperlink(value: string): boolean {
@@ -102,6 +103,18 @@ type ParagraphDialogState = {
   origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
   error: string;
 };
+
+interface ImageDialogState {
+  readonly image: ImageView;
+  readonly origin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>;
+  readonly width: string;
+  readonly height: string;
+  readonly lock: boolean;
+  readonly altText: string;
+  readonly alignment: ImageView['alignment'];
+}
+
+const EMPTY_IMAGE_URLS: ReadonlyMap<string, string> = new Map();
 
 function numericParagraphValue(value: number | null): string {
   return value === null ? '' : String(Number(value.toFixed(3)));
@@ -241,6 +254,9 @@ export default function App() {
   const storage = useRef<WriterStorage | null>(null);
   const surface = useRef<EditorSurfaceHandle>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const imageReadOrigin = useRef<{ client: EngineClient; view: WriterView } | null>(null);
+  const compositionActive = useRef(false);
   const documentMenu = useRef<HTMLDetailsElement>(null);
   const findPanel = useRef<HTMLDivElement>(null);
   const pendingFindFocus = useRef(false);
@@ -287,6 +303,10 @@ export default function App() {
   const [hyperlinkDialog, setHyperlinkDialog] = useState<HyperlinkDialogState | null>(null);
   const [paragraphDialog, setParagraphDialog] = useState<ParagraphDialogState | null>(null);
   const [tableDialog, setTableDialog] = useState<{ rows: number; columns: number; revision: string } | null>(null);
+  const [imageDialog, setImageDialog] = useState<ImageDialogState | null>(null);
+  const [imagePresentation, setImagePresentation] = useState<{
+    sessionId: string; urls: ReadonlyMap<string, string>;
+  }>({ sessionId: '', urls: EMPTY_IMAGE_URLS });
   const pendingTableFocus = useRef(false);
   const [proairetosFileId, setProairetosFileId] = useState<string | null>(null);
   const proairetosSession = useRef<string | null>(null);
@@ -294,6 +314,16 @@ export default function App() {
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const ribbonRef = useRef<HTMLDivElement | null>(null);
   const previousTabRef = useRef(activeTab);
+  useLayoutEffect(() => {
+    const client = engine.current;
+    if (!view || !client) return;
+    try {
+      const urls = client.presentationImages(view);
+      setImagePresentation((previous) => previous.sessionId === view.sessionId
+        && previous.urls.size === urls.size && [...urls].every(([id, url]) => previous.urls.get(id) === url)
+        ? previous : { sessionId: view.sessionId, urls });
+    } catch (failure) { setError(message(failure)); }
+  }, [view]);
   useLayoutEffect(() => {
     if (!tableDialog && pendingTableFocus.current) {
       pendingTableFocus.current = false;
@@ -548,6 +578,7 @@ export default function App() {
   }, []);
 
   function compositionChanged(active: boolean) {
+    compositionActive.current = active;
     setComposing(active);
     saveController.current?.setComposing(active);
   }
@@ -1065,7 +1096,73 @@ export default function App() {
     }
   }
 
+  function chooseImage() {
+    const client = engine.current;
+    const current = viewRef.current;
+    if (!client || !current || !documentOpenRef.current || busy || compositionActive.current || current.table || current.selectedImageId) return;
+    imageReadOrigin.current = { client, view: current };
+    imageInput.current?.click();
+  }
+
+  async function insertImageFile(file: File) {
+    const pendingImage = imageReadOrigin.current;
+    imageReadOrigin.current = null;
+    if (!pendingImage) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error('Choose a PNG or JPEG image of at most 2 MiB.');
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const current = viewRef.current;
+      if (engine.current !== pendingImage.client || !current || !documentOpenRef.current || compositionActive.current
+        || current.sessionId !== pendingImage.view.sessionId || current.documentId !== pendingImage.view.documentId
+        || current.revision !== pendingImage.view.revision
+        || JSON.stringify(current.selection) !== JSON.stringify(pendingImage.view.selection)
+        || current.selectedImageId !== pendingImage.view.selectedImageId) {
+        throw new Error('The document or selection changed while the image was being read. Choose its insertion point and try again.');
+      }
+      const next = updateView(pendingImage.client.insertImage(bytes, pendingImage.view));
+      surface.current?.syncView(next);
+      surface.current?.focusDocument?.();
+      setError('');
+      const inserted = next.images?.find((image) => image.id === next.selectedImageId);
+      setNotice(inserted?.colorApproximation
+        ? 'Image added with approximated colors or precision. Native documents retain its original bytes and metadata.'
+        : 'Image added. Native documents retain its original bytes and metadata.');
+    } catch (failure) { setError(message(failure)); }
+  }
+
+  function openImageProperties() {
+    const current = viewRef.current;
+    const image = current?.images?.find((item) => item.id === current.selectedImageId);
+    if (!image || !current || compositionActive.current) return;
+    setError('');
+    setImageDialog({ image, origin: current, width: String(image.widthPt), height: String(image.heightPt),
+      lock: true, altText: image.altText, alignment: image.alignment });
+  }
+
+  function applyImageProperties() {
+    const value = imageDialog;
+    const current = viewRef.current;
+    if (!value || !current) return;
+    if (current.sessionId !== value.origin.sessionId || current.documentId !== value.origin.documentId
+      || current.revision !== value.origin.revision || current.selectedImageId !== value.image.id) {
+      setError('The selected image changed. Close these properties and try again.');
+      return;
+    }
+    const next = command({ type: 'update_image', expectedRevision: value.origin.revision,
+      ...(Number(value.width) !== value.image.widthPt ? { widthPt: Number(value.width) } : {}),
+      ...(!value.lock && Number(value.height) !== value.image.heightPt ? { heightPt: Number(value.height) } : {}),
+      lockAspect: value.lock, altText: value.altText, alignment: value.alignment });
+    if (next) setImageDialog(null);
+  }
+
+  function imageBackToText() {
+    const next = command({ type: 'move_image_cursor', direction: 'forward' });
+    if (next) { surface.current?.syncView(next); surface.current?.focus(); }
+  }
+
   const unavailable = !view || !documentOpen || busy || composing;
+  const selectedImage = view?.images?.find((image) => image.id === view.selectedImageId);
+  const imageUrls = imagePresentation.sessionId === view?.sessionId ? imagePresentation.urls : EMPTY_IMAGE_URLS;
   const formatState = view?.format;
   const importWarnings = view?.importWarnings;
   const importWarningCount = (importWarnings?.diagnostics.length ?? 0)
@@ -1083,7 +1180,7 @@ export default function App() {
             : dirty ? 'Unsaved changes' : savedLocally ? 'Saved on this device' : 'Not saved yet';
   return <div className="writer-app" onKeyDownCapture={(event) => {
     if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey
-      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !tableDialog) {
+      && event.key.toLowerCase() === 'k' && !unavailable && !hyperlinkDialog && !paragraphDialog && !tableDialog && !imageDialog) {
       event.preventDefault();
       event.stopPropagation();
       openHyperlink();
@@ -1159,7 +1256,15 @@ export default function App() {
         <button aria-label="Redo" title="Redo (Ctrl/⌘ Shift Z)" disabled={unavailable || !view?.canRedo}
           onMouseDown={(event) => event.preventDefault()} onClick={() => format({ type: 'redo' })}><WriterIcon name="redo" /></button>
       </div>
-      {activeTab === 'write' && <>
+      {selectedImage && <div className="format-group image-controls" role="group" aria-label="Image controls">
+        <button disabled={unavailable} onClick={openImageProperties}>Image properties…</button>
+        <button disabled={unavailable} onClick={() => {
+          const next = command({ type: 'delete_image' });
+          if (next) { surface.current?.syncView(next); surface.current?.focusDocument?.(); }
+        }}>Delete image</button>
+        <button disabled={unavailable} onClick={imageBackToText}>Back to text</button>
+      </div>}
+      {activeTab === 'write' && !selectedImage && <>
         <fieldset disabled={unavailable} className="format-group paragraph-style-control">
           <legend className="visually-hidden">Paragraph style</legend>
           <label className="visually-hidden" htmlFor="paragraph-style">Paragraph style</label>
@@ -1205,7 +1310,7 @@ export default function App() {
           </button>)}
         </fieldset>
       </>}
-      {(activeTab === 'write' || activeTab === 'layout') && <fieldset disabled={unavailable}
+      {!selectedImage && (activeTab === 'write' || activeTab === 'layout') && <fieldset disabled={unavailable}
         className={`format-group alignment-controls${activeTab === 'write' ? ' advanced-formatting' : ''}`}>
           <legend className="visually-hidden">Paragraph alignment</legend>
           {(['left', 'center', 'right', 'justify'] as const).map((alignment) => <button key={alignment}
@@ -1214,12 +1319,12 @@ export default function App() {
             <AlignmentIcon alignment={alignment} />
           </button>)}
       </fieldset>}
-      {activeTab === 'write' && <button className="more-formatting"
+      {activeTab === 'write' && !selectedImage && <button className="more-formatting"
         aria-label={moreFormatting ? 'Hide text formatting' : 'Show text formatting'}
         title={moreFormatting ? 'Hide font and alignment controls' : 'Show font and alignment controls'}
         aria-expanded={moreFormatting}
         onClick={() => setMoreFormatting((value) => !value)}><WriterIcon name="text-format" /></button>}
-      {activeTab === 'insert' && view?.table && <div className="format-group table-controls" role="group" aria-label="Table controls">
+      {activeTab === 'insert' && !selectedImage && view?.table && <div className="format-group table-controls" role="group" aria-label="Table controls">
         <span className="table-position">Row {view.table.row + 1}, column {view.table.column + 1}</span>
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
           onClick={() => format({ type: 'table_action', action: 'insert_row_below' })}>Add row below</button>
@@ -1236,7 +1341,9 @@ export default function App() {
           </div>
         </details>
       </div>}
-      {activeTab === 'insert' && <div className="format-group insert-controls" role="group" aria-label="Insert text structure">
+      {activeTab === 'insert' && !selectedImage && <div className="format-group insert-controls" role="group" aria-label="Insert text structure">
+        <button disabled={unavailable || !!view?.table || !!view?.selectedImageId}
+          onMouseDown={(event) => event.preventDefault()} onClick={chooseImage}><WriterIcon name="image" /> Image…</button>
         <button disabled={unavailable || !!view?.table} onMouseDown={(event) => event.preventDefault()}
           onClick={() => { if (view) { setError(''); setTableDialog({ rows: 2, columns: 2, revision: view.revision }); } }}>
           <WriterIcon name="table" /> Table…</button>
@@ -1245,7 +1352,7 @@ export default function App() {
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
           onClick={openHyperlink}><WriterIcon name="link" /> Link <kbd>Ctrl K</kbd></button>
       </div>}
-      {activeTab === 'layout' && <div className="format-group paragraph-metrics-controls">
+      {activeTab === 'layout' && !selectedImage && <div className="format-group paragraph-metrics-controls">
         <button disabled={unavailable} onMouseDown={(event) => event.preventDefault()}
           onClick={openParagraphDialog}>Paragraph spacing &amp; indents…</button>
         <span className="formatting-note">Page sizes and margins follow the document.</span>
@@ -1254,7 +1361,7 @@ export default function App() {
         <button disabled={unavailable} onClick={openFind}><WriterIcon name="search" />Find</button>
         <button disabled={unavailable} aria-pressed={pagePreview} onClick={togglePagePreview}>Page preview</button>
       </div>}
-      <button className="inspector-toggle" aria-controls="writer-inspector" aria-expanded={inspectorOpen}
+      <button className="inspector-toggle" aria-controls="writer-inspector" aria-expanded={inspectorOpen && !selectedImage} disabled={!!selectedImage}
         onClick={() => setInspectorOpen((open) => !open)} title="Toggle formatting inspector">
         {inspectorOpen ? 'Hide details' : 'Details'}
       </button>
@@ -1289,7 +1396,7 @@ export default function App() {
     <div className="writer-work-area"><main className="workspace" aria-label="Document workspace">
       {startupError ? <div className="startup-message" role="alert"><h1>Graphe could not start</h1><p>{startupError}</p><button onClick={() => window.location.reload()}>Try again</button></div>
         : !view ? <p className="startup-message" role="status">Opening Writer…</p>
-        : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command}
+        : documentOpen ? <><div className="paged-editing-view" hidden={pagePreview}><PagedEditor ref={surface} view={view} onCommand={command} imageUrls={imageUrls}
           getCurrentView={currentEngineView}
           onError={setError} onCompositionChange={compositionChanged} disabled={opening || pagePreview}
           zoom={previewZoom} loadLayout={loadPageLayout} loadGeometry={loadSelectionGeometry}
@@ -1299,12 +1406,13 @@ export default function App() {
             return engine.current.selectedText();
           }} /></div>{pagePreview && <PagePreview key={JSON.stringify([view.sessionId, view.revision])}
             sessionId={view.sessionId} revision={view.revision} documentId={view.documentId}
+            images={view.images} imageUrls={imageUrls}
             loadLayout={loadPageLayout} zoom={previewZoom} onZoomChange={setPreviewZoom}
             onPageInfo={acceptPreviewPageInfo}
             onClose={togglePagePreview} />}</>
           : <div className="closed-document"><img src="/writer-logo.svg" className="writer-lantern" alt="" /><h1>Your document is closed</h1><p>Create a document or open one saved on this device.</p><div><button className="primary-button" onClick={newDocument}>New document</button><button onClick={() => void showLibrary()}>Open document</button></div></div>}
     </main>
-    {inspectorOpen && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector"
+    {inspectorOpen && !selectedImage && <aside id="writer-inspector" className="writer-inspector" aria-label="Formatting inspector"
       onPointerDownCapture={(event) => { mobileFormattingPointer.current = event.pointerType === 'touch' || event.pointerType === 'pen'; }}
       onKeyDownCapture={() => { mobileFormattingPointer.current = false; }}>
       <div className="writer-inspector-heading">
@@ -1458,6 +1566,39 @@ export default function App() {
         </div>
       </form>
     </Dialog>}
+    <input ref={imageInput} type="file" className="visually-hidden" tabIndex={-1} aria-label="Insert image file"
+      accept="image/png,image/jpeg,.png,.jpg,.jpeg" onChange={(event) => {
+        const file = event.currentTarget.files?.[0]; event.currentTarget.value = '';
+        if (file) void insertImageFile(file);
+      }} />
+    {imageDialog && <Dialog title="Image properties" onClose={() => { setImageDialog(null); setError(''); }} className="save-copy-dialog image-properties-dialog">
+      <form onSubmit={(event) => { event.preventDefault(); applyImageProperties(); }}>
+        <div className="save-as-fields">
+          <label htmlFor="image-width">Width (pt)</label>
+          <input id="image-width" type="number" inputMode="decimal" min={0.05} step="any" required
+            value={imageDialog.width} onChange={(event) => setImageDialog({ ...imageDialog, width: event.target.value })} />
+          <label htmlFor="image-height">Height (pt)</label>
+          <input id="image-height" type="number" inputMode="decimal" min={0.05} step="any" required disabled={imageDialog.lock}
+            value={imageDialog.height} onChange={(event) => setImageDialog({ ...imageDialog, height: event.target.value })} />
+        </div>
+        <label className="image-ratio"><input type="checkbox" checked={imageDialog.lock}
+          onChange={(event) => setImageDialog({ ...imageDialog, lock: event.target.checked })} />Lock aspect ratio</label>
+        {imageDialog.lock && <p className="dialog-description">Height follows width when you apply the size.</p>}
+        <label htmlFor="image-alignment">Alignment</label>
+        <select id="image-alignment" value={imageDialog.alignment} onChange={(event) => setImageDialog({ ...imageDialog,
+          alignment: event.target.value as ImageView['alignment'] })}>
+          <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option>
+        </select>
+        <label htmlFor="image-alt">Alt text</label>
+        <textarea id="image-alt" rows={3} maxLength={8192} value={imageDialog.altText}
+          onChange={(event) => setImageDialog({ ...imageDialog, altText: event.target.value })} />
+        <p className="dialog-description">{imageDialog.image.pixelWidth} × {imageDialog.image.pixelHeight} pixels. Native files retain original image bytes and metadata.</p>
+        {imageDialog.image.colorApproximation && <p className="save-copy-warning" role="note">The preview approximates this image’s color profile or precision. Native originals are retained.</p>}
+        {error && <p className="dialog-error" role="alert">{error}</p>}
+        <div className="dialog-actions"><button type="button" onClick={() => { setImageDialog(null); setError(''); }}>Cancel</button>
+          <button type="submit" className="primary-button" disabled={unavailable}>Apply</button></div>
+      </form>
+    </Dialog>}
     {tableDialog && <Dialog title="Insert table" onClose={() => { setTableDialog(null); setError(''); }} className="save-copy-dialog table-dialog">
       <form onSubmit={(event) => { event.preventDefault(); insertTable(); }}>
         <div className="save-as-fields">
@@ -1543,13 +1684,14 @@ export default function App() {
         <a href={grapheLicenseUrl} target="_blank" rel="noopener noreferrer">Graphe software license</a>
         <a href={fontLicensesUrl} target="_blank" rel="noopener noreferrer">Bundled font licenses</a>
         <a href={formatLicensesUrl} target="_blank" rel="noopener noreferrer">Third-party format library notices</a>
+        <a href={imageLicensesUrl} target="_blank" rel="noopener noreferrer">Image library notices</a>
         <p>Third-party components retain their respective licenses.</p>
       </section>
       <div className="dialog-actions"><button className="primary-button" onClick={() => setAboutOpen(false)}>Done</button></div>
     </Dialog>}
     {exportDisclosure && <Dialog title="Export Writer file" onClose={() => setExportDisclosure(false)}>
       <p>This Writer file includes the preserved original {view?.originalSource ? formatName(view.originalSource.format) : 'document'}, {view?.originalSource?.filename}.</p>
-      <p>The original may contain text or metadata removed from your edited document. Use Save As in another format when you need only current supported content.</p>
+      <p>The original may contain text or metadata removed from your edited document, including removed images. Use Save As in another format when you need only current supported content.</p>
       {visibleError && <div className="dialog-error" role="alert">{visibleError}</div>}
       <div className="dialog-actions"><button onClick={() => setExportDisclosure(false)}>Cancel</button>
         <button className="primary-button" onClick={exportWriterFile}>Download Writer file</button></div>

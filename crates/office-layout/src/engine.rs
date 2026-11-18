@@ -1,8 +1,9 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use office_core::{
-    Alignment, Block, CharacterFormat, Document, GraphemeOffset, LineSpacing, ListKind,
-    PageMargins, PageSize, Paragraph, Table, TextColor, TextCoordinates, Twips, Underline,
+    Alignment, Block, CharacterFormat, Document, GraphemeOffset, ImageAlignment, LineSpacing,
+    ListKind, PageMargins, PageSize, Paragraph, Table, TextColor, TextCoordinates, Twips,
+    Underline,
 };
 use parley::{
     AlignmentOptions, FontContext, FontFamily, FontStyle, FontWeight, LayoutContext,
@@ -16,15 +17,16 @@ use skrifa::{
 };
 
 use crate::{
-    Caret, CaretAffinity, Decoration, DocumentLayout, GlyphOutline, LayoutDiagnostic, LayoutError,
-    LayoutOptions, LineLayout, PageLayout, PositionedGlyph, Rect, TableCellLayout, TextRange,
-    UNITS_PER_POINT, overlay_character, resolve_paragraph_style,
+    Caret, CaretAffinity, Decoration, DocumentLayout, GlyphOutline, ImageLayout, LayoutDiagnostic,
+    LayoutError, LayoutOptions, LineLayout, PageLayout, PositionedGlyph, Rect, TableCellLayout,
+    TextRange, UNITS_PER_POINT, overlay_character, resolve_paragraph_style,
 };
 
 const MAX_TEXT_BYTES: usize = 200_000;
 const MAX_GLYPHS: usize = 200_000;
 const MAX_LINES: usize = 20_000;
 const MAX_PAGES: usize = 512;
+const MAX_IMAGES: usize = 256;
 const MAX_OUTLINES: usize = 20_000;
 const MAX_PATH_BYTES: usize = 16 * 1024 * 1024;
 const MAX_LABEL_BYTES: usize = 1024;
@@ -293,6 +295,7 @@ impl LayoutEngine {
                 content_rect: area,
                 lines: Vec::new(),
                 table_cells: Vec::new(),
+                images: Vec::new(),
             });
         }
         for section in document.sections() {
@@ -317,6 +320,75 @@ impl LayoutEngine {
             for block in section.blocks() {
                 let paragraph = match block {
                     Block::Paragraph(paragraph) => paragraph,
+                    Block::Image(image) => {
+                        numbering = 0;
+                        let width = twips(image.width())?;
+                        let height = twips(image.height())?;
+                        if width <= 0 || height <= 0 {
+                            return Err(invalid("image dimensions must be positive"));
+                        }
+                        if width > area.width || height > area.height {
+                            return Err(LayoutError::Unsupported {
+                                feature: format!(
+                                    "image {} exceeds the usable page area; resize it explicitly",
+                                    image.id().as_str()
+                                ),
+                                paragraph_id: None,
+                            });
+                        }
+                        if cursor + previous_after + height > area.y + area.height {
+                            if previous_after > 0 {
+                                let paragraph_id = output
+                                    .pages
+                                    .last()
+                                    .and_then(|page| page.lines.last())
+                                    .map(|line| line.paragraph_id.clone());
+                                diagnostic_entry(
+                                    &mut output,
+                                    "page_spacing_suppressed",
+                                    paragraph_id.as_deref(),
+                                    "Paragraph spacing that does not fit before an image is suppressed at the page boundary.".into(),
+                                );
+                            }
+                            if output.pages.last().is_some_and(page_has_content) {
+                                push_page(
+                                    &mut output.pages,
+                                    section.id().as_str(),
+                                    page_width,
+                                    page_height,
+                                    area,
+                                )?;
+                            }
+                            cursor = area.y;
+                        } else {
+                            cursor += previous_after;
+                        }
+                        let x = area.x
+                            + match image.alignment() {
+                                ImageAlignment::Left => 0,
+                                ImageAlignment::Center => (area.width - width) / 2,
+                                ImageAlignment::Right => area.width - width,
+                            };
+                        output
+                            .pages
+                            .last_mut()
+                            .expect("section page exists")
+                            .images
+                            .push(ImageLayout {
+                                image_id: image.id().as_str().into(),
+                                rect: Rect {
+                                    x,
+                                    y: cursor,
+                                    width,
+                                    height,
+                                },
+                            });
+                        cursor += height;
+                        // Images have no intrinsic paragraph spacing. Adjacent
+                        // paragraph properties supply any requested gap.
+                        previous_after = 0;
+                        continue;
+                    }
                     Block::Table(table) => {
                         numbering = 0;
                         self.place_table(
@@ -364,10 +436,7 @@ impl LayoutEngine {
                         .unwrap_or(options.spacing_after),
                 )?;
                 if resolved.paragraph.page_break_before == Some(true)
-                    && output
-                        .pages
-                        .last()
-                        .is_some_and(|page| !page.lines.is_empty())
+                    && output.pages.last().is_some_and(page_has_content)
                 {
                     push_page(
                         &mut output.pages,
@@ -411,11 +480,7 @@ impl LayoutEngine {
                                 "Paragraph spacing that does not fit before the first line is suppressed at the page boundary.".into(),
                             );
                         }
-                        if output
-                            .pages
-                            .last()
-                            .is_some_and(|page| !page.lines.is_empty())
-                        {
+                        if output.pages.last().is_some_and(page_has_content) {
                             push_page(
                                 &mut output.pages,
                                 section.id().as_str(),
@@ -555,11 +620,7 @@ impl LayoutEngine {
             }
             let gap = *previous_after;
             if *cursor + gap + row_height > area.y + area.height {
-                if output
-                    .pages
-                    .last()
-                    .is_some_and(|page| !page.lines.is_empty())
-                {
+                if output.pages.last().is_some_and(page_has_content) {
                     push_page(&mut output.pages, section_id, page_width, page_height, area)?;
                 }
                 *cursor = area.y;
@@ -1113,6 +1174,7 @@ fn preflight(document: &Document, options: &LayoutOptions) -> Result<(), LayoutE
     let mut bytes = 0;
     let mut utf16 = 0;
     let mut runs = 0;
+    let mut images = 0;
     for style in document.styles() {
         budget("style_id_bytes", MAX_LABEL_BYTES, style.id.as_str().len())?;
         if let Some(size) = style.character_format.font_size {
@@ -1147,6 +1209,13 @@ fn preflight(document: &Document, options: &LayoutOptions) -> Result<(), LayoutE
             section.id().as_str().len(),
         )?;
         for block in section.blocks() {
+            if let Block::Image(image) = block {
+                images += 1;
+                budget("images", MAX_IMAGES, images)?;
+                budget("image_id_bytes", MAX_LABEL_BYTES, image.id().as_str().len())?;
+                twips(image.width())?;
+                twips(image.height())?;
+            }
             if let Block::Table(table) = block {
                 budget("table_id_bytes", MAX_LABEL_BYTES, table.id().as_str().len())?;
                 for row in table.rows() {
@@ -1342,8 +1411,13 @@ fn push_page(
         content_rect,
         lines: Vec::new(),
         table_cells: Vec::new(),
+        images: Vec::new(),
     });
     Ok(())
+}
+
+fn page_has_content(page: &PageLayout) -> bool {
+    !page.lines.is_empty() || !page.images.is_empty()
 }
 
 fn translate_line(line: &mut LineLayout, x: i64, y: i64) {
@@ -1427,9 +1501,18 @@ fn budget(resource: &'static str, limit: usize, actual: usize) -> Result<(), Lay
 }
 
 fn diagnostic(output: &mut DocumentLayout, kind: &str, paragraph: &Paragraph, message: String) {
+    diagnostic_entry(output, kind, Some(paragraph.id().as_str()), message);
+}
+
+fn diagnostic_entry(
+    output: &mut DocumentLayout,
+    kind: &str,
+    paragraph_id: Option<&str>,
+    message: String,
+) {
     if output.diagnostics.iter().any(|entry| {
         entry.kind == kind
-            && entry.paragraph_id.as_deref() == Some(paragraph.id().as_str())
+            && entry.paragraph_id.as_deref() == paragraph_id
             && entry.message == message
     }) {
         return;
@@ -1446,7 +1529,7 @@ fn diagnostic(output: &mut DocumentLayout, kind: &str, paragraph: &Paragraph, me
     }
     output.diagnostics.push(LayoutDiagnostic {
         kind: kind.into(),
-        paragraph_id: Some(paragraph.id().as_str().into()),
+        paragraph_id: paragraph_id.map(str::to_owned),
         message,
     });
 }

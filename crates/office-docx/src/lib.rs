@@ -7,6 +7,16 @@
 //! and regeneration are distinct operations. No rendering, storage, execution
 //! of embedded content or external-relationship fetching occurs here.
 //!
+//! The image profile supports bounded embedded PNG/JPEG pictures in dedicated
+//! ordinary body paragraphs, with physical extents, alternative text and
+//! left/center/right alignment. DrawingML crop, floating anchors, effects,
+//! linked images, mixed text/pictures and table-cell pictures remain preserved
+//! read-only. Their relationships are never accepted solely by filename.
+//! Export uses original raster bytes except when EXIF orientation or color
+//! approximation requires the canonical Rust preview PNG. Native files retain
+//! the original asset. Source-aware copies include only current body media;
+//! deleted images and original thumbnails are never grafted back into a copy.
+//!
 //! Keep original bytes outside the document model/history using the native
 //! full-file API before editing. Inspection alone does not imply editability,
 //! complete OOXML conformance, or Microsoft Word pagination equivalence.

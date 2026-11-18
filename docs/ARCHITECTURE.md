@@ -1111,8 +1111,9 @@ Destructive text ranges cannot cross cell boundaries or a table in body flow.
 Character/paragraph formatting reuses the existing atomic transactions; explicit
 row/column/table edits are single undoable structural operations.
 
-Native format/model version 5 stores tables. Strict decoders migrate versions
-1–4; a table under an older version label is rejected. Original imported bytes
+Tables were introduced in native format/model version 5 (current version 6).
+Strict decoders migrate versions 1–5; a table under a pre-5 label is rejected.
+Original imported bytes
 stay outside editable content/history. Rust shapes cell paragraphs at their
 available width, supplies cell rectangles/caret geometry, and paginates whole
 rows. The browser paints these rectangles and glyphs without measuring text.
@@ -1127,3 +1128,39 @@ PDF paints the same Rust cell geometry. TXT flattening requires an explicit
 meaningful-loss warning. RTF table export is rejected until its adapter can
 represent tables safely. See [table research](TABLES_RESEARCH.md) and
 [table verification](TABLES.md) for the exact implemented profile and results.
+
+## Embedded raster images (Step 8A)
+
+`Block::Image` is format-neutral: a stable element ID, immutable PNG/JPEG asset,
+physical dimensions in twips, alternative text and left/center/right alignment.
+Images occupy standalone body blocks. They do not introduce a DOCX drawing or
+ODF frame into the model. Paragraph positions remain unchanged; destructive text
+ranges cannot cross images, and image edits use existing atomic transactions.
+The binding keeps selected-image identity in Rust alongside text cursor/history.
+
+Native envelope/model 6 stores original raster bytes as canonical padded base64.
+Strict versions 1–5 migrate explicitly and cannot accept image fields. Original
+imported documents remain separate from editable content and undo snapshots.
+Bounded header preflight checks aggregate count/bytes/pixels before full decode.
+An immutable shared runtime cache holds oriented RGBA8 and canonical PNG, so
+undo clones and ordinary validation do not repeat image decoding. These caches
+are derived, not serialized document fields. Original EXIF/location metadata may
+remain in native/source copies; preservation is not metadata sanitization.
+
+Rust layout emits stable image IDs and fixed-unit rectangles. Images paginate
+as unsplit blocks and cannot exceed usable page dimensions. Browser insertion
+initially fits the raster to the current body; explicit oversized imports or
+resizes return errors rather than silently altering document geometry. SVG and
+read-only previews paint the same Rust rectangles and normalized pixels used by
+PDF. A controlled semantic figure provides alternative text without adding image
+text to paragraph offsets. Presentation Blob URLs are session-scoped, cached and
+revoked; snapshots carry metadata, not repeated raster payloads.
+
+DOCX/ODT adapters translate only the supported standalone embedded-image subset.
+Unknown content, floating/wrapped objects, crops/effects and images in cells stay
+preserved read-only. Safe exports rebuild media relationships from current
+content so deleted pictures cannot reappear from a retained original. TXT warns
+before replacing images with explicit alt-text placeholders; RTF image export is
+rejected. PDF emits compressed raster XObjects and alpha masks at Rust geometry;
+its existing outlined-text accessibility/search limitations remain. See
+[image contract](IMAGES.md) and [research](IMAGES_RESEARCH.md).

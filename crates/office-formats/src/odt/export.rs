@@ -6,8 +6,8 @@ use super::{
 };
 use crate::FormatError;
 use office_core::{
-    Block, CharacterFormat, Document, HalfPoints, LineSpacing, PageOrientation, Paragraph,
-    ParagraphFormat, TextColor, Twips, Underline,
+    Block, CharacterFormat, Document, HalfPoints, Image, ImageAlignment, LineSpacing,
+    PageOrientation, Paragraph, ParagraphFormat, TextColor, Twips, Underline,
 };
 use std::{
     collections::BTreeMap,
@@ -15,7 +15,7 @@ use std::{
 };
 use zip::{CompressionMethod, DateTime, System, ZipWriter, write::SimpleFileOptions};
 
-const DECLARATIONS: &str = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" office:version=\"1.3\"";
+const DECLARATIONS: &str = "xmlns:office=\"urn:oasis:names:tc:opendocument:xmlns:office:1.0\" xmlns:style=\"urn:oasis:names:tc:opendocument:xmlns:style:1.0\" xmlns:text=\"urn:oasis:names:tc:opendocument:xmlns:text:1.0\" xmlns:fo=\"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0\" xmlns:svg=\"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0\" xmlns:table=\"urn:oasis:names:tc:opendocument:xmlns:table:1.0\" xmlns:draw=\"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" office:version=\"1.3\"";
 
 fn error(error: impl std::fmt::Display) -> FormatError {
     FormatError::new("odt_export", error.to_string())
@@ -26,10 +26,17 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
     // Every generated paragraph/run style must fit the same strict importer
     // profile. Refuse large conversions before publishing an unreopenable copy.
     let paragraphs = document.paragraphs().count();
+    let images = document
+        .sections()
+        .iter()
+        .flat_map(|section| section.blocks())
+        .filter(|block| matches!(block, Block::Image(_)))
+        .count();
     let styles = document
         .styles()
         .len()
         .saturating_add(paragraphs)
+        .saturating_add(images)
         .saturating_add(document.paragraphs().map(|p| p.runs().len()).sum::<usize>());
     if paragraphs > 4096 || styles > 2048 {
         return Err(FormatError::new(
@@ -149,8 +156,35 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
         }
     }
     content.push_str("<style:style style:name=\"GridCell\" style:family=\"table-cell\"><style:table-cell-properties fo:border=\"0.5pt solid #808080\" fo:padding=\"4pt\"/></style:style>");
+    let mut image_parts = Vec::new();
     for (s, section) in document.sections().iter().enumerate() {
         for (b, block) in section.blocks().iter().enumerate() {
+            if let Block::Image(image) = block {
+                let master = if b == 0 {
+                    format!(" style:master-page-name=\"M{s}\"")
+                } else {
+                    String::new()
+                };
+                let page_break = if s > 0 && b == 0 {
+                    " fo:break-before=\"page\""
+                } else {
+                    ""
+                };
+                let alignment = match image.alignment() {
+                    ImageAlignment::Left => "left",
+                    ImageAlignment::Center => "center",
+                    ImageAlignment::Right => "right",
+                };
+                content.push_str(&format!("<style:style style:name=\"I{s}_{b}\" style:family=\"paragraph\"{master}><style:paragraph-properties fo:text-align=\"{alignment}\" fo:margin-top=\"0pt\" fo:margin-bottom=\"0pt\"{page_break}/></style:style>"));
+                let part = image_part(image, s, b);
+                if part.2.len() > 8 * 1024 * 1024 {
+                    return Err(FormatError::new(
+                        "format_limit",
+                        "The normalized image exceeds the ODT resource limit. Keep the native Graphe document.",
+                    ));
+                }
+                image_parts.push(part);
+            }
             if let Block::Table(table) = block {
                 let master = if b == 0 {
                     format!(" style:master-page-name=\"M{s}\"")
@@ -171,6 +205,21 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
             }
         }
     }
+    // A derived orientation/color-safe PNG can be larger than its original
+    // JPEG. Check the exported resource budget before allocating a ZIP, so a
+    // successful copy always fits the same bounded image importer.
+    let mut image_bytes = 0_usize;
+    for (_, _, bytes) in &image_parts {
+        image_bytes = image_bytes.saturating_add(bytes.len());
+        if bytes.len() > office_core::MAX_IMAGE_BYTES
+            || image_bytes > office_core::MAX_DOCUMENT_IMAGE_BYTES
+        {
+            return Err(FormatError::new(
+                "format_limit",
+                "Normalized ODT pictures exceed the supported image byte budget. Keep the native Graphe file.",
+            ));
+        }
+    }
     content.push_str("</office:automatic-styles><office:body><office:text>");
     if document.sections().is_empty() {
         content.push_str("<text:p/>");
@@ -183,6 +232,10 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
                 Block::Paragraph(paragraph) => {
                     write_paragraph(&mut content, paragraph, s, p)?;
                     p += 1;
+                }
+                Block::Image(image) => {
+                    let (path, _, _) = image_part(image, s, b);
+                    content.push_str(&format!("<text:p text:style-name=\"I{s}_{b}\"><draw:frame draw:name=\"Image{s}_{b}\" text:anchor-type=\"as-char\" svg:width=\"{}\" svg:height=\"{}\"><draw:image xlink:href=\"{path}\" xlink:type=\"simple\" xlink:show=\"embed\" xlink:actuate=\"onLoad\"/><svg:desc>{}</svg:desc></draw:frame></text:p>", points(image.width()), points(image.height()), xml_escape(image.alt_text())?));
                 }
                 Block::Table(table) => {
                     content.push_str(&format!(
@@ -220,9 +273,18 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?><office:document-meta {DECLARATIONS} xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><office:meta><dc:title>{}</dc:title></office:meta></office:document-meta>",
         xml_escape(&document.metadata().title)?
     );
-    let manifest = format!(
+    let mut manifest = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?><manifest:manifest xmlns:manifest=\"urn:oasis:names:tc:opendocument:xmlns:manifest:1.0\" manifest:version=\"1.3\"><manifest:file-entry manifest:full-path=\"/\" manifest:media-type=\"{MEDIA_TYPE}\" manifest:version=\"1.3\"/><manifest:file-entry manifest:full-path=\"content.xml\" manifest:media-type=\"text/xml\"/><manifest:file-entry manifest:full-path=\"styles.xml\" manifest:media-type=\"text/xml\"/><manifest:file-entry manifest:full-path=\"meta.xml\" manifest:media-type=\"text/xml\"/></manifest:manifest>"
     );
+    // Inventory only resources generated from complete validated model images.
+    // Original packages and unused auxiliary parts are never grafted here.
+    manifest.truncate(manifest.len() - "</manifest:manifest>".len());
+    for (path, media, _) in &image_parts {
+        manifest.push_str(&format!(
+            "<manifest:file-entry manifest:full-path=\"{path}\" manifest:media-type=\"{media}\"/>"
+        ));
+    }
+    manifest.push_str("</manifest:manifest>");
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default()
         .system(System::Unix)
@@ -257,9 +319,37 @@ pub(super) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
             .map_err(error)?;
         writer.write_all(text.as_bytes()).map_err(error)?;
     }
+    for (name, _, data) in image_parts {
+        writer
+            .start_file(
+                name,
+                options
+                    .compression_method(CompressionMethod::Deflated)
+                    .compression_level(Some(6)),
+            )
+            .map_err(error)?;
+        writer.write_all(data).map_err(error)?;
+    }
     let bytes = writer.finish().map_err(error)?.into_inner();
     super::package::read(&bytes)?;
     Ok(bytes)
+}
+
+fn image_part(image: &Image, section: usize, block: usize) -> (String, &'static str, &[u8]) {
+    let asset = image.asset();
+    let normalize = asset.has_orientation_transform() || asset.has_color_approximation();
+    let (extension, media, bytes) = if normalize {
+        ("png", "image/png", asset.render_png())
+    } else if asset.media_type() == "image/jpeg" {
+        ("jpg", "image/jpeg", asset.original_bytes())
+    } else {
+        ("png", "image/png", asset.original_bytes())
+    };
+    (
+        format!("Pictures/image{section}_{block}.{extension}"),
+        media,
+        bytes,
+    )
 }
 
 fn write_paragraph(

@@ -39,6 +39,8 @@ export class EngineClient {
   private readonly handle: WriterEngine;
   private current: WriterView;
   private disposed = false;
+  private readonly imageUrls = new Map<string, string>();
+  private imageSession = '';
 
   private constructor(handle: WriterEngine) {
     this.handle = handle;
@@ -129,6 +131,37 @@ export class EngineClient {
     catch (error) { throw failure(error); }
   }
 
+  /** Rust validates, sizes and inserts raster bytes as one guarded transaction. */
+  insertImage(bytes: Uint8Array, expectedOrigin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>): WriterView {
+    try {
+      this.assertOrigin(expectedOrigin);
+      return this.accept(this.handle.insert_image(bytes, expectedOrigin.revision));
+    } catch (error) { throw failure(error); }
+  }
+
+  /** Presentation-only Blob URLs for immutable Rust assets, never document data. */
+  presentationImages(expectedOrigin: Pick<WriterView, 'sessionId' | 'documentId' | 'revision'>): ReadonlyMap<string, string> {
+    try {
+      this.assertOrigin(expectedOrigin);
+      if (this.imageSession !== this.current.sessionId) {
+        this.releaseImageUrls();
+        this.imageSession = this.current.sessionId;
+      }
+      const active = new Set((this.current.images ?? []).map((image) => image.id));
+      for (const [id, url] of this.imageUrls) {
+        if (!active.has(id)) { URL.revokeObjectURL(url); this.imageUrls.delete(id); }
+      }
+      for (const id of active) {
+        if (!this.imageUrls.has(id)) {
+          const bytes = new Uint8Array(this.handle.image_png(id, expectedOrigin.revision));
+          const url = URL.createObjectURL(new Blob([bytes.slice().buffer], { type: 'image/png' }));
+          this.imageUrls.set(id, url);
+        }
+      }
+      return new Map(this.imageUrls);
+    } catch (error) { throw failure(error); }
+  }
+
   /** Creates a supported projection while Rust retains the exact original. */
   importDocx(bytes: Uint8Array, filename: string): WriterView {
     try { return this.accept(this.handle.import_docx(bytes, filename)); }
@@ -187,7 +220,13 @@ export class EngineClient {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.releaseImageUrls();
     this.handle.free();
+  }
+
+  private releaseImageUrls(): void {
+    for (const url of this.imageUrls.values()) URL.revokeObjectURL(url);
+    this.imageUrls.clear();
   }
 
   private accept(json: string): WriterView {

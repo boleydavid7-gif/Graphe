@@ -1,0 +1,188 @@
+{
+  "format": "office-writer",
+  "format_version": 6,
+  "document": {
+    "schema_version": 6,
+    "id": "image-workflow-document",
+    "metadata": {
+      "title": "Project image review"
+    },
+    "styles": [],
+    "sections": [
+      {
+        "id": "image-section-one",
+        "properties": null,
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "title",
+              "runs": [
+                {
+                  "text": "Project image review",
+                  "format": {
+                    "bold": true,
+                    "font_family": "Arimo",
+                    "font_size": 24
+                  }
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 160,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 360
+                }
+              }
+            }
+          },
+          {
+            "kind": "image",
+            "content": {
+              "id": "transparent-png",
+              "asset": {
+                "format": "png",
+                "bytes_base64": "iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAYAAAAMJL+VAAAANUlEQVR4nO2TQQoAIADCZi+vl9sbrFPkzoOBoAwmQGYl/kjkExpo4B6Box94Son//kQNfBDYjmQHHZ4+x9AAAAAASUVORK5CYII="
+              },
+              "width": 2880,
+              "height": 1920,
+              "alt_text": "transparent-png — Café é 👩🏽‍💻",
+              "alignment": "center"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "after-png",
+              "runs": [
+                {
+                  "text": "Transparent PNG above. Unicode: Café é 👩🏽‍💻 العربية.",
+                  "format": {
+                    "bold": false,
+                    "font_family": "Arimo",
+                    "font_size": 24
+                  }
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 160,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 360
+                }
+              }
+            }
+          },
+          {
+            "kind": "image",
+            "content": {
+              "id": "original-jpeg",
+              "asset": {
+                "format": "jpeg",
+                "bytes_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAIBAQEBAQIBAQECAgICAgQDAgICAgUEBAMEBgUGBgYFBgYGBwkIBgcJBwYGCAsICQoKCgoKBggLDAsKDAkKCgr/2wBDAQICAgICAgUDAwUKBwYHCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgr/wAARCAAQABgDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD4vr+Uz/fw+lP+Cef/ADN//cP/APbmvy3xK/5hf+4n/th/hX+2o/5oP/uqf+84+lK/LT/Cs/Buv+0w/wBWD70/4Ii/81O/7gv/ALf1/iv+2A/5on/upf8Augf199FP/mcf9y//ALnPvSv8Vz+vj//Z"
+              },
+              "width": 2880,
+              "height": 1920,
+              "alt_text": "original-jpeg — Café é 👩🏽‍💻",
+              "alignment": "right"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "after-jpeg",
+              "runs": [
+                {
+                  "text": "Original JPEG above. End of first section.",
+                  "format": {
+                    "bold": false,
+                    "font_family": "Arimo",
+                    "font_size": 24
+                  }
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 160,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 360
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "image-section-two",
+        "properties": null,
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "second-title",
+              "runs": [
+                {
+                  "text": "Second section — orientation review",
+                  "format": {
+                    "bold": true,
+                    "font_family": "Arimo",
+                    "font_size": 24
+                  }
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 160,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 360
+                }
+              }
+            }
+          },
+          {
+            "kind": "image",
+            "content": {
+              "id": "oriented-jpeg",
+              "asset": {
+                "format": "jpeg",
+                "bytes_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAD/2wBDAAIBAQEBAQIBAQECAgICAgQDAgICAgUEBAMEBgUGBgYFBgYGBwkIBgcJBwYGCAsICQoKCgoKBggLDAsKDAkKCgr/2wBDAQICAgICAgUDAwUKBwYHCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgr/wAARCAAQABgDAREAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD4vr+Uz/fw+lP+Cef/ADN//cP/APbmvy3xK/5hf+4n/th/hX+2o/5oP/uqf+84+lK/LT/Cs/Buv+0w/wBWD70/4Ii/81O/7gv/ALf1/iv+2A/5on/upf8Augf199FP/mcf9y//ALnPvSv8Vz+vj//Z"
+              },
+              "width": 1440,
+              "height": 2160,
+              "alt_text": "oriented-jpeg — Café é 👩🏽‍💻",
+              "alignment": "left"
+            }
+          },
+          {
+            "kind": "paragraph",
+            "content": {
+              "id": "end",
+              "runs": [
+                {
+                  "text": "Orientation 6 is normalized only in external copies. Exact source bytes remain native.",
+                  "format": {
+                    "bold": false,
+                    "font_family": "Arimo",
+                    "font_size": 24
+                  }
+                }
+              ],
+              "style": null,
+              "format": {
+                "spacing_after": 160,
+                "line_spacing": {
+                  "kind": "multiple",
+                  "value": 360
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

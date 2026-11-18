@@ -8,6 +8,8 @@ export interface EditorSurfaceHandle {
   syncView(view: WriterView): void;
   /** Reveals a deliberate selection without moving focus to the editor. */
   revealSelection?(view: WriterView): void;
+  /** Focus document commands without invoking a mobile software keyboard. */
+  focusDocument?(): void;
 }
 
 export interface EditorSurfaceProps {
@@ -22,6 +24,7 @@ export interface EditorSurfaceProps {
   readonly onNavigate?: (action: LayoutAction) => WriterView | undefined;
   readonly onCompositionText?: (text: string) => void;
   readonly onPageScroll?: (direction: 'up' | 'down') => void;
+  readonly imageUrls?: ReadonlyMap<string, string>;
 }
 
 interface CompositionOrigin {
@@ -42,6 +45,7 @@ class SurfaceController {
   private view: WriterView;
   private readonly paragraphs = new Map<string, HTMLParagraphElement>();
   private readonly tableNodes = new Map<string, HTMLElement>();
+  private readonly imageNodes = new Map<string, HTMLElement>();
   private readonly identities = new WeakMap<Node, string>();
   private readonly signatures = new WeakMap<Node, string>();
   private composition: CompositionOrigin | null = null;
@@ -103,7 +107,7 @@ class SurfaceController {
   }
 
   restoreSelection(): void {
-    if (this.composition || this.disposed) return;
+    if (this.composition || this.disposed || this.view.selectedImageId) return;
     const selection = window.getSelection();
     if (!selection) return;
     const desired = this.view.selection;
@@ -310,6 +314,42 @@ class SurfaceController {
     // Keep surviving paragraph/text nodes for native IME and selection. This is
     // a semantic input projection only; Rust supplies visible table geometry.
     for (const [parent, children] of tableChildren) place(parent, children);
+    if (this.view.bodyBlocks) {
+      const bodyNodes = new Map<string, Node>();
+      for (const node of rootChildren) {
+        if (node instanceof HTMLElement) {
+          const id = node.dataset.paragraphId ?? node.dataset.tableId;
+          if (id) bodyNodes.set(id, node);
+        }
+      }
+      const activeImages = new Set<string>();
+      for (const image of this.view.images ?? []) {
+        activeImages.add(image.id);
+        let figure = this.imageNodes.get(image.id);
+        if (!figure) {
+          figure = document.createElement('figure');
+          figure.className = 'editor-image-projection';
+          figure.dataset.imageId = image.id;
+          figure.contentEditable = 'false';
+          figure.append(document.createElement('img'));
+          this.imageNodes.set(image.id, figure);
+        }
+        const raster = figure.firstElementChild as HTMLImageElement;
+        const url = this.props().imageUrls?.get(image.id);
+        if (url && raster.getAttribute('src') !== url) raster.src = url;
+        if (!url) raster.removeAttribute('src');
+        raster.alt = image.altText;
+        raster.style.width = this.props().inputOnly ? '16px' : `${image.widthPt}pt`;
+        raster.style.height = this.props().inputOnly ? '16px' : `${image.heightPt}pt`;
+        figure.style.textAlign = image.alignment;
+        bodyNodes.set(image.id, figure);
+      }
+      for (const [id, node] of this.imageNodes) {
+        if (!activeImages.has(id)) { node.remove(); this.imageNodes.delete(id); }
+      }
+      rootChildren.splice(0, rootChildren.length, ...this.view.bodyBlocks
+        .map((block) => bodyNodes.get(block.id)).filter((node): node is Node => !!node));
+    }
     let index = rootChildren.length;
     if (!index) {
       let placeholder = this.element.firstChild;
@@ -431,7 +471,7 @@ class SurfaceController {
   }
 
   private selectionChange = (): void => {
-    if (this.composition || this.props().disabled || document.activeElement !== this.element) return;
+    if (this.composition || this.props().disabled || this.view.selectedImageId || document.activeElement !== this.element) return;
     const selection = this.readSelection();
     if (!selection || sameSelection(selection, this.view.selection)) return;
     const previous = this.view.selection;
@@ -536,6 +576,20 @@ class SurfaceController {
     const origin = this.origin();
     const modifier = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
+    if (this.view.selectedImageId && !modifier && !event.altKey) {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        this.apply({ type: 'delete_image', expectedRevision: this.view.revision });
+        return;
+      }
+      if (event.key === 'Enter' || event.key === 'Escape' || event.key.startsWith('Arrow')) {
+        event.preventDefault();
+        this.apply({ type: 'move_image_cursor',
+          direction: event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? 'backward' : 'forward',
+          expectedRevision: this.view.revision });
+        return;
+      }
+    }
     if (event.key === 'Tab' && !modifier && !event.altKey && this.view.table) {
       event.preventDefault();
       this.apply({ type: 'move_table_cell', direction: event.shiftKey ? 'backward' : 'forward', ...origin });

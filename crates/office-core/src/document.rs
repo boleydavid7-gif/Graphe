@@ -2,9 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::Twips;
 use crate::formatting::{PageMargins, PageSize};
 use crate::{CharacterFormat, DocumentError, ParagraphFormat, ValidationError};
+use crate::{
+    Image, MAX_DOCUMENT_IMAGE_BYTES, MAX_DOCUMENT_IMAGE_PIXELS, MAX_DOCUMENT_IMAGES, Twips,
+};
 
 #[path = "legacy.rs"]
 mod legacy;
@@ -14,11 +16,13 @@ mod v2;
 mod v3;
 #[path = "v4.rs"]
 mod v4;
+#[path = "v5.rs"]
+mod v5;
 
 /// Current document JSON schema, independent of crate and native-file versions.
 ///
-/// Schemas 1 through 4 migrate strictly into the table-aware schema 5.
-pub const SCHEMA_VERSION: u32 = 5;
+/// Schemas 1 through 5 migrate strictly into the image-aware schema 6.
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// An opaque, caller-assigned identifier preserved across copies and serialization.
 ///
@@ -322,6 +326,8 @@ pub enum Block {
     Paragraph(Paragraph),
     /// A rectangular table containing independent cell paragraph flows.
     Table(Table),
+    /// A validated static raster image in the body flow.
+    Image(Image),
 }
 
 impl Block {
@@ -330,6 +336,7 @@ impl Block {
         let (paragraph, table) = match self {
             Self::Paragraph(paragraph) => (Some(paragraph), None),
             Self::Table(table) => (None, Some(table)),
+            Self::Image(_) => (None, None),
         };
         paragraph
             .into_iter()
@@ -471,7 +478,7 @@ impl<'de> Deserialize<'de> for Document {
 }
 
 fn check_schema(found: u64) -> Result<(), DocumentError> {
-    if !matches!(found, 1..=5) {
+    if !matches!(found, 1..=6) {
         return Err(DocumentError::UnsupportedSchemaVersion {
             found,
             supported: SCHEMA_VERSION,
@@ -570,6 +577,17 @@ impl Document {
             })
     }
 
+    /// Visits body image blocks in document order, without decoding their cached assets.
+    pub fn images(&self) -> impl Iterator<Item = &Image> {
+        self.sections
+            .iter()
+            .flat_map(|section| section.blocks.iter())
+            .filter_map(|block| match block {
+                Block::Image(image) => Some(image),
+                _ => None,
+            })
+    }
+
     /// Returns style definitions in their preserved input order.
     #[must_use]
     pub fn styles(&self) -> &[NamedStyle] {
@@ -581,6 +599,9 @@ impl Document {
     /// Validation never repairs or normalizes content. It returns the first
     /// error encountered in structural traversal order, then style-graph order.
     pub fn validate(&self) -> Result<(), ValidationError> {
+        let mut image_count = 0_usize;
+        let mut image_bytes = 0_usize;
+        let mut image_pixels = 0_u64;
         let mut ids = HashSet::new();
         register_id(&mut ids, &self.id, "id")?;
         let mut names = HashSet::new();
@@ -625,6 +646,25 @@ impl Document {
             }
             for (block_index, block) in section.blocks.iter().enumerate() {
                 let path = format!("{path}.blocks[{block_index}].content");
+                if let Block::Image(image) = block {
+                    register_id(&mut ids, image.id(), &format!("{path}.id"))?;
+                    image.validate(&path)?;
+                    image_count += 1;
+                    image_bytes = image_bytes.saturating_add(image.asset().original_bytes().len());
+                    image_pixels = image_pixels.saturating_add(
+                        u64::from(image.asset().width_px()) * u64::from(image.asset().height_px()),
+                    );
+                    if image_count > MAX_DOCUMENT_IMAGES
+                        || image_bytes > MAX_DOCUMENT_IMAGE_BYTES
+                        || image_pixels > MAX_DOCUMENT_IMAGE_PIXELS
+                    {
+                        return Err(ValidationError::InvalidFormatting {
+                            path: path.clone(),
+                            reason: "document image count, byte or decoded pixel budget exceeded"
+                                .into(),
+                        });
+                    }
+                }
                 if let Block::Table(table) = block {
                     register_id(&mut ids, &table.id, &format!("{path}.id"))?;
                     let columns = table.rows.first().map_or(0, |row| row.cells.len());
@@ -727,8 +767,8 @@ impl Document {
     ///
     /// The version is checked before decoding model fields, so a future schema
     /// with a different payload still returns an explicit unsupported-version
-    /// error. Schema 1 is decoded using its exact former field definitions and
-    /// migrated to schema 2 with new properties unspecified. Missing fields,
+    /// error. Schemas 1–5 are decoded using exact former field definitions and
+    /// migrated to the current schema with new properties unspecified. Missing fields,
     /// fields introduced only in newer schemas, and duplicate keys are rejected.
     pub fn from_json(json: &str) -> Result<Self, DocumentError> {
         #[derive(Deserialize)]
@@ -742,7 +782,11 @@ impl Document {
             2 => v2::from_json(json),
             3 => v3::from_json(json),
             4 => v4::from_json(json),
-            _ => serde_json::from_str::<DocumentInput>(json)?.into_document(),
+            5 => v5::from_json(json),
+            _ => {
+                crate::image::preflight_document(json)?;
+                serde_json::from_str::<DocumentInput>(json)?.into_document()
+            }
         }
     }
 }

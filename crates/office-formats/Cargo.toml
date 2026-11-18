@@ -15,6 +15,7 @@ quick-xml.workspace = true
 pdf-writer.workspace = true
 svgtypes.workspace = true
 rclip-rtf.workspace = true
+flate2 = { version = "=1.1.11", default-features = false, features = ["zlib-rs"] }
 
 [lints]
 workspace = true

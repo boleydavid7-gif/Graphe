@@ -67,6 +67,8 @@ pub enum DocumentError {
     },
     /// JSON syntax or shape does not match the schema.
     Json(serde_json::Error),
+    /// Raster asset validation or resource limits failed before document decoding.
+    Image(crate::ImageError),
     /// The decoded or constructed model violates a documented invariant.
     Validation(ValidationError),
 }
@@ -81,6 +83,7 @@ impl fmt::Display for DocumentError {
                 )
             }
             Self::Json(error) => write!(f, "invalid document JSON: {error}"),
+            Self::Image(error) => error.fmt(f),
             Self::Validation(error) => error.fmt(f),
         }
     }
@@ -90,6 +93,7 @@ impl Error for DocumentError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Json(error) => Some(error),
+            Self::Image(error) => Some(error),
             Self::Validation(error) => Some(error),
             Self::UnsupportedSchemaVersion { .. } => None,
         }
@@ -105,5 +109,11 @@ impl From<serde_json::Error> for DocumentError {
 impl From<ValidationError> for DocumentError {
     fn from(error: ValidationError) -> Self {
         Self::Validation(error)
+    }
+}
+
+impl From<crate::ImageError> for DocumentError {
+    fn from(error: crate::ImageError) -> Self {
+        Self::Image(error)
     }
 }

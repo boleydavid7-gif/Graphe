@@ -328,6 +328,7 @@ fn transform_paragraphs(
                         paragraph_index += 1;
                         Block::Paragraph(result)
                     }
+                    Block::Image(image) => Block::Image(image.clone()),
                     Block::Table(table) => {
                         let rows = table
                             .rows()
@@ -388,6 +389,7 @@ fn flow_location(document: &Document, index: (usize, usize)) -> FlowLocation {
                 }
                 current += 1;
             }
+            Block::Image(_) => {}
             Block::Table(table) => {
                 for (row_index, row) in table.rows().iter().enumerate() {
                     for (column, cell) in row.cells().iter().enumerate() {
@@ -419,7 +421,7 @@ fn check_same_flow(document: &Document, bounds: &Bounds) -> Result<(), EditError
         (None, None) => {
             if document.sections()[bounds.start.0].blocks()[start.block..=end.block]
                 .iter()
-                .any(|block| matches!(block, Block::Table(_)))
+                .any(|block| !matches!(block, Block::Paragraph(_)))
             {
                 return Err(EditError::CrossCellRange);
             }
@@ -479,6 +481,7 @@ pub(crate) fn document_contains_id(document: &Document, id: &Id) -> bool {
             section.id() == id
                 || section.blocks().iter().any(|block| match block {
                     Block::Paragraph(p) => p.id() == id,
+                    Block::Image(image) => image.id() == id,
                     Block::Table(table) => {
                         table.id() == id
                             || table.rows().iter().any(|row| {

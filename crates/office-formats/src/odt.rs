@@ -12,6 +12,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod compatibility;
 mod export;
+mod images;
 mod package;
 mod properties;
 mod tables;
@@ -594,21 +595,17 @@ fn import_document(
             }
         }
     }
-    for name in parts.keys() {
-        if !matches!(
-            name.as_str(),
-            "mimetype" | "META-INF/manifest.xml" | "content.xml" | "styles.xml" | "meta.xml"
-        ) && !compatibility::package_part(name, &parts, &manifest, notices)?
-        {
-            diagnostic(
-                &mut report,
-                "unsupported_part",
-                name,
-                "package",
-                "Additional ODF package content is retained read-only.",
-            );
-        }
-    }
+    let image_media = manifest
+        .descendants()
+        .filter(|node| node.has_tag_name((MANIFEST, "file-entry")))
+        .filter_map(|node| {
+            Some((
+                node.attribute((MANIFEST, "full-path"))?.to_owned(),
+                node.attribute((MANIFEST, "media-type"))?.to_owned(),
+            ))
+        })
+        .collect::<BTreeMap<_, _>>();
+    images::preflight(&content, &parts, &image_media)?;
     let mut named = Vec::new();
     let named_ids: BTreeMap<_, _> = catalog
         .styles
@@ -670,12 +667,37 @@ fn import_document(
         document_id: &document_id,
         paragraph_count: 0,
         table_count: 0,
+        image_count: 0,
+        image_bytes: 0,
+        image_pixels: 0,
+        image_cache: BTreeMap::new(),
+        image_parts: BTreeSet::new(),
+        parts: &parts,
+        image_media: &image_media,
         notices,
         section_count: 0,
         text_bytes: 0,
         run_count: 0,
     };
     let sections = parser.body(texts[0])?;
+    let consumed_images = std::mem::take(&mut parser.image_parts);
+    drop(parser);
+    for name in parts.keys() {
+        if !matches!(
+            name.as_str(),
+            "mimetype" | "META-INF/manifest.xml" | "content.xml" | "styles.xml" | "meta.xml"
+        ) && !consumed_images.contains(name)
+            && !compatibility::package_part(name, &parts, &manifest, notices)?
+        {
+            diagnostic(
+                &mut report,
+                "unsupported_part",
+                name,
+                "package",
+                "Additional ODF package content is retained read-only.",
+            );
+        }
+    }
     for child in content.root_element().children().filter(Node::is_element) {
         if child.has_tag_name((OFFICE, "scripts"))
             && child
@@ -811,6 +833,13 @@ struct TextParser<'a> {
     document_id: &'a Id,
     paragraph_count: usize,
     table_count: usize,
+    image_count: usize,
+    image_bytes: usize,
+    image_pixels: u64,
+    image_cache: BTreeMap<String, office_core::ImageAsset>,
+    image_parts: BTreeSet<String>,
+    parts: &'a BTreeMap<String, Vec<u8>>,
+    image_media: &'a BTreeMap<String, String>,
     notices: &'a mut ImportNotices,
     section_count: usize,
     text_bytes: usize,
@@ -871,7 +900,7 @@ impl TextParser<'_> {
                 let mut section_geometry = self.catalog.geometry(None)?;
                 for paragraph in child.children().filter(Node::is_element) {
                     if paragraph.has_tag_name((TEXT, "p")) || paragraph.has_tag_name((TEXT, "h")) {
-                        let (p, g) = self.paragraph(paragraph)?;
+                        let (p, g) = self.body_paragraph(paragraph)?;
                         if blocks.is_empty() && g.is_some() {
                             section_geometry = g;
                         } else if g.is_some() {
@@ -883,7 +912,9 @@ impl TextParser<'_> {
                                 "A master-page change within a text section requires an unsupported section split.",
                             );
                         }
-                        blocks.push(Block::Paragraph(p));
+                        if let Some(p) = p {
+                            blocks.push(p);
+                        }
                     } else if paragraph.has_tag_name((TABLE, "table")) {
                         let (table, g) = self.table(paragraph)?;
                         if blocks.is_empty() && g.is_some() {
@@ -912,14 +943,16 @@ impl TextParser<'_> {
                 }
                 result.push(self.section(blocks, section_geometry)?);
             } else if child.has_tag_name((TEXT, "p")) || child.has_tag_name((TEXT, "h")) {
-                let (p, g) = self.paragraph(child)?;
+                let (p, g) = self.body_paragraph(child)?;
                 if let Some(next) = g {
                     if !current.is_empty() {
                         result.push(self.section(std::mem::take(&mut current), geometry.take())?);
                     }
                     geometry = Some(next);
                 }
-                current.push(Block::Paragraph(p));
+                if let Some(p) = p {
+                    current.push(p);
+                }
             } else if child.has_tag_name((TABLE, "table")) {
                 let (table, g) = self.table(child)?;
                 if let Some(next) = g {

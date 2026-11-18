@@ -239,3 +239,31 @@ Sources: package registry manifests and installed license texts;
 [wasm-bindgen licenses](https://github.com/wasm-bindgen/wasm-bindgen),
 [Lightning CSS](https://github.com/parcel-bundler/lightningcss), and
 [caniuse-lite](https://github.com/browserslist/caniuse-lite).
+
+## Step 8A raster dependencies (2026-11-18)
+
+| Dependency | Resolved version | License | Role |
+| --- | --- | --- | --- |
+| png | 0.18.1 | MIT OR Apache-2.0 | Bounded PNG decode and canonical RGBA8 PNG encoding |
+| zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | Strict JPEG decode, no host/browser codec |
+| zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib | JPEG byte reader/options |
+| kamadak-exif | 0.6.2 | BSD-2-Clause | Bounded raw TIFF orientation parsing |
+
+New transitive packages are `mutate_once` 0.1.2 (BSD-2-Clause), `adler2` 2.0.1
+(0BSD OR MIT OR Apache-2.0), `fdeflate` 0.3.7 (MIT OR Apache-2.0),
+`miniz_oxide` 0.8.9 and 0.9.1 (MIT OR Zlib OR Apache-2.0), and `simd-adler32`
+0.3.10 (MIT). `office-formats` also directly uses the already locked `flate2`
+1.1.11 for PDF raster/alpha compression; no additional compression framework.
+
+All upstream LICENSE files for these new resolved packages are retained in
+`crates/office-core/THIRD_PARTY_NOTICES.txt`, linked by About and emitted as a
+production asset. This is permissive low-level code with commercial-compatible
+license choices, subject to retaining applicable notices; it does not decide this
+project's license or complete the planned commercial/security audit.
+
+Defaults are disabled for PNG/JPEG where practical. Mature `image` was considered
+but rejected for this narrow profile because of broader unconditional processing
+dependencies and bundle cost. The selected EXIF release fixes GHSA-53gf-vqf6-qvp8, which also affects
+bounded raw-TIFF parsing in 0.6.1. Regression coverage rejects repeated IFDs in
+both PNG and JPEG. It also postdates the old RUSTSEC-2021-0143 container fix. See IMAGES_RESEARCH.md for primary sources and remaining review
+limits. No new frontend dependency was introduced.

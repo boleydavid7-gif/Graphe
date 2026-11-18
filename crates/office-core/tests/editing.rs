@@ -59,7 +59,7 @@ fn paragraph_in<'a>(transaction: &'a Transaction, value: &str) -> &'a Paragraph 
         .flat_map(|section| section.blocks())
         .map(|block| match block {
             Block::Paragraph(paragraph) => paragraph,
-            Block::Table(_) => panic!("expected paragraph"),
+            Block::Table(_) | Block::Image(_) => panic!("expected paragraph"),
         })
         .find(|paragraph| paragraph.id() == &id(value))
         .unwrap()

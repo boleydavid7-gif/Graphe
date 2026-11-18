@@ -12,6 +12,8 @@
 //! identify logical cursor boundaries using stable document element IDs.
 //! [`DocumentSession`] publishes validated transaction drafts and issues
 //! session-scoped [`Revision`] tokens without changing the document schema.
+//! [`ImageAsset`] retains bounded immutable raster originals and shared derived
+//! pixels; body [`Image`] blocks use format-neutral physical dimensions.
 //! Transactions stage text and formatting operations using [`EditPosition`] and
 //! [`EditSelection`]; sessions retain bounded exact snapshots for undo and redo.
 //! See the repository architecture document for the versioned JSON contract,
@@ -47,6 +49,8 @@ mod file;
 mod filesystem;
 mod format_patch;
 mod formatting;
+mod image;
+mod image_ops;
 mod persistence;
 mod position;
 mod table_ops;
@@ -77,6 +81,11 @@ pub use format_patch::{
 pub use formatting::{
     Alignment, CharacterFormat, HalfPoints, Indentation, LineSpacing, PageMargins, PageOrientation,
     PageSize, ParagraphFormat, TextColor, Twips, Underline, valid_hyperlink,
+};
+pub use image::{
+    Image, ImageAlignment, ImageAsset, ImageError, MAX_DOCUMENT_IMAGE_BYTES,
+    MAX_DOCUMENT_IMAGE_PIXELS, MAX_DOCUMENT_IMAGES, MAX_IMAGE_ALT_TEXT_BYTES, MAX_IMAGE_BYTES,
+    MAX_IMAGE_DIMENSION, MAX_IMAGE_PIXELS, RasterFormat, RasterHeader,
 };
 pub use persistence::{
     MAX_WRITER_FILE_BYTES, PersistenceError, WRITER_EXTENSION, WRITER_FORMAT_NAME,

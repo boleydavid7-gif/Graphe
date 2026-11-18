@@ -30,7 +30,7 @@ fn omit_unspecified_fields(value: &mut Value) {
 fn legacy_fixture_migrates_all_supported_values_and_stable_identities() {
     let mut before: Value = serde_json::from_str(LEGACY).unwrap();
     let document = Document::from_json(LEGACY).unwrap();
-    assert_eq!(SCHEMA_VERSION, 5);
+    assert_eq!(SCHEMA_VERSION, 6);
     assert_eq!(document.schema_version(), SCHEMA_VERSION);
     let mut after = serde_json::to_value(&document).unwrap();
     after["schema_version"] = json!(1);
@@ -169,7 +169,7 @@ fn invalid_legacy_references_and_formatting_are_not_repaired_by_migration() {
 
 #[test]
 fn old_and_future_unsupported_versions_are_rejected_before_payload_interpretation() {
-    for version in [0, 6, u64::MAX] {
+    for version in [0, 7, u64::MAX] {
         let source = json!({"schema_version":version,"incompatible_future_payload":true});
         assert!(
             matches!(load(&source), Err(DocumentError::UnsupportedSchemaVersion {found,supported}) if found==version && supported == SCHEMA_VERSION)

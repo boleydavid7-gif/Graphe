@@ -154,6 +154,15 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, FormatErro
             first = false;
             match block {
                 Block::Paragraph(paragraph) => paragraph_text(&mut output, paragraph)?,
+                Block::Image(image) => {
+                    for scalar in "[Image: "
+                        .chars()
+                        .chain(image.alt_text().chars())
+                        .chain("]".chars())
+                    {
+                        push(&mut output, if scalar == '\r' { '\n' } else { scalar })?;
+                    }
+                }
                 Block::Table(table) => {
                     for (row_index, row) in table.rows().iter().enumerate() {
                         if row_index > 0 {

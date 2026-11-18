@@ -17,6 +17,9 @@ use zip::{CompressionMethod, DateTime, System, ZipWriter, write::SimpleFileOptio
 
 use crate::{ConversionError, DocxError, MAX_INPUT_BYTES, MAX_XML_BYTES, inspect_docx};
 
+#[path = "image_export.rs"]
+mod images;
+
 const W: &str = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const REL: &str = "http://schemas.openxmlformats.org/package/2006/relationships";
 const OFFICE_REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -40,28 +43,41 @@ pub(crate) fn export_document(document: &Document) -> Result<Vec<u8>, Conversion
     let styles = StyleMap::new(document.styles());
     let (list_ids, list_instances) = list_numbering(document);
     let links = document_links(document);
+    let image_parts = images::parts(document);
     // Fixed order and timestamp prevent application/session state entering ZIP
     // output. The creator system is explicit for native/WASM consistency.
     let has_numbering = !list_instances.is_empty();
     let mut parts = vec![
-        ("[Content_Types].xml", content_types(has_numbering)?),
-        ("_rels/.rels", package_relationships()?),
         (
-            "word/document.xml",
-            document_xml(document, &styles, &list_ids, &links)?,
+            "[Content_Types].xml".to_string(),
+            content_types(has_numbering, &image_parts)?,
+        ),
+        ("_rels/.rels".to_string(), package_relationships()?),
+        (
+            "word/document.xml".to_string(),
+            document_xml(document, &styles, &list_ids, &links, &image_parts)?,
         ),
         (
-            "word/_rels/document.xml.rels",
-            document_relationships(has_numbering, &links)?,
+            "word/_rels/document.xml.rels".to_string(),
+            document_relationships(has_numbering, &links, &image_parts)?,
         ),
-        ("word/styles.xml", styles_xml(document.styles(), &styles)?),
         (
-            "docProps/core.xml",
+            "word/styles.xml".to_string(),
+            styles_xml(document.styles(), &styles)?,
+        ),
+        (
+            "docProps/core.xml".to_string(),
             core_properties(&document.metadata().title)?,
         ),
     ];
     if has_numbering {
-        parts.push(("word/numbering.xml", numbering_xml(&list_instances)?));
+        parts.push((
+            "word/numbering.xml".to_string(),
+            numbering_xml(&list_instances)?,
+        ));
+    }
+    for image in image_parts {
+        parts.push((image.name, image.bytes.to_vec()));
     }
     write_parts(parts)
 }
@@ -176,7 +192,10 @@ impl<'a> StyleMap<'a> {
     }
 }
 
-fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
+fn content_types(
+    has_numbering: bool,
+    images: &[images::ImagePart<'_>],
+) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("Types", &[("xmlns", CT)])?;
     xml.empty(
@@ -217,6 +236,15 @@ fn content_types(has_numbering: bool) -> Result<Vec<u8>, ConversionError> {
                     "ContentType",
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
                 ),
+            ],
+        )?;
+    }
+    for image in images {
+        xml.empty(
+            "Override",
+            &[
+                ("PartName", &format!("/{}", image.name)),
+                ("ContentType", image.content_type),
             ],
         )?;
     }
@@ -278,6 +306,7 @@ fn list_numbering(document: &Document) -> (BTreeMap<String, u32>, Vec<(u32, List
                     &mut current,
                     &mut previous,
                 ),
+                Block::Image(_) => previous = None,
                 Block::Table(table) => {
                     previous = None;
                     for row in table.rows() {
@@ -358,6 +387,7 @@ fn package_relationships() -> Result<Vec<u8>, ConversionError> {
 fn document_relationships(
     has_numbering: bool,
     links: &BTreeMap<String, String>,
+    images: &[images::ImagePart<'_>],
 ) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("Relationships", &[("xmlns", REL)])?;
@@ -391,6 +421,22 @@ fn document_relationships(
             ],
         )?;
     }
+    for image in images {
+        xml.empty(
+            "Relationship",
+            &[
+                ("Id", &image.relationship),
+                ("Type", &format!("{OFFICE_REL}/image")),
+                (
+                    "Target",
+                    image
+                        .name
+                        .strip_prefix("word/")
+                        .expect("generated image parts live under word/"),
+                ),
+            ],
+        )?;
+    }
     xml.end("Relationships")?;
     Ok(xml.finish())
 }
@@ -410,6 +456,7 @@ fn document_xml(
     styles: &StyleMap<'_>,
     list_ids: &BTreeMap<String, u32>,
     links: &BTreeMap<String, String>,
+    images: &[images::ImagePart<'_>],
 ) -> Result<Vec<u8>, ConversionError> {
     let mut xml = Xml::new();
     xml.start("w:document", &[("xmlns:w", W), ("xmlns:r", OFFICE_REL)])?;
@@ -428,6 +475,18 @@ fn document_xml(
                     links,
                     section_boundary.then_some(section.properties()),
                 )?,
+                Block::Image(image) => {
+                    if section_boundary {
+                        return Err(unsupported(
+                            "a nonfinal section ending in an image needs a paragraph section-boundary carrier",
+                        ));
+                    }
+                    let part = images
+                        .iter()
+                        .find(|part| part.image.id() == image.id())
+                        .expect("image parts cover every image block");
+                    images::write(&mut xml, part)?;
+                }
                 Block::Table(table) => {
                     if section_boundary {
                         return Err(unsupported(
