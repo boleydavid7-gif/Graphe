@@ -69,6 +69,15 @@ test('logo-free wordmark shows Graphe by ProairetOS, with accent-colored OS', as
   await expect(wordmark).toBeVisible();
   await expect(wordmark.locator('.identity__name')).toHaveText('Graphe');
   await expect(wordmark.locator('.identity__by')).toHaveText('by');
+  const namePosition = await wordmark.locator('.identity__name').boundingBox();
+  const byPosition = await wordmark.locator('.identity__by').boundingBox();
+  const publisherPosition = await wordmark.locator('.identity__publisher').boundingBox();
+  expect(namePosition).not.toBeNull();
+  expect(byPosition).not.toBeNull();
+  expect(publisherPosition).not.toBeNull();
+  expect(byPosition!.x).toBeGreaterThan(namePosition!.x + namePosition!.width);
+  expect(byPosition!.y).toBeLessThan(namePosition!.y + namePosition!.height);
+  expect(publisherPosition!.y).toBeGreaterThan(namePosition!.y + namePosition!.height - 1);
   await expect(wordmark.locator('.identity__publisher')).toHaveText('ProairetOS');
   await expect(wordmark.locator('img')).toHaveCount(0);
   await expect(page.locator('.top-bar .office-brand')).toHaveCount(0);
@@ -87,6 +96,11 @@ test('embedded mobile header keeps the wordmark, title and document menu usable'
   const wordmark = page.locator('.top-bar .identity');
   await expect(wordmark).toBeVisible();
   await expect(wordmark.locator('.identity__publisher')).toHaveText('ProairetOS');
+  const nameRect = await wordmark.locator('.identity__name').boundingBox();
+  const byRect = await wordmark.locator('.identity__by').boundingBox();
+  expect(nameRect).not.toBeNull();
+  expect(byRect).not.toBeNull();
+  expect(byRect!.x).toBeGreaterThan(nameRect!.x + nameRect!.width);
   await expect(wordmark.locator('.identity__os')).toHaveCSS('color', 'rgb(54, 184, 145)');
   await expect(page.getByRole('textbox', { name: 'Document title', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();

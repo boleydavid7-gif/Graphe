@@ -2382,6 +2382,11 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
   line-height: 1;
   white-space: nowrap;
 }
+.top-bar .identity__name-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
 .top-bar .identity__name {
   color: var(--writer-text-strong);
   font-size: 21px;
@@ -2391,7 +2396,7 @@ img.writer-lantern { display: block; object-fit: contain; width: 33px; height: 3
 }
 .top-bar .identity__by {
   display: block;
-  margin-top: 2px;
+  margin-top: 0;
   color: var(--writer-text-muted);
   font-size: 9px;
   font-weight: 400;

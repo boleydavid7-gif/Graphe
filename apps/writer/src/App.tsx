@@ -1436,8 +1436,10 @@ export default function App() {
     <header className="top-bar">
       <div className="identity">
         <span className="identity__label">
-          <strong className="identity__name">Graphe</strong>
-          <span className="identity__by">by</span>
+          <span className="identity__name-row">
+            <strong className="identity__name">Graphe</strong>
+            <span className="identity__by">by</span>
+          </span>
           <span className="identity__publisher">Proairet<span className="identity__os">OS</span></span>
         </span>
       </div>
